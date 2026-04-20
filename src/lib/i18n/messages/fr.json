@@ -1,0 +1,45 @@
+{
+  "brand": {
+    "name": "La Vita Per Te",
+    "subtitle": "ONG-ODV Alfeo Corassori",
+    "tagline": "Tableau de bord du parc informatique"
+  },
+  "landing": {
+    "hero_eyebrow": "Centre REX Fianarantsoa · Centre MIARAKA",
+    "hero_title": "Le parc informatique, sous contrôle.",
+    "hero_desc": "Inventaire complet, fiches détaillées, détection d'obsolescence et suivi des mouvements — pour la direction et les équipes.",
+    "cta_login": "Se connecter",
+    "cta_learn": "En savoir plus",
+    "features_title": "Conçu pour la direction et les équipes",
+    "feature_1_title": "Parc centralisé",
+    "feature_1_desc": "Chaque salle, chaque ordinateur, chaque imprimante — fiche détaillée et traçabilité complète.",
+    "feature_2_title": "Décisions éclairées",
+    "feature_2_desc": "Score d'obsolescence automatique pour anticiper les remplacements et optimiser le budget.",
+    "feature_3_title": "Sécurité renforcée",
+    "feature_3_desc": "Mots de passe chiffrés AES-256, consultation tracée, quatre rôles aux permissions distinctes."
+  },
+  "login": {
+    "title": "Connexion sécurisée",
+    "subtitle": "Accédez au tableau de bord de votre centre",
+    "email": "Adresse email professionnelle",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "forgot": "Mot de passe oublié ?"
+  },
+  "roles": {
+    "admin": "Administrateur",
+    "informaticien": "Informaticien",
+    "direction": "Direction",
+    "logistique": "Responsable logistique"
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "sites": "Sites & salles",
+    "materials": "Parc matériel",
+    "movements": "Mouvements",
+    "users": "Utilisateurs",
+    "trash": "Corbeille",
+    "audit": "Journal d'audit",
+    "settings": "Réglages"
+  }
+}

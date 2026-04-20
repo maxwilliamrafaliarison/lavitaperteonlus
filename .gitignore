@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# La Vita Per Te — envs sensibles
+.env.local
+.env.production
+.env
+# Google service account keys
+*service-account*.json
+*credentials*.json

@@ -1,0 +1,45 @@
+{
+  "brand": {
+    "name": "La Vita Per Te",
+    "subtitle": "ONG-ODV Alfeo Corassori",
+    "tagline": "Dashboard del parco informatico"
+  },
+  "landing": {
+    "hero_eyebrow": "Centro REX Fianarantsoa · Centro MIARAKA",
+    "hero_title": "Il parco informatico, sotto controllo.",
+    "hero_desc": "Inventario completo, schede dettagliate, rilevamento dell'obsolescenza e tracciamento dei movimenti — per la direzione e le équipe.",
+    "cta_login": "Accedi",
+    "cta_learn": "Scopri di più",
+    "features_title": "Progettato per la direzione e le équipe",
+    "feature_1_title": "Parco centralizzato",
+    "feature_1_desc": "Ogni sala, ogni computer, ogni stampante — scheda dettagliata e tracciabilità completa.",
+    "feature_2_title": "Decisioni informate",
+    "feature_2_desc": "Punteggio di obsolescenza automatico per anticipare le sostituzioni e ottimizzare il budget.",
+    "feature_3_title": "Sicurezza rafforzata",
+    "feature_3_desc": "Password cifrate AES-256, consultazione tracciata, quattro ruoli con permessi distinti."
+  },
+  "login": {
+    "title": "Accesso sicuro",
+    "subtitle": "Accedi alla dashboard del tuo centro",
+    "email": "Indirizzo email professionale",
+    "password": "Password",
+    "submit": "Accedi",
+    "forgot": "Password dimenticata?"
+  },
+  "roles": {
+    "admin": "Amministratore",
+    "informaticien": "Informatico",
+    "direction": "Direzione",
+    "logistique": "Responsabile logistica"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "sites": "Siti & sale",
+    "materials": "Parco materiale",
+    "movements": "Movimenti",
+    "users": "Utenti",
+    "trash": "Cestino",
+    "audit": "Registro audit",
+    "settings": "Impostazioni"
+  }
+}
