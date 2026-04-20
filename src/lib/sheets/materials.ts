@@ -1,4 +1,4 @@
-import { appendRow, readSheet, SHEETS, updateRow, getSheetsClient, getSpreadsheetId } from "./client";
+import { appendRow, readSheet, SHEETS, updateRow, deleteRow, getSheetsClient, getSpreadsheetId } from "./client";
 import type { Material, MaterialState, MaterialType } from "@/types";
 
 /* ============================================================
@@ -147,4 +147,21 @@ export async function softDeleteMaterial(id: string): Promise<Material> {
 
 export async function restoreMaterial(id: string): Promise<Material> {
   return updateMaterial(id, { deletedAt: undefined });
+}
+
+/**
+ * Supprime définitivement la ligne du matériel (non réversible).
+ * Les sessions et mouvements associés restent par design (traçabilité).
+ */
+export async function hardDeleteMaterial(id: string): Promise<void> {
+  const client = getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+  const res = await client.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${SHEETS.materials}!A:A`,
+  });
+  const ids = (res.data.values ?? []).flat() as string[];
+  const idx = ids.indexOf(id);
+  if (idx <= 0) throw new Error(`Matériel ${id} introuvable`);
+  await deleteRow(SHEETS.materials, idx + 1);
 }

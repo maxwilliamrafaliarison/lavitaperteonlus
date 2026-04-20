@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft, Building2, MapPin, User as UserIcon, Calendar, Banknote,
   Cpu, MemoryStick, HardDrive, MonitorSmartphone, Wifi, Globe, Database,
-  Hash, Tag, Pencil, Trash2, ArrowRightLeft, Lock, Eye, AlertCircle,
+  Hash, Tag, Pencil, ArrowRightLeft, Lock, Eye, AlertCircle,
 } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
@@ -29,6 +29,7 @@ import {
   type MaterialSession, type Movement, type AppUser,
 } from "@/types";
 import { SessionsManager } from "@/components/materials/sessions-manager";
+import { DeleteMaterialButton } from "@/components/materials/delete-button";
 import { MovementHistory } from "@/components/movements/movement-history";
 
 export const dynamic = "force-dynamic";
@@ -156,12 +157,10 @@ export default async function MaterialDetailPage({
                 </Link>
               )}
               {canDelete && (
-                <Link href={`/materials/${material.id}/delete`}>
-                  <GlassButton variant="glass" size="sm" className="text-destructive hover:bg-destructive/10">
-                    <Trash2 className="size-3.5" />
-                    Supprimer
-                  </GlassButton>
-                </Link>
+                <DeleteMaterialButton
+                  materialId={material.id}
+                  materialLabel={material.designation || material.ref}
+                />
               )}
             </div>
           )}

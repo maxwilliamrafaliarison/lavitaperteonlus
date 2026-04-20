@@ -119,3 +119,45 @@ export async function updateRow(
     requestBody: { values: [values] },
   });
 }
+
+/**
+ * Supprime physiquement une ligne d'un onglet (hard delete).
+ * Contrairement à `values.clear` qui laisse une ligne vide,
+ * ceci utilise batchUpdate/deleteDimension pour retirer complètement la ligne.
+ */
+export async function deleteRow(
+  sheet: SheetName,
+  rowIndex: number, // 1-based (même convention que updateRow)
+): Promise<void> {
+  const client = getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+
+  // Récupération du sheetId numérique (différent du nom de l'onglet)
+  const meta = await client.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties",
+  });
+  const target = meta.data.sheets?.find((s) => s.properties?.title === sheet);
+  const sheetId = target?.properties?.sheetId;
+  if (sheetId == null) {
+    throw new Error(`Onglet "${sheet}" introuvable dans le spreadsheet`);
+  }
+
+  await client.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: rowIndex - 1, // conversion 1-based → 0-based
+              endIndex: rowIndex,
+            },
+          },
+        },
+      ],
+    },
+  });
+}
