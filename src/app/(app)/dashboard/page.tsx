@@ -11,12 +11,27 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { ObsolescenceBadge } from "@/components/materials/obsolescence-badge";
 import { MaterialTypeIcon } from "@/components/materials/type-icon";
+import { ObsolescenceDonut } from "@/components/dashboard/obsolescence-donut";
+import { AgeHistogram } from "@/components/dashboard/age-histogram";
+import { SiteBreakdown } from "@/components/dashboard/site-breakdown";
+import { TypeBreakdown } from "@/components/dashboard/type-breakdown";
+import { BudgetCard } from "@/components/dashboard/budget-card";
+import { RoomHeatmap } from "@/components/dashboard/room-heatmap";
+import { CsvExportButton } from "@/components/dashboard/csv-export-button";
 import { ROLE_LABELS, type Material, type Site, type Room, type AppUser } from "@/types";
 import { listMaterials } from "@/lib/sheets/materials";
 import { listSites, listRooms } from "@/lib/sheets/sites";
 import { listUsers } from "@/lib/sheets/users";
 import { safe } from "@/lib/sheets/safe";
 import { scoreObsolescence } from "@/lib/obsolescence";
+import {
+  distributionByLevel,
+  statsBySite,
+  statsByType,
+  statsByRoom,
+  ageHistogram,
+  estimateReplacementBudget,
+} from "@/lib/dashboard-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -37,16 +52,21 @@ export default async function DashboardPage() {
   const rooms = roomsRes.data;
   const usersCount = usersRes.data.length;
 
-  // Score global = moyenne des scores
+  // Agrégations Phase 5
+  const distribution = distributionByLevel(materials);
+  const siteStats = statsBySite(materials, sites);
+  const typeStats = statsByType(materials, lang);
+  const roomStats = statsByRoom(materials, rooms, sites);
+  const ageBuckets = ageHistogram(materials);
+  const budget = estimateReplacementBudget(materials, lang);
+
   const scores = materials.map((m) => scoreObsolescence(m));
   const avgScore =
     scores.length > 0
       ? Math.round(scores.reduce((s, x) => s + x.score, 0) / scores.length)
       : 0;
-  const critical = scores.filter((s) => s.level === "critical").length;
-  const warning = scores.filter((s) => s.level === "warning").length;
 
-  // Top à remplacer (5 plus mauvais scores)
+  // Top 5 à remplacer
   const worstMaterials = materials
     .map((m) => ({ material: m, ...scoreObsolescence(m) }))
     .sort((a, b) => a.score - b.score)
@@ -56,18 +76,28 @@ export default async function DashboardPage() {
     <>
       <AppTopbar title="Tableau de bord" />
 
-      <main className="flex-1 p-6 md:p-10 space-y-8">
-        {/* Hero greeting */}
-        <section>
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            {ROLE_LABELS[role][lang]}
-          </p>
-          <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-            Bienvenue, {name?.split(" ")[0] ?? "personnel"} 👋
-          </h2>
-          <p className="mt-2 text-muted-foreground max-w-2xl">
-            Vue d&apos;ensemble du parc informatique La Vita Per Te.
-          </p>
+      <main className="flex-1 p-6 md:p-10 space-y-10">
+        {/* Hero greeting + export */}
+        <section className="flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+              {ROLE_LABELS[role][lang]}
+            </p>
+            <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
+              Bienvenue, {name?.split(" ")[0] ?? "personnel"} 👋
+            </h2>
+            <p className="mt-2 text-muted-foreground max-w-2xl">
+              Vue d&apos;ensemble du parc informatique La Vita Per Te.
+            </p>
+          </div>
+          {materials.length > 0 && (
+            <CsvExportButton
+              materials={materials}
+              sites={sites}
+              rooms={rooms}
+              lang={lang}
+            />
+          )}
         </section>
 
         {/* KPIs */}
@@ -92,20 +122,40 @@ export default async function DashboardPage() {
           <KPI
             icon={<AlertTriangle className="size-5" />}
             label="À remplacer"
-            value={critical.toString()}
-            hint="Score < 40"
+            value={distribution.critical.toString()}
+            hint={`${distribution.warning} à surveiller`}
             accent="primary"
           />
           <KPI
             icon={<UsersIcon className="size-5" />}
             label="Utilisateurs app"
             value={usersCount.toString()}
-            hint={`${warning} matériels à surveiller`}
+            hint={`${sites.length} centres supervisés`}
             accent="cyan"
           />
         </section>
 
-        {/* Worst materials */}
+        {/* Analytics — Santé du parc */}
+        <section className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <ObsolescenceDonut distribution={distribution} lang={lang} />
+          </div>
+          <BudgetCard budget={budget} />
+        </section>
+
+        {/* Analytics — Répartition */}
+        <section className="grid gap-4 lg:grid-cols-2">
+          <SiteBreakdown sites={siteStats} />
+          <TypeBreakdown types={typeStats} />
+        </section>
+
+        {/* Âge du parc + Salles à risque */}
+        <section className="grid gap-4 lg:grid-cols-2">
+          <AgeHistogram buckets={ageBuckets} />
+          <RoomHeatmap rooms={roomStats} />
+        </section>
+
+        {/* Top à remplacer */}
         {worstMaterials.length > 0 && (
           <section>
             <div className="flex items-end justify-between mb-4">

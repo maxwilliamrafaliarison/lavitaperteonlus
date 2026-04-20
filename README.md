@@ -72,11 +72,11 @@ Le script Apps Script [`scripts/google-sheet-setup.gs`](scripts/google-sheet-set
 ## 📋 Phases de développement
 
 - [x] **Phase 0** · Setup Next.js + design system liquid glass + GitHub + Vercel
-- [ ] **Phase 1** · Guide GCP + structure Google Sheet ([guide](docs/PHASE1-GCP.md))
-- [ ] **Phase 2** · Auth.js + 4 rôles + middleware
-- [ ] **Phase 3** · CRUD matériels (sites → salles → fiche)
-- [ ] **Phase 4** · Chiffrement AES MDP + audit log
-- [ ] **Phase 5** · Dashboard Direction (KPIs + obsolescence)
+- [x] **Phase 1** · Guide GCP + structure Google Sheet ([guide](docs/PHASE1-GCP.md))
+- [x] **Phase 2** · Auth.js + 4 rôles + middleware
+- [x] **Phase 3** · CRUD matériels (sites → salles → fiche)
+- [x] **Phase 4** · Chiffrement AES MDP + audit log
+- [x] **Phase 5** · Dashboard Direction (KPIs + obsolescence + budget + export CSV)
 - [ ] **Phase 6** · Historique mouvements / transferts
 - [ ] **Phase 7** · Corbeille + admin utilisateurs
 - [ ] **Phase 8** · i18n complet FR/IT
