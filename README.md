@@ -1,36 +1,126 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏥 La Vita Per Te — Tableau de bord Parc Informatique
 
-## Getting Started
+> Application de gestion du parc informatique du **Centre REX Fianarantsoa** et du **Centre MIARAKA** — ONG-ODV Alfeo Corassori, Madagascar.
 
-First, run the development server:
+🌐 **En production** : https://lavitaperteonlus.vercel.app
+
+Inventaire centralisé, fiches détaillées, détection d'obsolescence automatique, historique des mouvements et gestion sécurisée des mots de passe — pensé pour la direction (outil décisionnel) et les équipes (visibilité du parc).
+
+---
+
+## 🎨 Design
+
+- **Style** : Liquid glass premium (inspiration Apple), mode sombre par défaut
+- **Palette** : dérivée du logo (**rouge** `#E30613`) et du bâtiment (**cyan** `#2DD4BF`)
+- **Typographie** : Inter (UI) + Playfair Display (titres) + Geist Mono
+- **Multilingue** : 🇫🇷 Français · 🇮🇹 Italien
+
+## 🛠️ Stack technique
+
+| Couche | Technologie |
+|---|---|
+| Framework | Next.js 16 (App Router, TypeScript, React 19) |
+| Style | Tailwind CSS v4 + shadcn/ui |
+| Animations | Framer Motion |
+| BDD | Google Sheets API v4 |
+| Auth | Auth.js v5 (NextAuth) |
+| Chiffrement | AES-256-GCM (node:crypto) |
+| Validation | Zod |
+| i18n | next-intl + JSON messages |
+| Déploiement | Vercel |
+
+## 👥 Rôles
+
+| Rôle | Lecture | Voir MDP | Écriture | Corbeille | Users |
+|---|:-:|:-:|:-:|:-:|:-:|
+| 👑 **Administrateur** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 🛠 **Informaticien** | ✅ | ✅ | ✅ | ❌ | ❌ |
+| 🏛 **Direction** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| 📦 **Responsable logistique** | ✅ | ❌ | ✅ | ❌ | ❌ |
+
+Toute consultation de MDP est enregistrée dans le journal d'audit (`audit_log`).
+
+## 🚀 Démarrage local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local      # remplir les variables (voir guide Phase 1)
+npm run dev                     # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ⚙️ Configuration Google Cloud + Sheet
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+👉 Suivre le guide pas-à-pas : [`docs/PHASE1-GCP.md`](docs/PHASE1-GCP.md)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Le script Apps Script [`scripts/google-sheet-setup.gs`](scripts/google-sheet-setup.gs) crée automatiquement les **10 onglets** du Sheet avec en-têtes formatés et données seed (sites REX/MIARAKA, 15 salles, 4 entrées réseau).
 
-## Learn More
+## 📊 Structure du Google Sheet
 
-To learn more about Next.js, take a look at the following resources:
+| Onglet | Rôle |
+|---|---|
+| `config` | Paramètres globaux |
+| `users` | Utilisateurs de l'app (4 rôles) |
+| `sites` | Centres (REX, MIARAKA, ...) |
+| `rooms` | Salles par site |
+| `materials` | Parc matériel (~222 entrées) |
+| `sessions` | Sessions PC (MDP chiffrés AES) |
+| `movements` | Transferts / historique |
+| `trash` | Soft delete (admin only) |
+| `audit_log` | Qui a vu quel MDP, quand |
+| `network` | Wifi, box, switches |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📋 Phases de développement
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [x] **Phase 0** · Setup Next.js + design system liquid glass + GitHub + Vercel
+- [ ] **Phase 1** · Guide GCP + structure Google Sheet ([guide](docs/PHASE1-GCP.md))
+- [ ] **Phase 2** · Auth.js + 4 rôles + middleware
+- [ ] **Phase 3** · CRUD matériels (sites → salles → fiche)
+- [ ] **Phase 4** · Chiffrement AES MDP + audit log
+- [ ] **Phase 5** · Dashboard Direction (KPIs + obsolescence)
+- [ ] **Phase 6** · Historique mouvements / transferts
+- [ ] **Phase 7** · Corbeille + admin utilisateurs
+- [ ] **Phase 8** · i18n complet FR/IT
+- [ ] **Phase 9** · Polish (animations, mobile, QR codes)
+- [ ] **Phase 10** · Monitoring + custom domain
 
-## Deploy on Vercel
+## 📁 Structure des dossiers
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/                   Pages Next.js (App Router)
+│   ├── login/            Connexion
+│   └── page.tsx          Landing vitrine
+├── components/
+│   ├── glass/            Primitives liquid glass (GlassCard, GlassButton)
+│   ├── layout/           BrandLogo, ThemeToggle, LanguageSwitcher
+│   ├── materials/        Composants métier matériel
+│   ├── providers/        ThemeProvider
+│   └── ui/               shadcn/ui
+├── lib/
+│   ├── auth/             Permissions (4 rôles)
+│   ├── crypto/           AES-256-GCM
+│   ├── i18n/             Messages FR / IT
+│   ├── sheets/           Google Sheets API client
+│   ├── obsolescence.ts   Algorithme de scoring
+│   └── utils.ts
+├── types/                Zod schemas + types
+└── middleware.ts         (à venir Phase 2)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+docs/                     Guides utilisateur
+└── PHASE1-GCP.md        Setup Google Cloud + Sheet
+
+scripts/                  Scripts d'automatisation
+└── google-sheet-setup.gs  Apps Script de création des onglets
+```
+
+## 📸 Données sources
+
+L'app est construite à partir de l'inventaire réel du Centre REX :
+- **222 matériels** inventoriés (informatique, imprimantes, routeurs, téléphones…)
+- **14 salles** REX + Centre MIARAKA Ambatolahikosoa
+- **48 personnels** avec mails professionnels
+- Système de MDP à comptes multiples (1 admin + N sessions utilisateurs par ordinateur)
+
+---
+
+© La Vita Per Te · ONG-ODV Alfeo Corassori · Fianarantsoa, Madagascar
