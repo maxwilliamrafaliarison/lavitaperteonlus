@@ -197,6 +197,7 @@ export const AuditLogAction = z.enum([
   "edit_material",
   "delete_material",
   "restore_material",
+  "transfer_material",
   "invite_user",
   "login",
   "logout",

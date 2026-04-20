@@ -78,5 +78,6 @@ export const AuditAction = {
   EditMaterial: "edit_material" as AuditLogAction,
   DeleteMaterial: "delete_material" as AuditLogAction,
   RestoreMaterial: "restore_material" as AuditLogAction,
+  TransferMaterial: "transfer_material" as AuditLogAction,
   InviteUser: "invite_user" as AuditLogAction,
 };

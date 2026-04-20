@@ -17,12 +17,19 @@ import { ScoreGauge } from "@/components/materials/score-gauge";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { getMaterial } from "@/lib/sheets/materials";
-import { getRoom, getSite } from "@/lib/sheets/sites";
+import { getRoom, getSite, listRooms, listSites } from "@/lib/sheets/sites";
 import { listSessions } from "@/lib/sheets/sessions";
+import { listMovements } from "@/lib/sheets/movements";
+import { listUsers } from "@/lib/sheets/users";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { scoreObsolescence } from "@/lib/obsolescence";
-import { MATERIAL_TYPE_LABELS, type Material, type Room, type Site, type MaterialSession } from "@/types";
+import {
+  MATERIAL_TYPE_LABELS,
+  type Material, type Room, type Site,
+  type MaterialSession, type Movement, type AppUser,
+} from "@/types";
 import { SessionsManager } from "@/components/materials/sessions-manager";
+import { MovementHistory } from "@/components/movements/movement-history";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +66,24 @@ export default async function MaterialDetailPage({
     );
   }
 
-  const [siteRes, roomRes, sessionsRes] = await Promise.all([
-    safe<Site | null>(() => getSite(material.siteId), null),
-    safe<Room | null>(() => getRoom(material.roomId), null),
-    safe<MaterialSession[]>(() => listSessions({ materialId: material.id }), []),
-  ]);
+  const [siteRes, roomRes, sessionsRes, movementsRes, allSitesRes, allRoomsRes, usersRes] =
+    await Promise.all([
+      safe<Site | null>(() => getSite(material.siteId), null),
+      safe<Room | null>(() => getRoom(material.roomId), null),
+      safe<MaterialSession[]>(() => listSessions({ materialId: material.id }), []),
+      safe<Movement[]>(() => listMovements({ materialId: material.id }), []),
+      safe<Site[]>(() => listSites(), []),
+      safe<Room[]>(() => listRooms(), []),
+      safe<AppUser[]>(() => listUsers(), []),
+    ]);
 
   const obs = scoreObsolescence(material);
   const canSeePassword = can(role, "password:reveal");
   const canEdit = can(role, "material:update");
   const canDelete = can(role, "material:delete");
+  const canTransfer = can(role, "movement:create");
   const sessions = sessionsRes.data;
+  const movements = movementsRes.data;
 
   return (
     <>
@@ -123,7 +137,7 @@ export default async function MaterialDetailPage({
           </div>
 
           {/* Actions */}
-          {(canEdit || canDelete) && (
+          {(canEdit || canTransfer || canDelete) && (
             <div className="mt-7 pt-6 border-t border-glass-border flex flex-wrap gap-2">
               {canEdit && (
                 <Link href={`/materials/${material.id}/edit`}>
@@ -133,7 +147,7 @@ export default async function MaterialDetailPage({
                   </GlassButton>
                 </Link>
               )}
-              {canEdit && (
+              {canTransfer && (
                 <Link href={`/materials/${material.id}/transfer`}>
                   <GlassButton variant="glass" size="sm">
                     <ArrowRightLeft className="size-3.5" />
@@ -265,6 +279,14 @@ export default async function MaterialDetailPage({
             />
           </div>
         </GlassCard>
+
+        {/* Historique mouvements — Phase 6 */}
+        <MovementHistory
+          movements={movements}
+          sites={allSitesRes.data}
+          rooms={allRoomsRes.data}
+          users={usersRes.data}
+        />
 
         {/* Notes */}
         {material.notes && (

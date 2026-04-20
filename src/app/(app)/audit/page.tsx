@@ -11,6 +11,7 @@ import { listAuditLogs } from "@/lib/sheets/audit";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import type { AuditLog, AuditLogAction } from "@/types";
 import { cn } from "@/lib/utils";
+import { ArrowRightLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ const ACTION_META: Record<
   edit_material: { label: "Modification", icon: Pencil, tone: "warning" },
   delete_material: { label: "Suppression", icon: Trash2, tone: "primary" },
   restore_material: { label: "Restauration", icon: RotateCcw, tone: "success" },
+  transfer_material: { label: "Transfert", icon: ArrowRightLeft, tone: "warning" },
   invite_user: { label: "Utilisateur invité", icon: UserPlus, tone: "success" },
   login: { label: "Connexion", icon: LogIn, tone: "muted" },
   logout: { label: "Déconnexion", icon: LogOut, tone: "muted" },
