@@ -11,7 +11,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { ObsolescenceBadge } from "@/components/materials/obsolescence-badge";
 import { MaterialTypeIcon } from "@/components/materials/type-icon";
-import { ROLE_LABELS, type Material, type Site, type Room } from "@/types";
+import { ROLE_LABELS, type Material, type Site, type Room, type AppUser } from "@/types";
 import { listMaterials } from "@/lib/sheets/materials";
 import { listSites, listRooms } from "@/lib/sheets/sites";
 import { listUsers } from "@/lib/sheets/users";
@@ -29,13 +29,13 @@ export default async function DashboardPage() {
     safe<Material[]>(() => listMaterials(), []),
     safe<Site[]>(() => listSites(), []),
     safe<Room[]>(() => listRooms(), []),
-    safe<{ length: number }>(() => listUsers(), { length: 0 }),
+    safe<AppUser[]>(() => listUsers(), []),
   ]);
 
   const materials = materialsRes.data;
   const sites = sitesRes.data;
   const rooms = roomsRes.data;
-  const usersCount = Array.isArray(usersRes.data) ? usersRes.data.length : 0;
+  const usersCount = usersRes.data.length;
 
   // Score global = moyenne des scores
   const scores = materials.map((m) => scoreObsolescence(m));

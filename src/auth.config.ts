@@ -16,38 +16,37 @@ declare module "next-auth" {
       lang: "fr" | "it";
     } & DefaultSession["user"];
   }
-}
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    role: UserRole;
-    lang: "fr" | "it";
+  interface User {
+    role?: UserRole;
+    lang?: "fr" | "it";
   }
 }
 
 const PUBLIC_PATHS = new Set(["/", "/login", "/setup"]);
 
-export const authConfig = {
+export const authConfig: NextAuthConfig = {
   trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [], // ajoutés dans auth.ts (runtime Node)
   callbacks: {
     jwt: async ({ token, user }) => {
+      // À la connexion, `user` est défini → on injecte les champs custom dans le JWT
       if (user) {
         const u = user as { id?: string; role?: UserRole; lang?: "fr" | "it" };
-        if (u.id) token.id = u.id;
-        if (u.role) token.role = u.role;
-        if (u.lang) token.lang = u.lang;
+        if (u.id) (token as Record<string, unknown>).id = u.id;
+        if (u.role) (token as Record<string, unknown>).role = u.role;
+        if (u.lang) (token as Record<string, unknown>).lang = u.lang;
       }
       return token;
     },
     session: async ({ session, token }) => {
-      if (token && session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.lang = token.lang;
+      const t = token as Record<string, unknown>;
+      if (t && session.user) {
+        session.user.id = (t.id as string) ?? session.user.id;
+        session.user.role = (t.role as UserRole) ?? "logistique";
+        session.user.lang = (t.lang as "fr" | "it") ?? "fr";
       }
       return session;
     },
@@ -66,4 +65,4 @@ export const authConfig = {
       return !!auth?.user;
     },
   },
-} satisfies NextAuthConfig;
+};

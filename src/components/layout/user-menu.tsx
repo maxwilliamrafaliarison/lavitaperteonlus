@@ -41,24 +41,21 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="flex items-center gap-3 rounded-full glass border pl-1.5 pr-4 h-10 transition-colors hover:bg-white/10"
-          aria-label="Menu utilisateur"
-        >
-          <Avatar className="size-7">
-            <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
-              {initials(name) || <UserIcon className="size-3.5" />}
-            </AvatarFallback>
-          </Avatar>
-          <div className="hidden md:flex flex-col items-start leading-tight">
-            <span className="text-xs font-medium">{name}</span>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {ROLE_LABELS[role][lang]}
-            </span>
-          </div>
-        </button>
+      <DropdownMenuTrigger
+        className="flex items-center gap-3 rounded-full glass border pl-1.5 pr-4 h-10 transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        aria-label="Menu utilisateur"
+      >
+        <Avatar className="size-7">
+          <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+            {initials(name) || <UserIcon className="size-3.5" />}
+          </AvatarFallback>
+        </Avatar>
+        <div className="hidden md:flex flex-col items-start leading-tight">
+          <span className="text-xs font-medium">{name}</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+            {ROLE_LABELS[role][lang]}
+          </span>
+        </div>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-64">
