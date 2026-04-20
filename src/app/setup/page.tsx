@@ -1,0 +1,202 @@
+"use client";
+
+import * as React from "react";
+import Link from "next/link";
+import { useFormStatus } from "react-dom";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Lock,
+  Mail,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+} from "lucide-react";
+
+import { GlassCard } from "@/components/glass/glass-card";
+import { GlassButton } from "@/components/glass/glass-button";
+import { BrandLogo } from "@/components/layout/brand-logo";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+
+import { setupAdminAction, type SetupState } from "./actions";
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <GlassButton
+      variant="brand"
+      size="lg"
+      shimmer={!pending}
+      type="submit"
+      disabled={pending}
+      className="w-full"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" />
+          Création en cours...
+        </>
+      ) : (
+        "Définir le mot de passe"
+      )}
+    </GlassButton>
+  );
+}
+
+export default function SetupPage() {
+  const [state, formAction] = React.useActionState<SetupState | undefined, FormData>(
+    setupAdminAction,
+    undefined,
+  );
+
+  return (
+    <div className="relative min-h-screen overflow-hidden">
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-primary/15 blur-[140px]" />
+        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-accent/15 blur-[120px]" />
+      </div>
+
+      <header className="relative z-10">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 md:px-10">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="size-4" />
+            Retour
+          </Link>
+          <ThemeToggle />
+        </div>
+      </header>
+
+      <main className="relative z-10 flex min-h-[calc(100vh-96px)] items-center justify-center px-6 pb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-md"
+        >
+          <div className="mb-10 flex justify-center">
+            <BrandLogo size={56} />
+          </div>
+
+          <GlassCard intensity="strong" glow="brand" className="p-8 md:p-10">
+            <div className="text-center">
+              <span className="inline-flex items-center gap-2 rounded-full glass border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground mb-4">
+                <Sparkles className="size-3 text-primary" />
+                Première configuration
+              </span>
+              <h1 className="font-display text-3xl font-semibold tracking-tight">
+                Configurer le compte admin
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                Saisissez l&apos;email d&apos;un compte présent dans l&apos;onglet{" "}
+                <code className="text-foreground bg-white/5 px-1.5 py-0.5 rounded">users</code>{" "}
+                de votre Google Sheet et définissez son mot de passe.
+              </p>
+            </div>
+
+            {state?.ok ? (
+              <div className="mt-8 rounded-2xl border border-[oklch(0.75_0.18_150_/_0.3)] bg-[oklch(0.75_0.18_150_/_0.10)] p-6 text-center">
+                <CheckCircle2 className="size-10 mx-auto mb-3 text-[oklch(0.75_0.18_150)]" />
+                <p className="font-medium">{state.message}</p>
+                <Link
+                  href="/login"
+                  className="mt-6 inline-block"
+                >
+                  <GlassButton variant="brand" size="md" shimmer>
+                    Aller à la connexion
+                  </GlassButton>
+                </Link>
+              </div>
+            ) : (
+              <form action={formAction} className="mt-8 space-y-5">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="email"
+                    className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                  >
+                    Email du compte
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      placeholder="informatique.lavitaperte@gmail.com"
+                      className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="password"
+                    className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                  >
+                    Nouveau mot de passe
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <input
+                      id="password"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      placeholder="8 caractères minimum"
+                      className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Minimum 8 caractères, avec au moins 1 lettre et 1 chiffre.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="confirm"
+                    className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                  >
+                    Confirmation
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                    <input
+                      id="confirm"
+                      name="confirm"
+                      type="password"
+                      required
+                      minLength={8}
+                      autoComplete="new-password"
+                      placeholder="Retapez le mot de passe"
+                      className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
+                    />
+                  </div>
+                </div>
+
+                {state?.error && (
+                  <div className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                    <span>{state.error}</span>
+                  </div>
+                )}
+
+                <SubmitButton />
+              </form>
+            )}
+          </GlassCard>
+
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Cette page sert uniquement à activer un compte créé dans le Sheet.
+          </p>
+        </motion.div>
+      </main>
+    </div>
+  );
+}

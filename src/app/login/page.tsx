@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useFormStatus } from "react-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Lock, Mail } from "lucide-react";
+import { ArrowLeft, Lock, Mail, Loader2, AlertCircle } from "lucide-react";
 
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
@@ -13,19 +15,49 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import fr from "@/lib/i18n/messages/fr.json";
 import it from "@/lib/i18n/messages/it.json";
 
+import { loginAction, type LoginState } from "./actions";
+
 const messages = { fr, it } as const;
 
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <GlassButton
+      variant="brand"
+      size="lg"
+      shimmer={!pending}
+      type="submit"
+      disabled={pending}
+      className="w-full"
+    >
+      {pending ? (
+        <>
+          <Loader2 className="size-4 animate-spin" />
+          Connexion...
+        </>
+      ) : (
+        label
+      )}
+    </GlassButton>
+  );
+}
+
 export default function LoginPage() {
+  const router = useRouter();
   const [lang, setLang] = React.useState<Lang>("fr");
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
   const t = messages[lang];
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // L'auth réelle sera implémentée en Phase 2 (Auth.js v5 + Google Sheets users)
-    alert("Auth à implémenter en Phase 2 — " + email);
-  }
+  const [state, formAction] = React.useActionState<LoginState | undefined, FormData>(
+    loginAction,
+    undefined,
+  );
+
+  React.useEffect(() => {
+    if (state?.ok) {
+      router.push("/dashboard");
+      router.refresh();
+    }
+  }, [state, router]);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -35,7 +67,6 @@ export default function LoginPage() {
         <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-accent/15 blur-[120px]" />
       </div>
 
-      {/* Top bar */}
       <header className="relative z-10">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 md:px-10">
           <Link
@@ -52,7 +83,6 @@ export default function LoginPage() {
         </div>
       </header>
 
-      {/* Login card */}
       <main className="relative z-10 flex min-h-[calc(100vh-96px)] items-center justify-center px-6 pb-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -74,18 +104,22 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            <form action={formAction} className="mt-8 space-y-5">
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="email"
+                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                >
                   {t.login.email}
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <input
+                    id="email"
+                    name="email"
                     type="email"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    autoComplete="email"
                     placeholder="direction.lavitaperte@gmail.com"
                     className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
@@ -93,39 +127,42 @@ export default function LoginPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                <label
+                  htmlFor="password"
+                  className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+                >
                   {t.login.password}
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <input
+                    id="password"
+                    name="password"
                     type="password"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
                 </div>
               </div>
 
-              <GlassButton
-                variant="brand"
-                size="lg"
-                shimmer
-                type="submit"
-                className="w-full"
-              >
-                {t.login.submit}
-              </GlassButton>
+              {state?.error && (
+                <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  <AlertCircle className="size-4 shrink-0" />
+                  <span>{state.error}</span>
+                </div>
+              )}
 
-              <div className="text-center">
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              <SubmitButton label={t.login.submit} />
+
+              <div className="text-center space-y-2">
+                <Link
+                  href="/setup"
+                  className="block text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {t.login.forgot}
-                </button>
+                  Première connexion ? Configurer le mot de passe admin →
+                </Link>
               </div>
             </form>
           </GlassCard>
