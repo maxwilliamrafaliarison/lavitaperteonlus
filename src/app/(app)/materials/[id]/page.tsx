@@ -18,9 +18,11 @@ import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { getMaterial } from "@/lib/sheets/materials";
 import { getRoom, getSite } from "@/lib/sheets/sites";
+import { listSessions } from "@/lib/sheets/sessions";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { scoreObsolescence } from "@/lib/obsolescence";
-import { MATERIAL_TYPE_LABELS, type Material, type Room, type Site } from "@/types";
+import { MATERIAL_TYPE_LABELS, type Material, type Room, type Site, type MaterialSession } from "@/types";
+import { SessionsManager } from "@/components/materials/sessions-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -57,15 +59,17 @@ export default async function MaterialDetailPage({
     );
   }
 
-  const [siteRes, roomRes] = await Promise.all([
+  const [siteRes, roomRes, sessionsRes] = await Promise.all([
     safe<Site | null>(() => getSite(material.siteId), null),
     safe<Room | null>(() => getRoom(material.roomId), null),
+    safe<MaterialSession[]>(() => listSessions({ materialId: material.id }), []),
   ]);
 
   const obs = scoreObsolescence(material);
   const canSeePassword = can(role, "password:reveal");
   const canEdit = can(role, "material:update");
   const canDelete = can(role, "material:delete");
+  const sessions = sessionsRes.data;
 
   return (
     <>
@@ -227,7 +231,7 @@ export default async function MaterialDetailPage({
 
         {/* Sessions / MDP — Phase 4 */}
         <GlassCard className="p-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start justify-between gap-4 mb-1">
             <div className="flex items-start gap-3">
               <div className="inline-flex size-9 items-center justify-center rounded-xl bg-accent/15 text-accent">
                 <Lock className="size-4" />
@@ -235,7 +239,7 @@ export default async function MaterialDetailPage({
               <div>
                 <h3 className="font-display text-lg font-semibold">Sessions & mots de passe</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Comptes utilisateurs configurés sur cet ordinateur
+                  Comptes utilisateurs configurés sur ce matériel
                 </p>
               </div>
             </div>
@@ -252,9 +256,13 @@ export default async function MaterialDetailPage({
             )}
           </div>
 
-          <div className="mt-6 rounded-2xl border border-dashed border-glass-border p-6 text-center text-sm text-muted-foreground">
-            La gestion des sessions et la révélation des mots de passe (chiffrés AES-256) arrivent en{" "}
-            <span className="text-primary font-medium">Phase 4</span>.
+          <div className="mt-6">
+            <SessionsManager
+              materialId={material.id}
+              sessions={sessions}
+              canReveal={canSeePassword}
+              canEdit={canEdit}
+            />
           </div>
         </GlassCard>
 
