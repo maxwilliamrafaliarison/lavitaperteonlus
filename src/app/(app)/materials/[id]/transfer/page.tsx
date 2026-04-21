@@ -7,6 +7,7 @@ import { TransferForm } from "@/components/materials/transfer-form";
 import { getMaterial } from "@/lib/sheets/materials";
 import { listSites, listRooms, getSite, getRoom } from "@/lib/sheets/sites";
 import { safe } from "@/lib/sheets/safe";
+import { getT } from "@/lib/i18n";
 import type { Material, Site, Room } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,9 @@ export default async function MaterialTransferPage({
     redirect(`/materials/${id}`);
   }
 
+  const lang = session.user.lang;
+  const t = getT(lang);
+
   const matRes = await safe<Material | null>(() => getMaterial(id), null);
   const material = matRes.data;
   if (!material) notFound();
@@ -37,7 +41,7 @@ export default async function MaterialTransferPage({
 
   return (
     <>
-      <AppTopbar title="Transfert" />
+      <AppTopbar title={t("topbar.transfer")} />
       <main className="flex-1 p-6 md:p-10 max-w-4xl mx-auto w-full">
         <TransferForm
           material={material}
@@ -45,6 +49,7 @@ export default async function MaterialTransferPage({
           rooms={roomsRes.data}
           currentSite={currentSiteRes.data}
           currentRoom={currentRoomRes.data}
+          lang={lang}
         />
       </main>
     </>

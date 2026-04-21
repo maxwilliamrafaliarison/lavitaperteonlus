@@ -6,15 +6,18 @@ import { Download, Printer, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { GlassButton } from "@/components/glass/glass-button";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface Props {
   url: string;
   materialId: string;
   materialRef: string;
   designation: string;
+  lang?: Lang;
 }
 
-export function QrActionsButtons({ url, materialId, materialRef, designation }: Props) {
+export function QrActionsButtons({ url, materialId, materialRef, designation, lang = "fr" }: Props) {
+  const t = React.useMemo(() => getT(lang), [lang]);
   const [loading, setLoading] = React.useState<"svg" | "print" | null>(null);
 
   async function handleDownloadSvg() {
@@ -61,7 +64,7 @@ export function QrActionsButtons({ url, materialId, materialRef, designation }: 
       }
 
       printWindow.document.write(`<!doctype html>
-<html lang="fr">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8" />
 <title>Étiquette ${materialRef}</title>
@@ -123,11 +126,11 @@ export function QrActionsButtons({ url, materialId, materialRef, designation }: 
 </head>
 <body>
   <div class="label">
-    <div class="brand">La Vita Per Te</div>
+    <div class="brand">${escapeHtml(t("brand.name"))}</div>
     <div class="qr">${svg}</div>
     <div class="designation">${escapeHtml(designation || materialRef)}</div>
     <div class="ref">${escapeHtml(materialRef)}</div>
-    <div class="footer">Scannez pour ouvrir la fiche</div>
+    <div class="footer">${escapeHtml(t("material_detail.qr_label_scan"))}</div>
   </div>
   <script>
     window.onload = function() { setTimeout(function() { window.print(); }, 100); };
@@ -156,7 +159,7 @@ export function QrActionsButtons({ url, materialId, materialRef, designation }: 
         ) : (
           <Download className="size-3.5" />
         )}
-        Télécharger SVG
+        {t("material_detail.qr_download_svg")}
       </GlassButton>
       <GlassButton
         type="button"
@@ -170,7 +173,7 @@ export function QrActionsButtons({ url, materialId, materialRef, designation }: 
         ) : (
           <Printer className="size-3.5" />
         )}
-        Imprimer étiquette
+        {t("material_detail.qr_print")}
       </GlassButton>
     </div>
   );

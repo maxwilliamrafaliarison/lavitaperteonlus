@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
+import { getT, type Lang } from "@/lib/i18n";
 import type { Site, Room, Material } from "@/types";
 
 import { transferMaterialAction } from "./transfer-actions";
@@ -19,6 +20,7 @@ interface Props {
   rooms: Room[];
   currentSite: Site | null;
   currentRoom: Room | null;
+  lang?: Lang;
 }
 
 export function TransferForm({
@@ -27,8 +29,10 @@ export function TransferForm({
   rooms,
   currentSite,
   currentRoom,
+  lang = "fr",
 }: Props) {
   const router = useRouter();
+  const t = getT(lang);
   const [toSiteId, setToSiteId] = React.useState(material.siteId);
   const [toRoomId, setToRoomId] = React.useState(material.roomId);
   const [toAssignedTo, setToAssignedTo] = React.useState(material.assignedTo ?? "");
@@ -65,18 +69,18 @@ export function TransferForm({
     try {
       const result = await transferMaterialAction(material.id, formData);
       if (result.ok) {
-        toast.success("Transfert enregistré", {
-          description: "Le mouvement a été ajouté à l'historique.",
+        toast.success(t("transfer.success_title"), {
+          description: t("transfer.success_desc"),
         });
         router.push(`/materials/${material.id}`);
         router.refresh();
       } else {
-        setError(result.error ?? "Erreur inconnue");
-        toast.error("Échec du transfert", { description: result.error });
+        setError(result.error ?? t("material_form.error_generic"));
+        toast.error(t("errors.generic_title"), { description: result.error });
       }
     } catch (e) {
       setError(String(e));
-      toast.error("Erreur", { description: String(e) });
+      toast.error(t("errors.generic_title"), { description: String(e) });
     } finally {
       setLoading(false);
     }
@@ -89,7 +93,7 @@ export function TransferForm({
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="size-4" />
-        Retour à la fiche
+        {t("common.back")}
       </Link>
 
       <GlassCard className="p-7 md:p-8">
@@ -99,7 +103,7 @@ export function TransferForm({
           </div>
           <div>
             <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              Transfert
+              {t("transfer.eyebrow")}
             </p>
             <h2 className="mt-1 font-display text-2xl font-semibold">
               {material.designation || material.ref}
@@ -115,22 +119,22 @@ export function TransferForm({
           {/* Source */}
           <div className="rounded-2xl border border-glass-border bg-white/3 p-4">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-3">
-              Emplacement actuel
+              {t("transfer.current_location")}
             </p>
             <dl className="space-y-1.5 text-sm">
-              <KV label="Site" value={currentSite?.name ?? "—"} />
-              <KV label="Salle" value={currentRoom?.name ?? "—"} />
-              <KV label="Affecté à" value={material.assignedTo ?? "—"} />
+              <KV label={t("material_form.field_site")} value={currentSite?.name ?? "—"} />
+              <KV label={t("material_form.field_room")} value={currentRoom?.name ?? "—"} />
+              <KV label={t("material_form.field_assigned_to")} value={material.assignedTo ?? "—"} />
             </dl>
           </div>
 
           {/* Destination */}
           <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4">
             <p className="text-[10px] uppercase tracking-[0.18em] text-primary mb-3">
-              Destination
+              {t("transfer.destination")}
             </p>
             <div className="space-y-3">
-              <FieldLabel htmlFor="toSiteId">Site</FieldLabel>
+              <FieldLabel htmlFor="toSiteId">{t("material_form.field_site")}</FieldLabel>
               <GlassSelect
                 id="toSiteId"
                 value={toSiteId}
@@ -144,7 +148,7 @@ export function TransferForm({
                 ))}
               </GlassSelect>
 
-              <FieldLabel htmlFor="toRoomId">Salle</FieldLabel>
+              <FieldLabel htmlFor="toRoomId">{t("material_form.field_room")}</FieldLabel>
               <GlassSelect
                 id="toRoomId"
                 value={toRoomId}
@@ -153,7 +157,7 @@ export function TransferForm({
                 disabled={availableRooms.length === 0}
               >
                 {availableRooms.length === 0 && (
-                  <option value="">Aucune salle pour ce site</option>
+                  <option value="">{t("material_form.field_room_empty")}</option>
                 )}
                 {availableRooms.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -163,12 +167,14 @@ export function TransferForm({
                 ))}
               </GlassSelect>
 
-              <FieldLabel htmlFor="toAssignedTo">Affecté à (optionnel)</FieldLabel>
+              <FieldLabel htmlFor="toAssignedTo">
+                {t("material_form.field_assigned_to")} ({t("common.optional")})
+              </FieldLabel>
               <GlassInput
                 id="toAssignedTo"
                 value={toAssignedTo}
                 onChange={(e) => setToAssignedTo(e.target.value)}
-                placeholder="Nom de la personne"
+                placeholder={t("material_form.field_assigned_to_placeholder")}
               />
             </div>
           </div>
@@ -176,13 +182,13 @@ export function TransferForm({
 
         {/* Motif */}
         <div className="mt-6">
-          <FieldLabel htmlFor="reason">Motif (optionnel)</FieldLabel>
+          <FieldLabel htmlFor="reason">{t("transfer.reason_label")}</FieldLabel>
           <textarea
             id="reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            placeholder="Ex: Déménagement service accueil, remplacement utilisateur…"
+            placeholder={t("transfer.reason_placeholder")}
             className={cn(
               "w-full rounded-xl glass border px-3.5 py-2.5 text-sm",
               "focus:outline-none focus:ring-2 focus:ring-primary/40",
@@ -200,7 +206,7 @@ export function TransferForm({
         <div className="mt-7 pt-6 border-t border-glass-border flex flex-wrap gap-2 justify-end">
           <Link href={`/materials/${material.id}`}>
             <GlassButton type="button" variant="glass" size="md">
-              Annuler
+              {t("common.cancel")}
             </GlassButton>
           </Link>
           <GlassButton
@@ -214,13 +220,13 @@ export function TransferForm({
             ) : (
               <ArrowRightLeft className="size-4" />
             )}
-            {loading ? "Transfert…" : "Confirmer le transfert"}
+            {loading ? t("transfer.submitting") : t("transfer.submit")}
           </GlassButton>
         </div>
 
         {unchanged && !loading && (
           <p className="mt-3 text-xs text-muted-foreground text-right">
-            Aucun changement détecté — modifiez au moins un champ.
+            {t("transfer.no_change_hint")}
           </p>
         )}
       </GlassCard>

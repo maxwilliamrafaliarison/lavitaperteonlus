@@ -15,6 +15,7 @@ import { MaterialTypeIcon } from "@/components/materials/type-icon";
 import { cn } from "@/lib/utils";
 import type { Material, Site, Room } from "@/types";
 import { MATERIAL_TYPE_LABELS } from "@/types";
+import { getT, type Lang } from "@/lib/i18n";
 
 import {
   restoreMaterialAction,
@@ -25,10 +26,12 @@ interface Props {
   items: Material[];
   sites: Site[];
   rooms: Room[];
+  lang?: Lang;
 }
 
-export function TrashManager({ items, sites, rooms }: Props) {
+export function TrashManager({ items, sites, rooms, lang = "fr" }: Props) {
   const router = useRouter();
+  const t = React.useMemo(() => getT(lang), [lang]);
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
   const [confirmHard, setConfirmHard] = React.useState<Material | null>(null);
 
@@ -40,8 +43,10 @@ export function TrashManager({ items, sites, rooms }: Props) {
     try {
       const result = await restoreMaterialAction(material.id);
       if (result.ok) {
-        toast.success("Matériel restauré", {
-          description: `${material.designation || material.ref} est de nouveau actif.`,
+        toast.success(t("trash.restore_toast_title"), {
+          description: t("trash.restore_toast_desc", {
+            label: material.designation || material.ref,
+          }),
         });
         router.refresh();
       } else {
@@ -59,8 +64,10 @@ export function TrashManager({ items, sites, rooms }: Props) {
     try {
       const result = await hardDeleteMaterialAction(material.id);
       if (result.ok) {
-        toast.success("Suppression définitive", {
-          description: `${material.ref} a été retiré du Sheet.`,
+        toast.success(t("trash.hard_delete_toast_title"), {
+          description: t("trash.hard_delete_toast_desc", {
+            ref: material.ref,
+          }),
         });
         setConfirmHard(null);
         router.refresh();
@@ -80,10 +87,11 @@ export function TrashManager({ items, sites, rooms }: Props) {
         <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
           <Trash2 className="size-6" />
         </div>
-        <h3 className="mt-6 font-display text-xl font-semibold">Corbeille vide</h3>
+        <h3 className="mt-6 font-display text-xl font-semibold">
+          {t("trash.empty_title")}
+        </h3>
         <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-          Aucun matériel supprimé. Les éléments mis à la corbeille apparaîtront
-          ici — vous pourrez les restaurer ou les supprimer définitivement.
+          {t("trash.empty_desc")}
         </p>
       </GlassCard>
     );
@@ -116,7 +124,7 @@ export function TrashManager({ items, sites, rooms }: Props) {
                       <ExternalLink className="size-3 opacity-60" />
                     </Link>
                     <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.5 rounded bg-muted">
-                      {MATERIAL_TYPE_LABELS[m.type].fr}
+                      {MATERIAL_TYPE_LABELS[m.type][lang]}
                     </span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground font-mono truncate">
@@ -128,7 +136,7 @@ export function TrashManager({ items, sites, rooms }: Props) {
                     </span>
                     {m.deletedAt && (
                       <span className="font-mono">
-                        Supprimé le {fmtDate(m.deletedAt)}
+                        {t("trash.deleted_at")} {fmtDate(m.deletedAt, lang)}
                       </span>
                     )}
                   </div>
@@ -147,7 +155,7 @@ export function TrashManager({ items, sites, rooms }: Props) {
                     ) : (
                       <RotateCcw className="size-3.5" />
                     )}
-                    Restaurer
+                    {t("actions.restore")}
                   </GlassButton>
                   <GlassButton
                     type="button"
@@ -156,6 +164,7 @@ export function TrashManager({ items, sites, rooms }: Props) {
                     onClick={() => setConfirmHard(m)}
                     disabled={busy}
                     className="text-destructive hover:bg-destructive/10"
+                    aria-label={t("actions.hard_delete")}
                   >
                     <Trash2 className="size-3.5" />
                   </GlassButton>
@@ -188,25 +197,26 @@ export function TrashManager({ items, sites, rooms }: Props) {
                 onClick={() => setConfirmHard(null)}
                 disabled={!!loadingId}
                 className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Fermer"
+                aria-label={t("common.close")}
               >
                 <X className="size-4" />
               </button>
             </div>
 
             <h3 className="font-display text-lg font-semibold">
-              Supprimer définitivement ?
+              {t("trash.hard_delete_modal_title")}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">
                 {confirmHard.designation || confirmHard.ref}
               </span>{" "}
-              sera retiré du Google Sheet.{" "}
-              <span className="text-primary">Cette action est irréversible.</span>
+              {t("trash.hard_delete_modal_part_1")}{" "}
+              <span className="text-primary">
+                {t("trash.hard_delete_modal_irreversible")}
+              </span>
             </p>
             <div className="mt-3 rounded-xl border border-primary/30 bg-primary/8 p-3 text-xs text-primary">
-              Les sessions (MDP) et les mouvements associés resteront visibles
-              dans l&apos;historique Google Sheet pour la traçabilité.
+              {t("trash.hard_delete_modal_note")}
             </div>
 
             <div className="mt-6 flex gap-2 justify-end">
@@ -217,7 +227,7 @@ export function TrashManager({ items, sites, rooms }: Props) {
                 onClick={() => setConfirmHard(null)}
                 disabled={!!loadingId}
               >
-                Annuler
+                {t("common.cancel")}
               </GlassButton>
               <GlassButton
                 type="button"
@@ -231,7 +241,7 @@ export function TrashManager({ items, sites, rooms }: Props) {
                 ) : (
                   <Trash2 className="size-3.5" />
                 )}
-                Supprimer définitivement
+                {t("actions.hard_delete")}
               </GlassButton>
             </div>
           </div>
@@ -241,10 +251,10 @@ export function TrashManager({ items, sites, rooms }: Props) {
   );
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, lang: Lang): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("fr-FR", {
+    return new Date(iso).toLocaleDateString(lang === "it" ? "it-IT" : "fr-FR", {
       day: "2-digit",
       month: "short",
       year: "numeric",

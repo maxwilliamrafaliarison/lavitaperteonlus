@@ -11,6 +11,7 @@ import { listMaterials } from "@/lib/sheets/materials";
 import { listSites, listRooms } from "@/lib/sheets/sites";
 import { listUsers } from "@/lib/sheets/users";
 import { safe, isConfigError } from "@/lib/sheets/safe";
+import { getT, type Lang, type TFn } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type {
   Movement, MovementType, Site, Room, Material, AppUser,
@@ -20,15 +21,15 @@ export const dynamic = "force-dynamic";
 
 type FilterKey = MovementType | "all";
 
-const FILTER_OPTIONS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "Tout" },
-  { key: "creation", label: "Créations" },
-  { key: "transfert_site", label: "Sites" },
-  { key: "transfert_salle", label: "Salles" },
-  { key: "transfert_utilisateur", label: "Affectations" },
-  { key: "reparation", label: "Réparations" },
-  { key: "mise_au_rebut", label: "Rebut" },
-  { key: "restauration", label: "Restaurations" },
+const FILTER_KEYS: FilterKey[] = [
+  "all",
+  "creation",
+  "transfert_site",
+  "transfert_salle",
+  "transfert_utilisateur",
+  "reparation",
+  "mise_au_rebut",
+  "restauration",
 ];
 
 export default async function MovementsPage({
@@ -38,6 +39,9 @@ export default async function MovementsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  const lang = session.user.lang ?? "fr";
+  const t = getT(lang);
 
   const sp = await searchParams;
   const filterType = sp.type as MovementType | undefined;
@@ -73,19 +77,18 @@ export default async function MovementsPage({
 
   return (
     <>
-      <AppTopbar title="Mouvements" />
+      <AppTopbar title={t("topbar.movements")} />
 
       <main className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Historique
+            {t("movements.eyebrow")}
           </p>
           <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-            Mouvements du parc
+            {t("movements.title")}
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Timeline des transferts, créations, réparations et évolutions —
-            les 200 derniers événements.
+            {t("movements.subtitle")}
           </p>
         </header>
 
@@ -93,26 +96,26 @@ export default async function MovementsPage({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground mr-1">
             <Filter className="size-3.5" />
-            Filtrer :
+            {t("common.filter")} :
           </span>
-          {FILTER_OPTIONS.map((opt) => (
+          {FILTER_KEYS.map((key) => (
             <FilterChip
-              key={opt.key}
-              href={opt.key === "all" ? "/movements" : `/movements?type=${opt.key}`}
-              label={opt.label}
-              active={opt.key === "all" ? !filterType : filterType === opt.key}
-              count={opt.key === "all" ? movements.length : counts[opt.key]}
+              key={key}
+              href={key === "all" ? "/movements" : `/movements?type=${key}`}
+              label={t(`movements.filter_${key}`)}
+              active={key === "all" ? !filterType : filterType === key}
+              count={key === "all" ? movements.length : counts[key]}
             />
           ))}
         </div>
 
         {movements.length === 0 ? (
           <SheetEmptyState
-            title="Aucun mouvement"
+            title={t("movements.empty_title")}
             description={
               filterType
-                ? "Aucun mouvement avec ce filtre."
-                : "L'historique est vide — il se remplira au fur et à mesure des transferts et créations."
+                ? t("movements.empty_desc_filter")
+                : t("movements.empty_desc_none")
             }
             configError={configIssue}
           />
@@ -125,10 +128,13 @@ export default async function MovementsPage({
                     <History className="size-3.5" />
                   </div>
                   <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    {fmtDayHeader(date)}
+                    {fmtDayHeader(date, t, lang)}
                   </h3>
                   <span className="text-xs text-muted-foreground font-mono tabular-nums">
-                    {items.length} événement{items.length > 1 ? "s" : ""}
+                    {items.length}{" "}
+                    {items.length > 1
+                      ? t("movements.event_count_many")
+                      : t("movements.event_count_one")}
                   </span>
                   <div className="flex-1 h-px bg-glass-border" />
                 </div>
@@ -144,9 +150,10 @@ export default async function MovementsPage({
                         materialLabel={
                           materialMap.get(m.materialId)?.designation ??
                           materialMap.get(m.materialId)?.ref ??
-                          "Matériel inconnu"
+                          "—"
                         }
                         showMaterialLink
+                        lang={lang}
                       />
                     ))}
                   </div>
@@ -158,16 +165,14 @@ export default async function MovementsPage({
 
         {movements.length >= 200 && (
           <p className="text-center text-xs text-muted-foreground">
-            Affichage des 200 mouvements les plus récents. La pagination complète
-            arrivera dans une prochaine itération.
+            {t("audit.pagination_hint")}
           </p>
         )}
 
         {movements.length === 0 && !configIssue && (
           <div className="mt-8 text-center text-sm text-muted-foreground">
             <ArrowRightLeft className="size-5 mx-auto mb-2 opacity-60" />
-            Les transferts sont créés depuis la fiche d&apos;un matériel
-            (bouton « Transférer »).
+            {t("movements.empty_helper")}
           </div>
         )}
       </main>
@@ -217,7 +222,7 @@ function groupByDay(movements: Movement[]): { date: string; items: Movement[] }[
     .map(([date, items]) => ({ date, items }));
 }
 
-function fmtDayHeader(iso: string): string {
+function fmtDayHeader(iso: string, t: TFn, lang: Lang): string {
   if (!iso) return "—";
   try {
     const d = new Date(iso);
@@ -228,10 +233,10 @@ function fmtDayHeader(iso: string): string {
     const isToday = d.toDateString() === today.toDateString();
     const isYesterday = d.toDateString() === yesterday.toDateString();
 
-    if (isToday) return "Aujourd'hui";
-    if (isYesterday) return "Hier";
+    if (isToday) return t("movements.today");
+    if (isYesterday) return t("movements.yesterday");
 
-    return d.toLocaleDateString("fr-FR", {
+    return d.toLocaleDateString(lang === "it" ? "it-IT" : "fr-FR", {
       weekday: "long",
       day: "numeric",
       month: "long",

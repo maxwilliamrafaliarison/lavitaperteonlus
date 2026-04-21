@@ -6,6 +6,8 @@ import { Loader2, LogOut } from "lucide-react";
 
 import { logoutAuditAction } from "@/lib/auth/actions";
 import { GlassCard } from "@/components/glass/glass-card";
+import { getT, type Lang } from "@/lib/i18n";
+import { getStoredLang } from "@/lib/i18n/persist";
 
 /**
  * Page transitoire de déconnexion.
@@ -15,6 +17,12 @@ import { GlassCard } from "@/components/glass/glass-card";
  */
 export default function LogoutPage() {
   const doneRef = React.useRef(false);
+  const [lang, setLang] = React.useState<Lang>("fr");
+  const t = getT(lang);
+
+  React.useEffect(() => {
+    setLang(getStoredLang() ?? "fr");
+  }, []);
 
   React.useEffect(() => {
     if (doneRef.current) return;
@@ -40,11 +48,11 @@ export default function LogoutPage() {
             <LogOut className="size-6" />
           </div>
           <h1 className="mt-6 font-display text-xl font-semibold">
-            Déconnexion en cours
+            {t("logout_page.title")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground inline-flex items-center gap-2">
             <Loader2 className="size-3.5 animate-spin" />
-            Au revoir !
+            {t("logout_page.subtitle")}
           </p>
         </div>
       </GlassCard>

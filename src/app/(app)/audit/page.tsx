@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
-  ScrollText, Eye, LogIn, LogOut, Pencil, Trash2, RotateCcw, UserPlus, Filter,
+  Eye, LogIn, LogOut, Pencil, Trash2, RotateCcw, UserPlus, Filter,
 } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
@@ -9,6 +9,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { listAuditLogs } from "@/lib/sheets/audit";
 import { safe, isConfigError } from "@/lib/sheets/safe";
+import { getT, type Lang } from "@/lib/i18n";
 import type { AuditLog, AuditLogAction } from "@/types";
 import { cn } from "@/lib/utils";
 import { ArrowRightLeft } from "lucide-react";
@@ -17,17 +18,17 @@ export const dynamic = "force-dynamic";
 
 const ACTION_META: Record<
   AuditLogAction,
-  { label: string; icon: typeof Eye; tone: "primary" | "success" | "warning" | "muted" }
+  { key: string; icon: typeof Eye; tone: "primary" | "success" | "warning" | "muted" }
 > = {
-  view_password: { label: "MDP consulté", icon: Eye, tone: "primary" },
-  view_material: { label: "Fiche consultée", icon: Eye, tone: "muted" },
-  edit_material: { label: "Modification", icon: Pencil, tone: "warning" },
-  delete_material: { label: "Suppression", icon: Trash2, tone: "primary" },
-  restore_material: { label: "Restauration", icon: RotateCcw, tone: "success" },
-  transfer_material: { label: "Transfert", icon: ArrowRightLeft, tone: "warning" },
-  invite_user: { label: "Utilisateur invité", icon: UserPlus, tone: "success" },
-  login: { label: "Connexion", icon: LogIn, tone: "muted" },
-  logout: { label: "Déconnexion", icon: LogOut, tone: "muted" },
+  view_password: { key: "view_password", icon: Eye, tone: "primary" },
+  view_material: { key: "view_material", icon: Eye, tone: "muted" },
+  edit_material: { key: "edit_material", icon: Pencil, tone: "warning" },
+  delete_material: { key: "delete_material", icon: Trash2, tone: "primary" },
+  restore_material: { key: "restore_material", icon: RotateCcw, tone: "success" },
+  transfer_material: { key: "transfer_material", icon: ArrowRightLeft, tone: "warning" },
+  invite_user: { key: "invite_user", icon: UserPlus, tone: "success" },
+  login: { key: "login", icon: LogIn, tone: "muted" },
+  logout: { key: "logout", icon: LogOut, tone: "muted" },
 };
 
 const TONE_STYLES = {
@@ -46,6 +47,9 @@ export default async function AuditPage({
 }) {
   const session = await auth();
   if (session?.user.role !== "admin") redirect("/dashboard");
+
+  const lang: Lang = session.user.lang ?? "fr";
+  const t = getT(lang);
 
   const sp = await searchParams;
   const filterAction = sp.action as AuditLogAction | undefined;
@@ -68,19 +72,18 @@ export default async function AuditPage({
 
   return (
     <>
-      <AppTopbar title="Journal d'audit" />
+      <AppTopbar title={t("topbar.audit")} />
 
       <main className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Sécurité & traçabilité
+            {t("audit.eyebrow")}
           </p>
           <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-            Journal d&apos;audit
+            {t("audit.title")}
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Consultations de mots de passe, modifications du parc, connexions —
-            les 200 dernières entrées. Réservé à l&apos;administrateur.
+            {t("audit.subtitle")}
           </p>
         </header>
 
@@ -88,37 +91,37 @@ export default async function AuditPage({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground mr-1">
             <Filter className="size-3.5" />
-            Filtrer :
+            {t("common.filter")} :
           </span>
           <FilterChip
             href="/audit"
-            label="Tout"
+            label={t("audit.filter_all")}
             active={!filterAction}
             count={Object.values(counts).reduce((a, b) => a + b, 0)}
           />
           <FilterChip
             href="/audit?action=view_password"
-            label="MDP consultés"
+            label={t("audit.filter_passwords")}
             active={filterAction === "view_password"}
             count={counts["view_password"]}
             tone="primary"
           />
           <FilterChip
             href="/audit?action=login"
-            label="Connexions"
+            label={t("audit.filter_logins")}
             active={filterAction === "login"}
             count={counts["login"]}
           />
           <FilterChip
             href="/audit?action=edit_material"
-            label="Modifications"
+            label={t("audit.filter_edits")}
             active={filterAction === "edit_material"}
             count={counts["edit_material"]}
             tone="warning"
           />
           <FilterChip
             href="/audit?action=delete_material"
-            label="Suppressions"
+            label={t("audit.filter_deletes")}
             active={filterAction === "delete_material"}
             count={counts["delete_material"]}
             tone="primary"
@@ -127,11 +130,11 @@ export default async function AuditPage({
 
         {logs.length === 0 ? (
           <SheetEmptyState
-            title="Aucun événement"
+            title={t("audit.empty_title")}
             description={
               filterAction
-                ? "Aucun événement avec ce filtre."
-                : "Le journal est vide pour l'instant — il se remplira au fur et à mesure de l'activité."
+                ? t("audit.empty_desc_filter")
+                : t("audit.empty_desc_none")
             }
             configError={configIssue}
           />
@@ -156,8 +159,12 @@ export default async function AuditPage({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm">{meta.label}</span>
-                        <span className="text-xs text-muted-foreground">par</span>
+                        <span className="font-medium text-sm">
+                          {t(`audit.action_${meta.key}`)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {t("audit.by")}
+                        </span>
                         <span className="text-xs font-medium">{log.userEmail}</span>
                       </div>
                       {log.details && (
@@ -166,7 +173,7 @@ export default async function AuditPage({
                         </p>
                       )}
                       <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground/80 font-mono">
-                        <span>{fmtDate(log.timestamp)}</span>
+                        <span>{fmtDate(log.timestamp, lang)}</span>
                         {log.targetType && log.targetId && (
                           <span className="truncate">
                             {log.targetType}: {log.targetId.slice(0, 24)}
@@ -184,8 +191,7 @@ export default async function AuditPage({
 
         {logs.length >= 200 && (
           <p className="text-center text-xs text-muted-foreground">
-            Affichage des 200 entrées les plus récentes. La pagination complète
-            arrivera dans une prochaine itération.
+            {t("audit.pagination_hint")}
           </p>
         )}
       </main>
@@ -230,10 +236,10 @@ function FilterChip({
   );
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, lang: Lang): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("fr-FR", {
+    return new Date(iso).toLocaleString(lang === "it" ? "it-IT" : "fr-FR", {
       day: "2-digit",
       month: "short",
       year: "numeric",

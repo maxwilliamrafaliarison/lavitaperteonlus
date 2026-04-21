@@ -5,6 +5,8 @@ import { AlertOctagon, RefreshCcw, Home } from "lucide-react";
 import Link from "next/link";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
+import { getT, type Lang } from "@/lib/i18n";
+import { getStoredLang } from "@/lib/i18n/persist";
 
 /**
  * Global error boundary (app/error.tsx).
@@ -18,6 +20,13 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [lang, setLang] = React.useState<Lang>("fr");
+  const t = getT(lang);
+
+  React.useEffect(() => {
+    setLang(getStoredLang() ?? "fr");
+  }, []);
+
   React.useEffect(() => {
     // Trace côté client — Vercel capture console.error dans les logs
     console.error("[error-boundary]", {
@@ -35,15 +44,14 @@ export default function GlobalError({
             <AlertOctagon className="size-6" />
           </div>
           <h1 className="mt-6 font-display text-2xl font-semibold">
-            Une erreur est survenue
+            {t("errors.generic_title")}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-            {error.message || "Quelque chose s'est mal passé."}{" "}
-            L&apos;incident a été enregistré dans les logs.
+            {error.message || t("errors.generic_message")}
           </p>
           {error.digest && (
             <p className="mt-3 text-[11px] font-mono text-muted-foreground/70">
-              Code : {error.digest}
+              {t("errors.digest_label")} {error.digest}
             </p>
           )}
         </div>
@@ -57,12 +65,12 @@ export default function GlobalError({
             className="w-full"
           >
             <RefreshCcw className="size-4" />
-            Réessayer
+            {t("errors.try_again")}
           </GlassButton>
           <Link href="/dashboard" className="w-full">
             <GlassButton variant="glass" size="md" className="w-full">
               <Home className="size-4" />
-              Retour au tableau de bord
+              {t("errors.back_dashboard")}
             </GlassButton>
           </Link>
         </div>

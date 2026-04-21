@@ -17,11 +17,17 @@ import {
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { LanguageSwitcher, type Lang } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { getStoredLang, detectBrowserLang } from "@/lib/i18n/persist";
+import fr from "@/lib/i18n/messages/fr.json";
+import it from "@/lib/i18n/messages/it.json";
 
 import { setupAdminAction, type SetupState } from "./actions";
 
-function SubmitButton() {
+const messages = { fr, it } as const;
+
+function SubmitButton({ label, submittingLabel }: { label: string; submittingLabel: string }) {
   const { pending } = useFormStatus();
   return (
     <GlassButton
@@ -35,16 +41,26 @@ function SubmitButton() {
       {pending ? (
         <>
           <Loader2 className="size-4 animate-spin" />
-          Création en cours...
+          {submittingLabel}
         </>
       ) : (
-        "Définir le mot de passe"
+        label
       )}
     </GlassButton>
   );
 }
 
 export default function SetupPage() {
+  const [lang, setLang] = React.useState<Lang>("fr");
+  const t = messages[lang];
+
+  // Initialise depuis cookie/localStorage ou langue du navigateur
+  React.useEffect(() => {
+    const stored = getStoredLang();
+    if (stored) setLang(stored);
+    else setLang(detectBrowserLang());
+  }, []);
+
   const [state, formAction] = React.useActionState<SetupState | undefined, FormData>(
     setupAdminAction,
     undefined,
@@ -64,9 +80,12 @@ export default function SetupPage() {
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="size-4" />
-            Retour
+            {t.common.back}
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher value={lang} onChange={setLang} persist />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -85,15 +104,15 @@ export default function SetupPage() {
             <div className="text-center">
               <span className="inline-flex items-center gap-2 rounded-full glass border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground mb-4">
                 <Sparkles className="size-3 text-primary" />
-                Première configuration
+                {t.setup.eyebrow}
               </span>
               <h1 className="font-display text-3xl font-semibold tracking-tight">
-                Configurer le compte admin
+                {t.setup.title}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Saisissez l&apos;email d&apos;un compte présent dans l&apos;onglet{" "}
+                {t.setup.desc_part_1}{" "}
                 <code className="text-foreground bg-white/5 px-1.5 py-0.5 rounded">users</code>{" "}
-                de votre Google Sheet et définissez son mot de passe.
+                {t.setup.desc_part_2}
               </p>
             </div>
 
@@ -106,7 +125,7 @@ export default function SetupPage() {
                   className="mt-6 inline-block"
                 >
                   <GlassButton variant="brand" size="md" shimmer>
-                    Aller à la connexion
+                    {t.setup.success_cta}
                   </GlassButton>
                 </Link>
               </div>
@@ -117,7 +136,7 @@ export default function SetupPage() {
                     htmlFor="email"
                     className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
                   >
-                    Email du compte
+                    {t.setup.email_label}
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -138,7 +157,7 @@ export default function SetupPage() {
                     htmlFor="password"
                     className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
                   >
-                    Nouveau mot de passe
+                    {t.setup.password_label}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -149,12 +168,12 @@ export default function SetupPage() {
                       required
                       minLength={8}
                       autoComplete="new-password"
-                      placeholder="8 caractères minimum"
+                      placeholder={t.setup.password_placeholder}
                       className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                     />
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Minimum 8 caractères, avec au moins 1 lettre et 1 chiffre.
+                    {t.setup.password_rule}
                   </p>
                 </div>
 
@@ -163,7 +182,7 @@ export default function SetupPage() {
                     htmlFor="confirm"
                     className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
                   >
-                    Confirmation
+                    {t.setup.confirm_label}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -174,7 +193,7 @@ export default function SetupPage() {
                       required
                       minLength={8}
                       autoComplete="new-password"
-                      placeholder="Retapez le mot de passe"
+                      placeholder={t.setup.confirm_placeholder}
                       className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                     />
                   </div>
@@ -187,13 +206,13 @@ export default function SetupPage() {
                   </div>
                 )}
 
-                <SubmitButton />
+                <SubmitButton label={t.setup.submit} submittingLabel={t.setup.submitting} />
               </form>
             )}
           </GlassCard>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Cette page sert uniquement à activer un compte créé dans le Sheet.
+            {t.setup.footer_note}
           </p>
         </motion.div>
       </main>

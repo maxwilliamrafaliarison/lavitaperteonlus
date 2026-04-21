@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { QrCode } from "lucide-react";
 import { GlassCard } from "@/components/glass/glass-card";
+import { getT, type Lang } from "@/lib/i18n";
 import { QrActionsButtons } from "./qr-actions";
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
   designation: string;
   /** URL publique à encoder (ex: https://lavitaperteonlus.vercel.app/materials/abc). */
   url: string;
+  lang?: Lang;
 }
 
 /**
@@ -16,7 +18,9 @@ interface Props {
  * Les actions (télécharger SVG, imprimer étiquette) sont déléguées à un
  * sous-composant client (QrActionsButtons).
  */
-export async function QrCodeCard({ materialId, materialRef, designation, url }: Props) {
+export async function QrCodeCard({ materialId, materialRef, designation, url, lang = "fr" }: Props) {
+  const t = getT(lang);
+
   // SVG natif, rendu une seule fois côté serveur
   const svg = await QRCode.toString(url, {
     type: "svg",
@@ -37,9 +41,9 @@ export async function QrCodeCard({ materialId, materialRef, designation, url }: 
             <QrCode className="size-4" />
           </div>
           <div>
-            <h3 className="font-display text-lg font-semibold">QR code</h3>
+            <h3 className="font-display text-lg font-semibold">{t("material_detail.section_qr")}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Scanner pour ouvrir la fiche depuis un téléphone.
+              {t("material_detail.section_qr_desc")}
             </p>
           </div>
         </div>
@@ -50,12 +54,12 @@ export async function QrCodeCard({ materialId, materialRef, designation, url }: 
         <div
           className="qr-svg-wrapper inline-flex items-center justify-center rounded-2xl bg-white p-3 shadow-md shrink-0"
           dangerouslySetInnerHTML={{ __html: svg }}
-          aria-label={`QR code vers la fiche ${materialRef}`}
+          aria-label={`${t("material_detail.section_qr")} · ${materialRef}`}
         />
 
         <div className="flex-1 min-w-0 space-y-2">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Lien encodé
+            {t("material_detail.qr_link_encoded")}
           </p>
           <p className="text-xs font-mono text-muted-foreground break-all leading-relaxed">
             {url}
@@ -66,6 +70,7 @@ export async function QrCodeCard({ materialId, materialRef, designation, url }: 
             materialId={materialId}
             materialRef={materialRef}
             designation={designation}
+            lang={lang}
           />
         </div>
       </div>

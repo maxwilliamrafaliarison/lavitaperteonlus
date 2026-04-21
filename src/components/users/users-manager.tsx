@@ -13,7 +13,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
 import type { AppUser, UserRole } from "@/types";
-import { ROLE_LABELS } from "@/types";
+import { getT, type Lang, type TFn } from "@/lib/i18n";
 
 import {
   inviteUserAction,
@@ -25,6 +25,7 @@ import {
 interface Props {
   users: AppUser[];
   currentUserId: string;
+  lang?: Lang;
 }
 
 const ROLE_META: Record<UserRole, { icon: LucideIcon; tone: string }> = {
@@ -45,8 +46,13 @@ const ROLE_META: Record<UserRole, { icon: LucideIcon; tone: string }> = {
 
 type ModalMode = null | "invite" | { kind: "edit" | "reset"; user: AppUser };
 
-export function UsersManager({ users: initialUsers, currentUserId }: Props) {
+export function UsersManager({
+  users: initialUsers,
+  currentUserId,
+  lang = "fr",
+}: Props) {
   const router = useRouter();
+  const t = React.useMemo(() => getT(lang), [lang]);
   const [users, setUsers] = React.useState(initialUsers);
   const [modal, setModal] = React.useState<ModalMode>(null);
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
@@ -66,7 +72,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
   async function handleToggle(user: AppUser) {
     if (user.id === currentUserId) {
       toast.error("Action impossible", {
-        description: "Vous ne pouvez pas désactiver votre propre compte.",
+        description: t("users.action_self_deactivate"),
       });
       return;
     }
@@ -75,7 +81,11 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
       const result = await toggleActiveUserAction(user.id);
       if (result.ok && result.user) {
         setUsers((prev) => prev.map((u) => (u.id === user.id ? result.user! : u)));
-        toast.success(result.user.active ? "Compte réactivé" : "Compte désactivé");
+        toast.success(
+          result.user.active
+            ? t("users.toggle_activated")
+            : t("users.toggle_deactivated"),
+        );
         router.refresh();
       } else {
         toast.error("Échec", { description: result.error });
@@ -86,13 +96,18 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
     }
   }
 
+  const activeCount = users.filter((u) => u.active).length;
+
   return (
     <>
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <p className="text-sm text-muted-foreground">
-          {users.length} utilisateur{users.length > 1 ? "s" : ""} ·{" "}
-          {users.filter((u) => u.active).length} actif
-          {users.filter((u) => u.active).length > 1 ? "s" : ""}
+          {t("users.count_active", {
+            n: users.length,
+            p: users.length > 1 ? "s" : "",
+            active: activeCount,
+            ap: activeCount > 1 ? "s" : "",
+          })}
         </p>
         <GlassButton
           type="button"
@@ -101,7 +116,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
           onClick={() => setModal("invite")}
         >
           <UserPlus className="size-3.5" />
-          Inviter un utilisateur
+          {t("actions.invite_user")}
         </GlassButton>
       </div>
 
@@ -132,21 +147,23 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
                     </span>
                     {isSelf && (
                       <span className="text-[10px] uppercase tracking-wider text-accent bg-accent/10 border border-accent/30 rounded-full px-1.5 py-0.5">
-                        Vous
+                        {t("users.self_badge")}
                       </span>
                     )}
                     {!u.active && (
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground bg-muted rounded-full px-1.5 py-0.5">
-                        Désactivé
+                        {t("users.inactive_badge")}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                   <div className="mt-1 flex items-center gap-3 text-[11px] text-muted-foreground/80 font-mono">
                     {u.lastLoginAt ? (
-                      <span>Dernière connexion : {fmtDate(u.lastLoginAt)}</span>
+                      <span>
+                        {t("users.last_login")} {fmtDate(u.lastLoginAt, lang)}
+                      </span>
                     ) : (
-                      <span className="italic">Jamais connecté</span>
+                      <span className="italic">{t("users.never_logged")}</span>
                     )}
                   </div>
                 </div>
@@ -158,7 +175,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
                   )}
                 >
                   <Icon className="size-3" />
-                  {ROLE_LABELS[u.role].fr}
+                  {t(`roles.${u.role}`)}
                 </span>
 
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono shrink-0 hidden md:inline">
@@ -175,7 +192,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
                     }}
                     disabled={busy}
                     className="inline-flex size-8 items-center justify-center rounded-lg hover:bg-white/8 transition-colors disabled:opacity-50"
-                    aria-label="Actions"
+                    aria-label={t("common.actions")}
                   >
                     {busy ? (
                       <Loader2 className="size-4 animate-spin" />
@@ -191,7 +208,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
                     >
                       <MenuItem
                         icon={<Pencil className="size-3.5" />}
-                        label="Modifier"
+                        label={t("actions.edit")}
                         onClick={() => {
                           setModal({ kind: "edit", user: u });
                           setOpenMenuId(null);
@@ -199,7 +216,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
                       />
                       <MenuItem
                         icon={<KeyRound className="size-3.5" />}
-                        label="Réinitialiser MDP"
+                        label={t("actions.reset_password")}
                         onClick={() => {
                           setModal({ kind: "reset", user: u });
                           setOpenMenuId(null);
@@ -214,7 +231,11 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
                               <UserCheck className="size-3.5" />
                             )
                           }
-                          label={u.active ? "Désactiver" : "Réactiver"}
+                          label={
+                            u.active
+                              ? t("actions.deactivate")
+                              : t("actions.activate")
+                          }
                           onClick={() => handleToggle(u)}
                           destructive={u.active}
                         />
@@ -230,6 +251,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
 
       {modal === "invite" && (
         <InviteModal
+          t={t}
           onClose={() => setModal(null)}
           onSuccess={(user) => {
             setUsers((prev) => [...prev, user]);
@@ -240,6 +262,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
       )}
       {modal && typeof modal === "object" && modal.kind === "edit" && (
         <EditUserModal
+          t={t}
           user={modal.user}
           onClose={() => setModal(null)}
           onSuccess={(user) => {
@@ -251,6 +274,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
       )}
       {modal && typeof modal === "object" && modal.kind === "reset" && (
         <ResetPasswordModal
+          t={t}
           user={modal.user}
           onClose={() => setModal(null)}
           onSuccess={() => {
@@ -268,9 +292,11 @@ export function UsersManager({ users: initialUsers, currentUserId }: Props) {
    ============================================================ */
 
 function InviteModal({
+  t,
   onClose,
   onSuccess,
 }: {
+  t: TFn;
   onClose: () => void;
   onSuccess: (user: AppUser) => void;
 }) {
@@ -285,12 +311,14 @@ function InviteModal({
     try {
       const result = await inviteUserAction(formData);
       if (result.ok && result.user) {
-        toast.success("Utilisateur invité", {
-          description: `${result.user.email} peut désormais se connecter.`,
+        toast.success(t("users.invite_success"), {
+          description: t("users.invite_success_desc", {
+            email: result.user.email,
+          }),
         });
         onSuccess(result.user);
       } else {
-        setError(result.error ?? "Erreur inconnue");
+        setError(result.error ?? t("material_form.error_generic"));
         toast.error("Échec", { description: result.error });
       }
     } catch (e) {
@@ -301,83 +329,94 @@ function InviteModal({
   }
 
   return (
-    <Modal title="Inviter un utilisateur" onClose={onClose} disabled={loading}>
+    <Modal
+      title={t("users.modal_invite_title")}
+      onClose={onClose}
+      disabled={loading}
+      t={t}
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Email">
+        <Field label={t("users.field_email")}>
           <input
             name="email"
             type="email"
             required
-            placeholder="prenom.nom@exemple.fr"
+            placeholder={t("users.field_email_placeholder")}
             className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </Field>
 
-        <Field label="Nom complet">
+        <Field label={t("users.field_name")}>
           <input
             name="name"
             type="text"
             required
-            placeholder="Ex: Max Rafaliarison"
+            placeholder={t("users.field_name_placeholder")}
             className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Rôle">
+          <Field label={t("users.field_role")}>
             <select
               name="role"
               required
               defaultValue="logistique"
               className="w-full rounded-xl glass border px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
-              <option value="admin">Administrateur</option>
-              <option value="informaticien">Informaticien</option>
-              <option value="direction">Direction</option>
-              <option value="logistique">Logistique</option>
+              <option value="admin">{t("roles.admin")}</option>
+              <option value="informaticien">{t("roles.informaticien")}</option>
+              <option value="direction">{t("roles.direction")}</option>
+              <option value="logistique">{t("roles.logistique")}</option>
             </select>
           </Field>
-          <Field label="Langue">
+          <Field label={t("users.field_lang")}>
             <select
               name="lang"
               required
               defaultValue="fr"
               className="w-full rounded-xl glass border px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
-              <option value="fr">Français</option>
-              <option value="it">Italiano</option>
+              <option value="fr">{t("settings.language_fr")}</option>
+              <option value="it">{t("settings.language_it")}</option>
             </select>
           </Field>
         </div>
 
-        <Field label="Mot de passe initial">
+        <Field label={t("users.field_password_initial")}>
           <input
             name="password"
             type="text"
             required
             minLength={8}
-            placeholder="8 caractères min · 1 lettre · 1 chiffre"
+            placeholder={t("users.password_placeholder")}
             className="w-full rounded-xl glass border px-3.5 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            À transmettre à l&apos;utilisateur en mains propres. Il pourra le
-            changer depuis ses réglages (Phase 8).
+            {t("users.password_initial_hint")}
           </p>
         </Field>
 
         {error && <ErrorBanner message={error} />}
 
-        <ModalActions loading={loading} onCancel={onClose} submitLabel="Inviter" />
+        <ModalActions
+          loading={loading}
+          onCancel={onClose}
+          submitLabel={t("users.submit_invite")}
+          t={t}
+        />
       </form>
     </Modal>
   );
 }
 
 function EditUserModal({
+  t,
   user,
   onClose,
   onSuccess,
 }: {
+  t: TFn;
   user: AppUser;
   onClose: () => void;
   onSuccess: (user: AppUser) => void;
@@ -393,10 +432,10 @@ function EditUserModal({
     try {
       const result = await updateUserAction(user.id, formData);
       if (result.ok && result.user) {
-        toast.success("Utilisateur mis à jour");
+        toast.success(t("users.update_success"));
         onSuccess(result.user);
       } else {
-        setError(result.error ?? "Erreur inconnue");
+        setError(result.error ?? t("material_form.error_generic"));
         toast.error("Échec", { description: result.error });
       }
     } catch (e) {
@@ -407,9 +446,14 @@ function EditUserModal({
   }
 
   return (
-    <Modal title={`Modifier ${user.email}`} onClose={onClose} disabled={loading}>
+    <Modal
+      title={t("users.modal_edit_title", { email: user.email })}
+      onClose={onClose}
+      disabled={loading}
+      t={t}
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Nom complet">
+        <Field label={t("users.field_name")}>
           <input
             name="name"
             type="text"
@@ -420,45 +464,52 @@ function EditUserModal({
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Rôle">
+          <Field label={t("users.field_role")}>
             <select
               name="role"
               defaultValue={user.role}
               required
               className="w-full rounded-xl glass border px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
-              <option value="admin">Administrateur</option>
-              <option value="informaticien">Informaticien</option>
-              <option value="direction">Direction</option>
-              <option value="logistique">Logistique</option>
+              <option value="admin">{t("roles.admin")}</option>
+              <option value="informaticien">{t("roles.informaticien")}</option>
+              <option value="direction">{t("roles.direction")}</option>
+              <option value="logistique">{t("roles.logistique")}</option>
             </select>
           </Field>
-          <Field label="Langue">
+          <Field label={t("users.field_lang")}>
             <select
               name="lang"
               defaultValue={user.lang}
               required
               className="w-full rounded-xl glass border px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
-              <option value="fr">Français</option>
-              <option value="it">Italiano</option>
+              <option value="fr">{t("settings.language_fr")}</option>
+              <option value="it">{t("settings.language_it")}</option>
             </select>
           </Field>
         </div>
 
         {error && <ErrorBanner message={error} />}
 
-        <ModalActions loading={loading} onCancel={onClose} submitLabel="Enregistrer" />
+        <ModalActions
+          loading={loading}
+          onCancel={onClose}
+          submitLabel={t("users.submit_save")}
+          t={t}
+        />
       </form>
     </Modal>
   );
 }
 
 function ResetPasswordModal({
+  t,
   user,
   onClose,
   onSuccess,
 }: {
+  t: TFn;
   user: AppUser;
   onClose: () => void;
   onSuccess: () => void;
@@ -474,12 +525,12 @@ function ResetPasswordModal({
     try {
       const result = await resetPasswordAction(user.id, password);
       if (result.ok) {
-        toast.success("Mot de passe réinitialisé", {
-          description: `Transmettez le nouveau MDP à ${user.email}.`,
+        toast.success(t("users.reset_success"), {
+          description: t("users.reset_success_desc", { email: user.email }),
         });
         onSuccess();
       } else {
-        setError(result.error ?? "Erreur inconnue");
+        setError(result.error ?? t("material_form.error_generic"));
         toast.error("Échec", { description: result.error });
       }
     } catch (e) {
@@ -491,17 +542,17 @@ function ResetPasswordModal({
 
   return (
     <Modal
-      title={`Réinitialiser le MDP de ${user.email}`}
+      title={t("users.modal_reset_title", { email: user.email })}
       onClose={onClose}
       disabled={loading}
+      t={t}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded-xl border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
-          L&apos;utilisateur devra utiliser ce nouveau MDP à sa prochaine
-          connexion. L&apos;ancien sera invalidé immédiatement.
+          {t("users.reset_warning")}
         </div>
 
-        <Field label="Nouveau mot de passe">
+        <Field label={t("users.field_password_new")}>
           <input
             name="password"
             type="text"
@@ -509,14 +560,19 @@ function ResetPasswordModal({
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            placeholder="8 caractères min · 1 lettre · 1 chiffre"
+            placeholder={t("users.password_placeholder")}
             className="w-full rounded-xl glass border px-3.5 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
         </Field>
 
         {error && <ErrorBanner message={error} />}
 
-        <ModalActions loading={loading} onCancel={onClose} submitLabel="Réinitialiser" />
+        <ModalActions
+          loading={loading}
+          onCancel={onClose}
+          submitLabel={t("users.submit_reset")}
+          t={t}
+        />
       </form>
     </Modal>
   );
@@ -531,11 +587,13 @@ function Modal({
   children,
   onClose,
   disabled,
+  t,
 }: {
   title: string;
   children: React.ReactNode;
   onClose: () => void;
   disabled?: boolean;
+  t: TFn;
 }) {
   return (
     <div
@@ -553,7 +611,7 @@ function Modal({
             onClick={onClose}
             disabled={disabled}
             className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-            aria-label="Fermer"
+            aria-label={t("common.close")}
           >
             <X className="size-4" />
           </button>
@@ -587,10 +645,12 @@ function ModalActions({
   loading,
   onCancel,
   submitLabel,
+  t,
 }: {
   loading: boolean;
   onCancel: () => void;
   submitLabel: string;
+  t: TFn;
 }) {
   return (
     <div className="flex gap-2 justify-end pt-2">
@@ -601,7 +661,7 @@ function ModalActions({
         onClick={onCancel}
         disabled={loading}
       >
-        Annuler
+        {t("common.cancel")}
       </GlassButton>
       <GlassButton type="submit" variant="brand" size="sm" disabled={loading}>
         {loading && <Loader2 className="size-3.5 animate-spin" />}
@@ -651,10 +711,10 @@ function getInitials(name: string): string {
     .toUpperCase();
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, lang: Lang): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleDateString("fr-FR", {
+    return new Date(iso).toLocaleDateString(lang === "it" ? "it-IT" : "fr-FR", {
       day: "2-digit",
       month: "short",
       year: "numeric",

@@ -33,6 +33,7 @@ import { SessionsManager } from "@/components/materials/sessions-manager";
 import { DeleteMaterialButton } from "@/components/materials/delete-button";
 import { MovementHistory } from "@/components/movements/movement-history";
 import { QrCodeCard } from "@/components/materials/qr-code-card";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export default async function MaterialDetailPage({
   const session = await auth();
   const role = session?.user.role;
   const lang = session?.user.lang ?? "fr";
+  const t = getT(lang);
 
   const matRes = await safe<Material | null>(() => getMaterial(id), null);
   if (!matRes.data && !isConfigError(matRes.error)) notFound();
@@ -54,14 +56,14 @@ export default async function MaterialDetailPage({
   if (!material) {
     return (
       <>
-        <AppTopbar title="Matériel" />
+        <AppTopbar title={t("topbar.materials_detail")} />
         <main className="flex-1 p-6 md:p-10">
           <div className="rounded-3xl glass border p-10 text-center max-w-2xl mx-auto">
             <AlertCircle className="size-10 mx-auto text-primary mb-4" />
             <p className="text-sm text-muted-foreground">
               {isConfigError(matRes.error)
-                ? "Connexion au Google Sheet impossible. Vérifiez les variables d'environnement Vercel."
-                : "Matériel introuvable."}
+                ? t("material_detail.config_error")
+                : t("material_detail.not_found")}
             </p>
           </div>
         </main>
@@ -109,7 +111,7 @@ export default async function MaterialDetailPage({
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="size-4" />
-          Retour
+          {t("common.back")}
         </Link>
 
         {/* HERO */}
@@ -140,7 +142,7 @@ export default async function MaterialDetailPage({
             <div className="flex flex-col items-center md:items-end gap-3 shrink-0">
               <ScoreGauge score={obs.score} level={obs.level} size={120} />
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Score obsolescence
+                {t("material_detail.score_gauge_label")}
               </p>
             </div>
           </div>
@@ -152,7 +154,7 @@ export default async function MaterialDetailPage({
                 <Link href={`/materials/${material.id}/edit`}>
                   <GlassButton variant="glass" size="sm">
                     <Pencil className="size-3.5" />
-                    Modifier
+                    {t("actions.edit")}
                   </GlassButton>
                 </Link>
               )}
@@ -160,7 +162,7 @@ export default async function MaterialDetailPage({
                 <Link href={`/materials/${material.id}/transfer`}>
                   <GlassButton variant="glass" size="sm">
                     <ArrowRightLeft className="size-3.5" />
-                    Transférer
+                    {t("actions.transfer")}
                   </GlassButton>
                 </Link>
               )}
@@ -168,6 +170,7 @@ export default async function MaterialDetailPage({
                 <DeleteMaterialButton
                   materialId={material.id}
                   materialLabel={material.designation || material.ref}
+                  lang={lang}
                 />
               )}
             </div>
@@ -179,7 +182,7 @@ export default async function MaterialDetailPage({
           <GlassCard className="p-6">
             <h3 className="font-display text-lg font-semibold flex items-center gap-2">
               <AlertCircle className="size-5 text-primary" />
-              Pourquoi ce score ?
+              {t("material_detail.score_reasons_title")}
             </h3>
             <ul className="mt-4 space-y-2 text-sm">
               {obs.reasons.map((r, i) => (
@@ -195,55 +198,55 @@ export default async function MaterialDetailPage({
         {/* Two-column grid */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Localisation */}
-          <Section title="Localisation" icon={<MapPin className="size-5" />}>
-            <Field label="Site" value={siteRes.data?.name ?? "—"} icon={<Building2 className="size-4" />} />
-            <Field label="Salle" value={roomRes.data?.name ?? "—"} icon={<MapPin className="size-4" />} />
-            <Field label="Service" value={material.service} />
-            <Field label="Affecté à" value={material.assignedTo} icon={<UserIcon className="size-4" />} />
-            <Field label="Propriétaire" value={material.owner} />
+          <Section title={t("material_detail.section_location")} icon={<MapPin className="size-5" />}>
+            <Field label={t("material_detail.field_site")} value={siteRes.data?.name ?? t("common.none")} icon={<Building2 className="size-4" />} />
+            <Field label={t("material_detail.field_room")} value={roomRes.data?.name ?? t("common.none")} icon={<MapPin className="size-4" />} />
+            <Field label={t("material_detail.field_service")} value={material.service} />
+            <Field label={t("material_detail.field_assigned_to")} value={material.assignedTo} icon={<UserIcon className="size-4" />} />
+            <Field label={t("material_detail.field_owner")} value={material.owner} />
           </Section>
 
           {/* Achat / Amortissement */}
-          <Section title="Achat & finance" icon={<Banknote className="size-5" />}>
-            <Field label="Date d'achat" value={material.purchaseDate} icon={<Calendar className="size-4" />} />
-            <Field label="Coût (TTC)" value={material.purchasePrice ? `${material.purchasePrice.toLocaleString("fr-FR")} Ar` : undefined} />
-            <Field label="Amortissement" value={material.amortization} />
-            <Field label="Quantité 2025" value={material.quantity2025?.toString()} />
+          <Section title={t("material_detail.section_purchase")} icon={<Banknote className="size-5" />}>
+            <Field label={t("material_detail.field_purchase_date")} value={material.purchaseDate} icon={<Calendar className="size-4" />} />
+            <Field label={t("material_detail.field_cost")} value={material.purchasePrice ? `${material.purchasePrice.toLocaleString("fr-FR")} Ar` : undefined} />
+            <Field label={t("material_detail.field_amortization")} value={material.amortization} />
+            <Field label={t("material_detail.field_quantity_2025")} value={material.quantity2025?.toString()} />
           </Section>
 
           {/* Caractéristiques techniques */}
-          <Section title="Caractéristiques" icon={<Cpu className="size-5" />}>
-            <Field label="Marque" value={material.brand} icon={<Tag className="size-4" />} />
-            <Field label="Modèle" value={material.model} />
-            <Field label="N° de série" value={material.serialNumber} className="font-mono text-xs" />
-            <Field label="Système" value={material.os} icon={<MonitorSmartphone className="size-4" />} />
-            <Field label="Processeur" value={material.cpu} icon={<Cpu className="size-4" />} />
-            <Field label="RAM" value={material.ram} icon={<MemoryStick className="size-4" />} />
-            <Field label="Stockage" value={material.storage} icon={<HardDrive className="size-4" />} />
+          <Section title={t("material_detail.section_specs")} icon={<Cpu className="size-5" />}>
+            <Field label={t("material_detail.field_brand")} value={material.brand} icon={<Tag className="size-4" />} />
+            <Field label={t("material_detail.field_model")} value={material.model} />
+            <Field label={t("material_detail.field_serial")} value={material.serialNumber} className="font-mono text-xs" />
+            <Field label={t("material_detail.field_os")} value={material.os} icon={<MonitorSmartphone className="size-4" />} />
+            <Field label={t("material_detail.field_cpu")} value={material.cpu} icon={<Cpu className="size-4" />} />
+            <Field label={t("material_detail.field_ram")} value={material.ram} icon={<MemoryStick className="size-4" />} />
+            <Field label={t("material_detail.field_storage")} value={material.storage} icon={<HardDrive className="size-4" />} />
           </Section>
 
           {/* Réseau */}
-          <Section title="Réseau" icon={<Wifi className="size-5" />}>
-            <Field label="Adresse IP" value={material.ipAddress} icon={<Globe className="size-4" />} className="font-mono text-xs" />
-            <Field label="Adresse MAC" value={material.macAddress} className="font-mono text-xs" />
+          <Section title={t("material_detail.section_network")} icon={<Wifi className="size-5" />}>
+            <Field label={t("material_detail.field_ip")} value={material.ipAddress} icon={<Globe className="size-4" />} className="font-mono text-xs" />
+            <Field label={t("material_detail.field_mac")} value={material.macAddress} className="font-mono text-xs" />
             <Field
-              label="Internet"
+              label={t("material_detail.field_internet")}
               value={
                 material.internetAccess === undefined
                   ? undefined
                   : material.internetAccess
-                    ? "Oui"
-                    : "Non"
+                    ? t("common.yes")
+                    : t("common.no")
               }
             />
             <Field
-              label="Lié à la BDD"
+              label={t("material_detail.field_linked_bdd")}
               value={
                 material.linkedToBDD === undefined
                   ? undefined
                   : material.linkedToBDD
-                    ? "Oui"
-                    : "Non"
+                    ? t("common.yes")
+                    : t("common.no")
               }
               icon={<Database className="size-4" />}
             />
@@ -258,21 +261,21 @@ export default async function MaterialDetailPage({
                 <Lock className="size-4" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-semibold">Sessions & mots de passe</h3>
+                <h3 className="font-display text-lg font-semibold">{t("material_detail.section_sessions")}</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Comptes utilisateurs configurés sur ce matériel
+                  {t("material_detail.section_sessions_desc")}
                 </p>
               </div>
             </div>
             {canSeePassword ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 text-accent border border-accent/30 px-2.5 h-6 text-[10px] font-medium uppercase tracking-wider">
                 <Eye className="size-3" />
-                Accès autorisé
+                {t("material_detail.sessions_access_allowed")}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted text-muted-foreground border px-2.5 h-6 text-[10px] font-medium uppercase tracking-wider">
                 <Lock className="size-3" />
-                Accès restreint
+                {t("material_detail.sessions_access_restricted")}
               </span>
             )}
           </div>
@@ -283,6 +286,7 @@ export default async function MaterialDetailPage({
               sessions={sessions}
               canReveal={canSeePassword}
               canEdit={canEdit}
+              lang={lang}
             />
           </div>
         </GlassCard>
@@ -301,12 +305,13 @@ export default async function MaterialDetailPage({
           materialRef={material.ref}
           designation={material.designation || material.ref}
           url={materialUrl}
+          lang={lang}
         />
 
         {/* Notes */}
         {material.notes && (
           <GlassCard className="p-6">
-            <h3 className="font-display text-lg font-semibold mb-3">Remarques</h3>
+            <h3 className="font-display text-lg font-semibold mb-3">{t("material_detail.section_notes")}</h3>
             <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
               {material.notes}
             </p>
@@ -315,9 +320,9 @@ export default async function MaterialDetailPage({
 
         {/* Meta */}
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-muted-foreground/80">
-          <span>Créé : {fmtDate(material.createdAt)}</span>
-          <span>Mis à jour : {fmtDate(material.updatedAt)}</span>
-          <span className="font-mono">ID : {material.id}</span>
+          <span>{t("material_detail.meta_created")} : {fmtDate(material.createdAt)}</span>
+          <span>{t("material_detail.meta_updated")} : {fmtDate(material.updatedAt)}</span>
+          <span className="font-mono">{t("material_detail.meta_id")} : {material.id}</span>
         </div>
       </main>
     </>

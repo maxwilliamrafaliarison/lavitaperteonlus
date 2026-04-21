@@ -6,19 +6,20 @@ import {
 } from "lucide-react";
 
 import type { Movement, MovementType, Site, Room } from "@/types";
+import { getT, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 const MOVEMENT_META: Record<
   MovementType,
-  { label: string; icon: LucideIcon; tone: "primary" | "success" | "warning" | "muted" | "cyan" }
+  { icon: LucideIcon; tone: "primary" | "success" | "warning" | "muted" | "cyan" }
 > = {
-  creation: { label: "Création", icon: Sparkles, tone: "success" },
-  transfert_site: { label: "Transfert de site", icon: Building2, tone: "primary" },
-  transfert_salle: { label: "Transfert de salle", icon: DoorOpen, tone: "cyan" },
-  transfert_utilisateur: { label: "Changement d'affectation", icon: UserIcon, tone: "cyan" },
-  reparation: { label: "Envoi en réparation", icon: Wrench, tone: "warning" },
-  mise_au_rebut: { label: "Mise au rebut", icon: Trash2, tone: "primary" },
-  restauration: { label: "Restauration", icon: RotateCcw, tone: "success" },
+  creation: { icon: Sparkles, tone: "success" },
+  transfert_site: { icon: Building2, tone: "primary" },
+  transfert_salle: { icon: DoorOpen, tone: "cyan" },
+  transfert_utilisateur: { icon: UserIcon, tone: "cyan" },
+  reparation: { icon: Wrench, tone: "warning" },
+  mise_au_rebut: { icon: Trash2, tone: "primary" },
+  restauration: { icon: RotateCcw, tone: "success" },
 };
 
 const TONE_STYLES = {
@@ -38,6 +39,7 @@ export interface MovementCardProps {
   materialLabel?: string;
   userLabel?: string;
   showMaterialLink?: boolean;
+  lang?: Lang;
 }
 
 export function MovementCard({
@@ -47,9 +49,12 @@ export function MovementCard({
   materialLabel,
   userLabel,
   showMaterialLink = false,
+  lang = "fr",
 }: MovementCardProps) {
+  const t = getT(lang);
   const meta = MOVEMENT_META[movement.type] ?? MOVEMENT_META.creation;
   const Icon = meta.icon;
+  const label = t(`movement_types.${movement.type}`);
 
   const fromSite = movement.fromSiteId ? siteMap.get(movement.fromSiteId) : null;
   const fromRoom = movement.fromRoomId ? roomMap.get(movement.fromRoomId) : null;
@@ -85,7 +90,7 @@ export function MovementCard({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-medium text-sm">{meta.label}</span>
+          <span className="font-medium text-sm">{label}</span>
           {showMaterialLink && materialLabel && (
             <>
               <span className="text-xs text-muted-foreground">·</span>
@@ -106,7 +111,9 @@ export function MovementCard({
             <span className="truncate text-foreground/80 font-medium">{to}</span>
           </div>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground">Ajout au parc · {to}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("movement_types.creation_detail")} {to}
+          </p>
         )}
 
         {movement.reason && (
@@ -116,18 +123,22 @@ export function MovementCard({
         )}
 
         <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground/80 font-mono">
-          <span>{fmtDate(movement.date)}</span>
-          {userLabel && <span>par {userLabel}</span>}
+          <span>{fmtDate(movement.date, lang)}</span>
+          {userLabel && (
+            <span>
+              {t("movements.by")} {userLabel}
+            </span>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, lang: Lang): string {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString("fr-FR", {
+    return new Date(iso).toLocaleString(lang === "it" ? "it-IT" : "fr-FR", {
       day: "2-digit",
       month: "short",
       year: "numeric",

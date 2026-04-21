@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { GlassButton } from "@/components/glass/glass-button";
 import { GlassCard } from "@/components/glass/glass-card";
 import { cn } from "@/lib/utils";
+import { getT, type Lang, type TFn } from "@/lib/i18n";
 import type { MaterialSession } from "@/types";
 
 import {
@@ -22,6 +23,7 @@ interface SessionsManagerProps {
   sessions: MaterialSession[];
   canReveal: boolean;
   canEdit: boolean;
+  lang?: Lang;
 }
 
 interface RevealedState {
@@ -35,7 +37,9 @@ export function SessionsManager({
   sessions: initialSessions,
   canReveal,
   canEdit,
+  lang = "fr",
 }: SessionsManagerProps) {
+  const t = React.useMemo(() => getT(lang), [lang]);
   const [sessions, setSessions] = React.useState(initialSessions);
   const [revealed, setRevealed] = React.useState<RevealedState>({});
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
@@ -71,11 +75,11 @@ export function SessionsManager({
           ...prev,
           [session.id]: { value: result.password!, until: Date.now() + REVEAL_DURATION_MS },
         }));
-        toast.success("Mot de passe révélé", {
-          description: "Consultation enregistrée dans le journal d'audit.",
+        toast.success(t("sessions.reveal_title"), {
+          description: t("sessions.reveal_desc"),
         });
       } else {
-        toast.error("Impossible de révéler", { description: result.error });
+        toast.error(t("sessions.reveal_error"), { description: result.error });
       }
     } catch (e) {
       toast.error("Erreur inattendue", { description: String(e) });
@@ -108,8 +112,8 @@ export function SessionsManager({
         value = result.password;
       }
       await navigator.clipboard.writeText(value);
-      toast.success("Mot de passe copié", {
-        description: "Consultation enregistrée dans le journal d'audit.",
+      toast.success(t("sessions.copy_success"), {
+        description: t("sessions.reveal_desc"),
       });
     } catch (e) {
       toast.error("Erreur copie", { description: String(e) });
@@ -118,13 +122,13 @@ export function SessionsManager({
     }
   }
 
-  async function handleDelete(sessionId: string) {
-    if (!confirm("Supprimer cette session ? Le mot de passe sera perdu.")) return;
-    setLoadingId(sessionId);
+  async function handleDelete(session: MaterialSession) {
+    if (!confirm(t("sessions.delete_confirm", { name: session.sessionName }))) return;
+    setLoadingId(session.id);
     try {
-      const result = await deleteSessionAction(sessionId);
+      const result = await deleteSessionAction(session.id);
       if (result.ok) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+        setSessions((prev) => prev.filter((s) => s.id !== session.id));
         toast.success("Session supprimée");
       } else {
         toast.error("Erreur", { description: result.error });
@@ -151,13 +155,13 @@ export function SessionsManager({
       <div className="flex items-center justify-between gap-4 mb-5">
         <p className="text-xs text-muted-foreground">
           {sessions.length === 0
-            ? "Aucune session configurée."
+            ? t("sessions.empty")
             : `${sessions.length} session${sessions.length > 1 ? "s" : ""} · MDP chiffrés AES-256`}
         </p>
         {canEdit && (
           <GlassButton variant="glass" size="sm" onClick={() => setShowAddModal(true)}>
             <Plus className="size-3.5" />
-            Ajouter
+            {t("common.add")}
           </GlassButton>
         )}
       </div>
@@ -166,11 +170,11 @@ export function SessionsManager({
         <div className="rounded-2xl border border-dashed border-glass-border p-8 text-center">
           <Lock className="size-8 mx-auto text-muted-foreground mb-3" />
           <p className="text-sm text-muted-foreground">
-            Aucun compte configuré sur ce matériel.
+            {t("sessions.empty")}
           </p>
           {canEdit && (
             <p className="text-xs text-muted-foreground mt-1">
-              Cliquez sur &quot;Ajouter&quot; pour enregistrer le premier compte.
+              Cliquez sur &quot;{t("common.add")}&quot; pour enregistrer le premier compte.
             </p>
           )}
         </div>
@@ -191,13 +195,13 @@ export function SessionsManager({
                         {session.isAdmin && (
                           <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 text-primary px-1.5 h-4 text-[9px] font-medium uppercase tracking-wider">
                             <ShieldCheck className="size-2.5" />
-                            admin
+                            {t("sessions.admin_badge")}
                           </span>
                         )}
                       </div>
                       {session.assignedUser && (
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Affecté à : <span className="text-foreground">{session.assignedUser}</span>
+                          {t("material_detail.field_assigned_to")} : <span className="text-foreground">{session.assignedUser}</span>
                         </p>
                       )}
                       {session.notes && (
@@ -231,7 +235,7 @@ export function SessionsManager({
                             <button
                               onClick={() => handleHide(session.id)}
                               className="size-9 inline-flex items-center justify-center rounded-xl glass border hover:bg-white/10 transition-colors"
-                              aria-label="Masquer"
+                              aria-label={t("common.close")}
                             >
                               <EyeOff className="size-4" />
                             </button>
@@ -240,7 +244,7 @@ export function SessionsManager({
                               onClick={() => handleReveal(session)}
                               disabled={isLoading}
                               className="size-9 inline-flex items-center justify-center rounded-xl glass border hover:bg-white/10 transition-colors disabled:opacity-50"
-                              aria-label="Voir le mot de passe"
+                              aria-label={t("sessions.reveal_button")}
                             >
                               {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Eye className="size-4" />}
                             </button>
@@ -249,7 +253,7 @@ export function SessionsManager({
                             onClick={() => handleCopy(session)}
                             disabled={isLoading}
                             className="size-9 inline-flex items-center justify-center rounded-xl glass border hover:bg-white/10 transition-colors disabled:opacity-50"
-                            aria-label="Copier"
+                            aria-label={t("sessions.copy_button")}
                           >
                             <Copy className="size-4" />
                           </button>
@@ -260,15 +264,15 @@ export function SessionsManager({
                           <button
                             onClick={() => setEditingId(session.id)}
                             className="size-9 inline-flex items-center justify-center rounded-xl glass border hover:bg-white/10 transition-colors"
-                            aria-label="Modifier"
+                            aria-label={t("actions.edit")}
                           >
                             <Pencil className="size-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(session.id)}
+                            onClick={() => handleDelete(session)}
                             disabled={isLoading}
                             className="size-9 inline-flex items-center justify-center rounded-xl glass border hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50"
-                            aria-label="Supprimer"
+                            aria-label={t("actions.delete")}
                           >
                             <Trash2 className="size-4" />
                           </button>
@@ -286,9 +290,7 @@ export function SessionsManager({
       {!canReveal && sessions.length > 0 && (
         <div className="mt-4 flex items-start gap-2 text-xs text-muted-foreground rounded-2xl bg-muted/50 border border-glass-border p-3">
           <AlertCircle className="size-4 shrink-0 mt-0.5 text-accent" />
-          <span>
-            Votre rôle ne vous autorise pas à voir les mots de passe en clair. Contactez l&apos;administrateur si vous avez besoin d&apos;y accéder.
-          </span>
+          <span>{t("sessions.no_permission")}</span>
         </div>
       )}
 
@@ -297,6 +299,7 @@ export function SessionsManager({
           materialId={materialId}
           onClose={() => setShowAddModal(false)}
           onSaved={handleSessionAdded}
+          t={t}
         />
       )}
 
@@ -306,6 +309,7 @@ export function SessionsManager({
           session={sessions.find((s) => s.id === editingId)}
           onClose={() => setEditingId(null)}
           onSaved={handleSessionUpdated}
+          t={t}
         />
       )}
     </>
@@ -319,11 +323,13 @@ function SessionFormModal({
   session,
   onClose,
   onSaved,
+  t,
 }: {
   materialId: string;
   session?: MaterialSession;
   onClose: () => void;
   onSaved: (s: MaterialSession) => void;
+  t: TFn;
 }) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | undefined>();
@@ -345,7 +351,7 @@ function SessionFormModal({
     if (result.ok && result.session) {
       onSaved(result.session);
     } else {
-      setError(result.error ?? "Erreur inconnue");
+      setError(result.error ?? t("material_form.error_generic"));
     }
   }
 
@@ -359,7 +365,7 @@ function SessionFormModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <h3 className="font-display text-xl font-semibold">
-                {isEdit ? "Modifier la session" : "Ajouter une session"}
+                {isEdit ? t("sessions.modal_edit_title") : t("sessions.modal_add_title")}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
                 Le mot de passe sera chiffré AES-256 dans le Sheet.
@@ -368,25 +374,25 @@ function SessionFormModal({
             <button
               onClick={onClose}
               className="size-8 inline-flex items-center justify-center rounded-full glass border hover:bg-white/10 transition-colors"
-              aria-label="Fermer"
+              aria-label={t("common.close")}
             >
               <X className="size-4" />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <Field label="Nom de session" required>
+            <Field label={t("sessions.field_session_name")} required>
               <input
                 name="sessionName"
                 required
                 defaultValue={session?.sessionName ?? ""}
-                placeholder="Administrator, Accueil, Mission…"
+                placeholder={t("sessions.field_session_name_placeholder")}
                 className="w-full h-11 rounded-2xl glass border px-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
               />
             </Field>
 
             <Field
-              label={isEdit ? "Nouveau mot de passe (laisser vide pour conserver)" : "Mot de passe"}
+              label={isEdit ? "Nouveau mot de passe (laisser vide pour conserver)" : t("sessions.field_password")}
               required={!isEdit}
             >
               <input
@@ -398,7 +404,7 @@ function SessionFormModal({
               />
             </Field>
 
-            <Field label="Utilisateur affecté (optionnel)">
+            <Field label={`${t("sessions.field_assigned_user")} (${t("common.optional").toLowerCase()})`}>
               <input
                 name="assignedUser"
                 defaultValue={session?.assignedUser ?? ""}
@@ -407,7 +413,7 @@ function SessionFormModal({
               />
             </Field>
 
-            <Field label="Notes (optionnel)">
+            <Field label={`${t("sessions.field_notes")} (${t("common.optional").toLowerCase()})`}>
               <textarea
                 name="notes"
                 rows={2}
@@ -424,7 +430,7 @@ function SessionFormModal({
                 defaultChecked={session?.isAdmin ?? false}
                 className="size-4 rounded border-glass-border accent-primary"
               />
-              Compte administrateur
+              {t("sessions.field_is_admin")}
             </label>
 
             {error && (
@@ -436,11 +442,11 @@ function SessionFormModal({
 
             <div className="flex gap-2 justify-end pt-2">
               <GlassButton variant="ghost" size="md" type="button" onClick={onClose}>
-                Annuler
+                {t("common.cancel")}
               </GlassButton>
               <GlassButton variant="brand" size="md" type="submit" disabled={pending}>
                 {pending && <Loader2 className="size-4 animate-spin" />}
-                {isEdit ? "Enregistrer" : "Ajouter"}
+                {isEdit ? t("common.save") : t("common.add")}
               </GlassButton>
             </div>
           </form>

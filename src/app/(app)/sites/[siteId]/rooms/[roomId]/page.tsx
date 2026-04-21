@@ -11,6 +11,7 @@ import { can } from "@/lib/auth/permissions";
 import { getRoom, getSite } from "@/lib/sheets/sites";
 import { listMaterials } from "@/lib/sheets/materials";
 import { safe, isConfigError } from "@/lib/sheets/safe";
+import { getT } from "@/lib/i18n";
 import type { Site, Room, Material } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,8 @@ export default async function RoomMaterialsPage({
   const { siteId, roomId } = await params;
   const session = await auth();
   const role = session?.user.role;
+  const lang = session?.user.lang ?? "fr";
+  const t = getT(lang);
 
   const [siteRes, roomRes, materialsRes] = await Promise.all([
     safe<Site | null>(() => getSite(siteId), null),
@@ -38,7 +41,7 @@ export default async function RoomMaterialsPage({
 
   return (
     <>
-      <AppTopbar title={room?.name ?? "Salle"} />
+      <AppTopbar title={room?.name ?? t("topbar.room_detail")} />
 
       <main className="flex-1 p-6 md:p-10 space-y-8">
         <header className="flex items-end justify-between gap-4 flex-wrap">
@@ -48,14 +51,14 @@ export default async function RoomMaterialsPage({
               className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="size-4" />
-              {site?.name ?? "Site"}
+              {site?.name ?? t("topbar.site_detail")}
             </Link>
             <div className="mt-3">
               <span className="inline-flex items-center gap-1.5 rounded-full glass border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground font-mono">
                 {room?.code ?? "—"}
               </span>
               <h2 className="mt-3 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-                {room?.name ?? "Salle introuvable"}
+                {room?.name ?? t("topbar.room_detail")}
               </h2>
               {room?.service && (
                 <p className="mt-1 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -70,7 +73,7 @@ export default async function RoomMaterialsPage({
             <Link href={`/materials/new?siteId=${siteId}&roomId=${roomId}`}>
               <GlassButton variant="brand" size="md" shimmer>
                 <Plus className="size-4" />
-                Ajouter un matériel
+                {t("sites.room_add_material")}
               </GlassButton>
             </Link>
           )}
@@ -78,22 +81,21 @@ export default async function RoomMaterialsPage({
 
         {materialsRes.data.length === 0 ? (
           <SheetEmptyState
-            title="Aucun matériel dans cette salle"
-            description="Cette salle n'a pas encore de matériel enregistré."
+            title={t("sites.room_empty")}
+            description={t("sites.room_empty")}
             configError={configIssue}
           />
         ) : (
           <section>
             <h3 className="font-display text-lg font-semibold mb-4">
-              {materialsRes.data.length} matériel
-              {materialsRes.data.length > 1 ? "s" : ""}
+              {t("sites.room_materials_title")} ({materialsRes.data.length})
             </h3>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {materialsRes.data.map((material) => (
                 <MaterialCard
                   key={material.id}
                   material={material}
-                  lang={session?.user.lang ?? "fr"}
+                  lang={lang}
                 />
               ))}
             </div>

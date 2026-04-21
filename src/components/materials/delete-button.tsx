@@ -7,15 +7,18 @@ import { toast } from "sonner";
 
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
+import { getT, type Lang } from "@/lib/i18n";
 import { softDeleteMaterialAction } from "./delete-actions";
 
 interface Props {
   materialId: string;
   materialLabel: string;
+  lang?: Lang;
 }
 
-export function DeleteMaterialButton({ materialId, materialLabel }: Props) {
+export function DeleteMaterialButton({ materialId, materialLabel, lang = "fr" }: Props) {
   const router = useRouter();
+  const t = React.useMemo(() => getT(lang), [lang]);
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
@@ -24,9 +27,8 @@ export function DeleteMaterialButton({ materialId, materialLabel }: Props) {
     try {
       const result = await softDeleteMaterialAction(materialId);
       if (result.ok) {
-        toast.success("Matériel mis en corbeille", {
-          description:
-            "Il reste restaurable par l'administrateur depuis la page Corbeille.",
+        toast.success(t("delete_material.success_title"), {
+          description: t("delete_material.success_desc"),
         });
         router.push("/materials");
         router.refresh();
@@ -50,7 +52,7 @@ export function DeleteMaterialButton({ materialId, materialLabel }: Props) {
         className="text-destructive hover:bg-destructive/10"
       >
         <Trash2 className="size-3.5" />
-        Supprimer
+        {t("actions.delete")}
       </GlassButton>
 
       {open && (
@@ -74,23 +76,24 @@ export function DeleteMaterialButton({ materialId, materialLabel }: Props) {
                 onClick={() => setOpen(false)}
                 disabled={loading}
                 className="text-muted-foreground hover:text-foreground transition-colors"
-                aria-label="Fermer"
+                aria-label={t("common.close")}
               >
                 <X className="size-4" />
               </button>
             </div>
 
             <h3 className="font-display text-lg font-semibold">
-              Mettre ce matériel à la corbeille ?
+              {t("delete_material.title")}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{materialLabel}</span>{" "}
-              sera déplacé dans la corbeille. L&apos;action est{" "}
-              <span className="text-foreground">réversible</span> par un administrateur
-              depuis <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/trash</code>.
+              {t("delete_material.desc_part_1")}{" "}
+              <span className="text-foreground">{t("delete_material.desc_reversible")}</span>{" "}
+              {t("delete_material.desc_part_2")}{" "}
+              <code className="bg-muted px-1.5 py-0.5 rounded text-xs">/trash</code>.
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
-              Les sessions (MDP) et l&apos;historique des mouvements sont conservés.
+              {t("delete_material.note_preserved")}
             </p>
 
             <div className="mt-6 flex gap-2 justify-end">
@@ -101,7 +104,7 @@ export function DeleteMaterialButton({ materialId, materialLabel }: Props) {
                 onClick={() => setOpen(false)}
                 disabled={loading}
               >
-                Annuler
+                {t("common.cancel")}
               </GlassButton>
               <GlassButton
                 type="button"
@@ -115,7 +118,7 @@ export function DeleteMaterialButton({ materialId, materialLabel }: Props) {
                 ) : (
                   <Trash2 className="size-3.5" />
                 )}
-                Mettre à la corbeille
+                {t("delete_material.title")}
               </GlassButton>
             </div>
           </div>

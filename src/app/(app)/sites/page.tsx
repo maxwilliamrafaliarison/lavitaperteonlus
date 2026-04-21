@@ -4,14 +4,20 @@ import { Building2, Cpu, ArrowRight, MapPin } from "lucide-react";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
+import { auth } from "@/auth";
 import { listSites, listRooms } from "@/lib/sheets/sites";
 import { listMaterials } from "@/lib/sheets/materials";
 import { safe, isConfigError } from "@/lib/sheets/safe";
+import { getT } from "@/lib/i18n";
 import type { Site, Room, Material } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function SitesPage() {
+  const session = await auth();
+  const lang = session?.user.lang ?? "fr";
+  const t = getT(lang);
+
   const [sitesRes, roomsRes, materialsRes] = await Promise.all([
     safe<Site[]>(() => listSites(), []),
     safe<Room[]>(() => listRooms(), []),
@@ -25,25 +31,25 @@ export default async function SitesPage() {
 
   return (
     <>
-      <AppTopbar title="Sites & salles" />
+      <AppTopbar title={t("topbar.sites")} />
 
       <main className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Vue d&apos;ensemble
+            {t("sites.eyebrow")}
           </p>
           <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-            Centres et salles
+            {t("sites.title")}
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Naviguez par site puis par salle pour explorer le parc matériel.
+            {t("sites.subtitle")}
           </p>
         </header>
 
         {sitesRes.data.length === 0 ? (
           <SheetEmptyState
-            title="Aucun site dans le Sheet"
-            description="Exécutez le script Apps Script `setupSheet()` pour créer la structure et les seeds."
+            title={t("sites.empty")}
+            description={t("sites.empty")}
             configError={configIssue}
           />
         ) : (
@@ -76,12 +82,12 @@ export default async function SitesPage() {
                     <div className="mt-6 grid grid-cols-2 gap-3">
                       <Stat
                         icon={<Building2 className="size-4" />}
-                        label="Salles"
+                        label={t("sites.site_detail_rooms")}
                         value={siteRooms.length}
                       />
                       <Stat
                         icon={<Cpu className="size-4" />}
-                        label="Matériels"
+                        label={t("sites.materials_count")}
                         value={siteMaterials.length}
                       />
                     </div>
