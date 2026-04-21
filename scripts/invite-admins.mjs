@@ -40,6 +40,12 @@ const NEW_USERS = [
     role: "admin",
     lang: "it",
   },
+  {
+    name: "Ettore DUSCI",
+    email: "ettoredusci21@gmail.com",
+    role: "admin",
+    lang: "it",
+  },
 ];
 
 function genUserId() {
