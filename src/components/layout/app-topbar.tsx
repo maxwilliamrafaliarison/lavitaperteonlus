@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { UserMenu } from "./user-menu";
+import { MobileNav } from "./mobile-nav";
 import { redirect } from "next/navigation";
 
 export async function AppTopbar({ title }: { title?: string }) {
@@ -9,10 +10,11 @@ export async function AppTopbar({ title }: { title?: string }) {
   const { name, email, role, lang } = session.user;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-glass-border bg-background/60 backdrop-blur-2xl px-6 md:px-8">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-glass-border bg-background/60 backdrop-blur-2xl px-4 md:px-8">
       <div className="flex items-center gap-3 min-w-0">
+        <MobileNav role={role} lang={lang} />
         {title && (
-          <h1 className="font-display text-xl font-semibold tracking-tight truncate">
+          <h1 className="font-display text-lg md:text-xl font-semibold tracking-tight truncate">
             {title}
           </h1>
         )}

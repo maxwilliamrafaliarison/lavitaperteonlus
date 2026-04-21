@@ -80,7 +80,7 @@ Le script Apps Script [`scripts/google-sheet-setup.gs`](scripts/google-sheet-set
 - [x] **Phase 6** · Historique mouvements / transferts (timeline + transferts site/salle/affectation)
 - [x] **Phase 7** · Corbeille (restore + hard delete) + admin utilisateurs (invite, rôles, MDP)
 - [x] **Phase 8** · i18n FR/IT (foundation + /settings + surfaces principales)
-- [ ] **Phase 9** · Polish (animations, mobile, QR codes)
+- [x] **Phase 9** · Polish (QR codes + mobile sidebar + animations dashboard)
 - [ ] **Phase 10** · Monitoring + custom domain
 
 ## 📁 Structure des dossiers

@@ -78,9 +78,9 @@ export default async function DashboardPage() {
     <>
       <AppTopbar title={t("topbar.dashboard")} />
 
-      <main className="flex-1 p-6 md:p-10 space-y-10">
+      <main className="flex-1 p-4 md:p-10 space-y-8 md:space-y-10">
         {/* Hero greeting + export */}
-        <section className="flex items-end justify-between gap-4 flex-wrap">
+        <section className="flex items-end justify-between gap-4 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
               {ROLE_LABELS[role][lang]}
@@ -103,7 +103,10 @@ export default async function DashboardPage() {
         </section>
 
         {/* KPIs */}
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <section
+          className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
+          style={{ animationDelay: "80ms", animationFillMode: "backwards" }}
+        >
           <KPI
             icon={<Cpu className="size-5" />}
             label={t("dashboard.kpi_materials")}
@@ -138,7 +141,10 @@ export default async function DashboardPage() {
         </section>
 
         {/* Analytics — Santé du parc */}
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section
+          className="grid gap-4 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-500"
+          style={{ animationDelay: "160ms", animationFillMode: "backwards" }}
+        >
           <div className="lg:col-span-2">
             <ObsolescenceDonut distribution={distribution} lang={lang} />
           </div>
@@ -146,13 +152,19 @@ export default async function DashboardPage() {
         </section>
 
         {/* Analytics — Répartition */}
-        <section className="grid gap-4 lg:grid-cols-2">
+        <section
+          className="grid gap-4 lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
+          style={{ animationDelay: "240ms", animationFillMode: "backwards" }}
+        >
           <SiteBreakdown sites={siteStats} />
           <TypeBreakdown types={typeStats} />
         </section>
 
         {/* Âge du parc + Salles à risque */}
-        <section className="grid gap-4 lg:grid-cols-2">
+        <section
+          className="grid gap-4 lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
+          style={{ animationDelay: "320ms", animationFillMode: "backwards" }}
+        >
           <AgeHistogram buckets={ageBuckets} />
           <RoomHeatmap rooms={roomStats} />
         </section>

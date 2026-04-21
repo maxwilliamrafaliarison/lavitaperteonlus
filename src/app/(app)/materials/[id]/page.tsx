@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import {
   ArrowLeft, Building2, MapPin, User as UserIcon, Calendar, Banknote,
   Cpu, MemoryStick, HardDrive, MonitorSmartphone, Wifi, Globe, Database,
@@ -31,6 +32,7 @@ import {
 import { SessionsManager } from "@/components/materials/sessions-manager";
 import { DeleteMaterialButton } from "@/components/materials/delete-button";
 import { MovementHistory } from "@/components/movements/movement-history";
+import { QrCodeCard } from "@/components/materials/qr-code-card";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +87,12 @@ export default async function MaterialDetailPage({
   const canTransfer = can(role, "movement:create");
   const sessions = sessionsRes.data;
   const movements = movementsRes.data;
+
+  // URL publique du matériel pour le QR code (compat dev + vercel)
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const materialUrl = `${proto}://${host}/materials/${material.id}`;
 
   return (
     <>
@@ -285,6 +293,14 @@ export default async function MaterialDetailPage({
           sites={allSitesRes.data}
           rooms={allRoomsRes.data}
           users={usersRes.data}
+        />
+
+        {/* QR code — Phase 9 */}
+        <QrCodeCard
+          materialId={material.id}
+          materialRef={material.ref}
+          designation={material.designation || material.ref}
+          url={materialUrl}
         />
 
         {/* Notes */}
