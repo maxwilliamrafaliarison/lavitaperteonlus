@@ -101,15 +101,20 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
 
         <DropdownMenuSeparator />
 
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="flex w-full items-center px-2 py-1.5 text-sm rounded-sm hover:bg-destructive/10 text-destructive transition-colors"
-          >
-            <LogOut className="size-4 mr-2" />
-            {t("user_menu.logout")}
-          </button>
-        </form>
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={(e) => {
+            e.preventDefault();
+            // Laisse le menu se fermer proprement avant le redirect server
+            // (évite Base UI #31 — portal unmount pendant une navigation)
+            setTimeout(() => {
+              void logoutAction();
+            }, 50);
+          }}
+        >
+          <LogOut className="size-4 mr-2" />
+          {t("user_menu.logout")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
