@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { LogOut, User as UserIcon, Languages, Sun, Moon, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -14,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { logoutAction } from "@/lib/auth/actions";
+import { logoutAuditAction } from "@/lib/auth/actions";
 import type { UserRole } from "@/types";
 import { ROLE_LABELS } from "@/types";
 import { getT, type Lang } from "@/lib/i18n";
@@ -105,11 +106,10 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
           variant="destructive"
           onSelect={(e) => {
             e.preventDefault();
-            // Laisse le menu se fermer proprement avant le redirect server
-            // (évite Base UI #31 — portal unmount pendant une navigation)
-            setTimeout(() => {
-              void logoutAction();
-            }, 50);
+            // 1. Log audit en fire-and-forget (best-effort, ne bloque pas)
+            // 2. Client-side signOut gère la nav proprement (évite Base UI #31)
+            logoutAuditAction().catch(() => {});
+            void signOut({ callbackUrl: "/login", redirect: true });
           }}
         >
           <LogOut className="size-4 mr-2" />
