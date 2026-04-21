@@ -61,13 +61,14 @@ const TYPE_KEYWORDS = [
   { keys: ["scan", "scanner"], type: "scanner" },
   { keys: ["telephone", "téléphone", "phone", "smartphone", "gsm"], type: "telephone" },
   { keys: ["ecran", "écran", "moniteur", "monitor"], type: "ecran" },
+  { keys: ["onduleur", "ups", "batterie", "régulateur de tension", "regulateur de tension"], type: "onduleur" },
   // Périphériques en dernier (plus large, ne doit pas "voler" les types précédents)
   {
     keys: [
       "clavier", "souris", "usb", "câble", "cable", "adapter",
       "capteur", "disque", "hub", "cle usb", "clé usb", "imprimante 3d",
       "pointeuse", "contrôleur d'accès", "controleur d'acces", "webcam",
-      "casque", "haut-parleur", "enceinte", "onduleur", "multiprise",
+      "casque", "haut-parleur", "enceinte", "multiprise",
     ],
     type: "peripherique",
   },

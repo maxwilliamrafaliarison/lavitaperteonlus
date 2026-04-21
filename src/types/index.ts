@@ -74,6 +74,7 @@ export const MaterialType = z.enum([
   "telephone",
   "serveur",
   "ecran",
+  "onduleur",
   "peripherique",
   "autre",
 ]);
@@ -91,6 +92,7 @@ export const MATERIAL_TYPE_LABELS: Record<MaterialType, { fr: string; it: string
   telephone: { fr: "Téléphone", it: "Telefono" },
   serveur: { fr: "Serveur", it: "Server" },
   ecran: { fr: "Écran", it: "Schermo" },
+  onduleur: { fr: "Onduleur", it: "Gruppo di continuità" },
   peripherique: { fr: "Périphérique", it: "Periferica" },
   autre: { fr: "Autre", it: "Altro" },
 };

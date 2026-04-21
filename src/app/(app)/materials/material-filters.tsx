@@ -28,6 +28,7 @@ const TYPES: MaterialType[] = [
   "telephone",
   "serveur",
   "ecran",
+  "onduleur",
   "peripherique",
   "autre",
 ];

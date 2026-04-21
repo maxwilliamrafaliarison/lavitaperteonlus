@@ -35,7 +35,7 @@ interface Props {
 const TYPES: MaterialType[] = [
   "ordinateur_fixe", "ordinateur_portable", "ordinateur_bdd",
   "imprimante", "scanner", "routeur", "switch", "box",
-  "telephone", "serveur", "ecran", "peripherique", "autre",
+  "telephone", "serveur", "ecran", "onduleur", "peripherique", "autre",
 ];
 
 const STATES: MaterialState[] = [

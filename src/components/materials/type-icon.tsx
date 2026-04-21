@@ -12,6 +12,7 @@ import {
   Tv,
   Cable,
   Cpu,
+  BatteryCharging,
   type LucideIcon,
 } from "lucide-react";
 import type { MaterialType } from "@/types";
@@ -28,6 +29,7 @@ const TYPE_ICONS: Record<MaterialType, LucideIcon> = {
   telephone: Smartphone,
   serveur: Server,
   ecran: Tv,
+  onduleur: BatteryCharging,
   peripherique: Cable,
   autre: Cpu,
 };

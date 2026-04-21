@@ -21,6 +21,7 @@ export const AVG_REPLACEMENT_PRICE: Record<MaterialType, number> = {
   telephone: 120,
   serveur: 2000,
   ecran: 200,
+  onduleur: 180,
   peripherique: 40,
   autre: 150,
 };
