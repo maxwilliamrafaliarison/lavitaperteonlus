@@ -80,7 +80,7 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
       </nav>
 
       <div className="px-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
-        v0.1 · Phase 8
+        v1.0 · {new Date().getFullYear()}
       </div>
     </aside>
   );
