@@ -38,9 +38,9 @@ export function QrActionsButtons({ url, materialId, materialRef, designation, la
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(link);
-      toast.success("QR téléchargé", { description: `qr-${materialRef}.svg` });
+      toast.success(t("material_detail.qr_downloaded"), { description: `qr-${materialRef}.svg` });
     } catch (e) {
-      toast.error("Échec", { description: String(e) });
+      toast.error(t("common.failed"), { description: String(e) });
     } finally {
       setLoading(null);
     }
@@ -57,8 +57,8 @@ export function QrActionsButtons({ url, materialId, materialRef, designation, la
       });
       const printWindow = window.open("", "_blank", "width=480,height=640");
       if (!printWindow) {
-        toast.error("Pop-up bloqué", {
-          description: "Autorisez les pop-ups pour imprimer l'étiquette.",
+        toast.error(t("material_detail.qr_popup_blocked"), {
+          description: t("material_detail.qr_popup_blocked_desc"),
         });
         return;
       }
@@ -67,7 +67,7 @@ export function QrActionsButtons({ url, materialId, materialRef, designation, la
 <html lang="${lang}">
 <head>
 <meta charset="utf-8" />
-<title>Étiquette ${materialRef}</title>
+<title>${escapeHtml(t("material_detail.qr_print_title", { ref: materialRef }))}</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -139,7 +139,7 @@ export function QrActionsButtons({ url, materialId, materialRef, designation, la
 </html>`);
       printWindow.document.close();
     } catch (e) {
-      toast.error("Échec", { description: String(e) });
+      toast.error(t("common.failed"), { description: String(e) });
     } finally {
       setLoading(null);
     }

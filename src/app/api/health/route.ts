@@ -43,7 +43,11 @@ export async function GET() {
   try {
     const rows = await readSheet<{ id: string }>(SHEETS.users);
     result.sheets.reachable = true;
-    result.sheets.userCount = rows.length;
+    // Ne pas exposer le nombre d'utilisateurs en production (reconnaissance)
+    // — visible uniquement en dev pour debug local.
+    if (process.env.NODE_ENV !== "production") {
+      result.sheets.userCount = rows.length;
+    }
   } catch (e) {
     result.ok = false;
     result.sheets.error = e instanceof Error ? e.message : String(e);

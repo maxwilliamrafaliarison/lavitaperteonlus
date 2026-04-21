@@ -107,7 +107,11 @@
     "none": "—",
     "add": "Aggiungi",
     "new": "Nuovo",
-    "of": "di"
+    "of": "di",
+    "error": "Errore",
+    "failed": "Operazione fallita",
+    "action_impossible": "Azione impossibile",
+    "copy_failed": "Impossibile copiare"
   },
   "user_menu": {
     "theme_dark": "Modalità scura",
@@ -282,6 +286,11 @@
     "qr_download_svg": "Scarica SVG",
     "qr_print": "Stampa etichetta",
     "qr_label_scan": "Inquadra per aprire la scheda",
+    "qr_downloaded": "QR scaricato",
+    "qr_popup_blocked": "Pop-up bloccato",
+    "qr_popup_blocked_desc": "Consenti i pop-up per stampare l'etichetta.",
+    "qr_print_title": "Etichetta {ref}",
+    "in_trash_badge": "🗑 Nel cestino",
     "score_gauge_label": "Punteggio obsolescenza",
     "score_reasons_title": "Perché questo punteggio?",
     "field_site": "Sito",
@@ -364,7 +373,17 @@
     "field_is_admin": "Account amministratore",
     "field_notes": "Note",
     "copy_success": "Password copiata",
-    "delete_confirm": "Eliminare la sessione « {name} »?"
+    "delete_confirm": "Eliminare la sessione « {name} »?",
+    "toast_added": "Sessione aggiunta",
+    "toast_updated": "Sessione aggiornata",
+    "toast_deleted": "Sessione eliminata",
+    "field_notes_placeholder": "Dettaglio aggiuntivo",
+    "field_assigned_user_placeholder": "Perline, Felana, …",
+    "new_password_hint": "Nuova password (lasciare vuoto per conservare)",
+    "password_encrypted_note": "La password sarà cifrata AES-256 nel Sheet.",
+    "empty_hint": "Clicca « Aggiungi » per registrare il primo account.",
+    "count_summary_one": "{n} sessione · Password cifrate AES-256",
+    "count_summary_many": "{n} sessioni · Password cifrate AES-256"
   },
   "movements": {
     "eyebrow": "Storico",

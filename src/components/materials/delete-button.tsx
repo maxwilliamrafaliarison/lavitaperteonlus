@@ -33,10 +33,10 @@ export function DeleteMaterialButton({ materialId, materialLabel, lang = "fr" }:
         router.push("/materials");
         router.refresh();
       } else {
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
-      toast.error("Erreur", { description: String(e) });
+      toast.error(t("common.error"), { description: String(e) });
     } finally {
       setLoading(false);
       setOpen(false);

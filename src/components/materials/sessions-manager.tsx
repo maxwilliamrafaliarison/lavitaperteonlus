@@ -82,7 +82,7 @@ export function SessionsManager({
         toast.error(t("sessions.reveal_error"), { description: result.error });
       }
     } catch (e) {
-      toast.error("Erreur inattendue", { description: String(e) });
+      toast.error(t("common.error"), { description: String(e) });
     } finally {
       setLoadingId(null);
     }
@@ -106,7 +106,7 @@ export function SessionsManager({
       } else {
         const result = await revealPasswordAction(session.id);
         if (!result.ok || !result.password) {
-          toast.error("Impossible de copier", { description: result.error });
+          toast.error(t("common.copy_failed"), { description: result.error });
           return;
         }
         value = result.password;
@@ -116,7 +116,7 @@ export function SessionsManager({
         description: t("sessions.reveal_desc"),
       });
     } catch (e) {
-      toast.error("Erreur copie", { description: String(e) });
+      toast.error(t("common.copy_failed"), { description: String(e) });
     } finally {
       setLoadingId(null);
     }
@@ -129,9 +129,9 @@ export function SessionsManager({
       const result = await deleteSessionAction(session.id);
       if (result.ok) {
         setSessions((prev) => prev.filter((s) => s.id !== session.id));
-        toast.success("Session supprimée");
+        toast.success(t("sessions.toast_deleted"));
       } else {
-        toast.error("Erreur", { description: result.error });
+        toast.error(t("common.error"), { description: result.error });
       }
     } finally {
       setLoadingId(null);
@@ -141,13 +141,13 @@ export function SessionsManager({
   function handleSessionAdded(s: MaterialSession) {
     setSessions((prev) => [...prev, s]);
     setShowAddModal(false);
-    toast.success("Session ajoutée");
+    toast.success(t("sessions.toast_added"));
   }
 
   function handleSessionUpdated(s: MaterialSession) {
     setSessions((prev) => prev.map((x) => (x.id === s.id ? s : x)));
     setEditingId(null);
-    toast.success("Session mise à jour");
+    toast.success(t("sessions.toast_updated"));
   }
 
   return (
@@ -156,7 +156,7 @@ export function SessionsManager({
         <p className="text-xs text-muted-foreground">
           {sessions.length === 0
             ? t("sessions.empty")
-            : `${sessions.length} session${sessions.length > 1 ? "s" : ""} · MDP chiffrés AES-256`}
+            : t(sessions.length > 1 ? "sessions.count_summary_many" : "sessions.count_summary_one", { n: sessions.length })}
         </p>
         {canEdit && (
           <GlassButton variant="glass" size="sm" onClick={() => setShowAddModal(true)}>

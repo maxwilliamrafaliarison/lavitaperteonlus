@@ -107,7 +107,11 @@
     "none": "—",
     "add": "Ajouter",
     "new": "Nouveau",
-    "of": "sur"
+    "of": "sur",
+    "error": "Erreur",
+    "failed": "Échec",
+    "action_impossible": "Action impossible",
+    "copy_failed": "Impossible de copier"
   },
   "user_menu": {
     "theme_dark": "Mode sombre",
@@ -282,6 +286,11 @@
     "qr_download_svg": "Télécharger SVG",
     "qr_print": "Imprimer étiquette",
     "qr_label_scan": "Scannez pour ouvrir la fiche",
+    "qr_downloaded": "QR téléchargé",
+    "qr_popup_blocked": "Pop-up bloqué",
+    "qr_popup_blocked_desc": "Autorisez les pop-ups pour imprimer l'étiquette.",
+    "qr_print_title": "Étiquette {ref}",
+    "in_trash_badge": "🗑 En corbeille",
     "score_gauge_label": "Score obsolescence",
     "score_reasons_title": "Pourquoi ce score ?",
     "field_site": "Site",
@@ -364,7 +373,17 @@
     "field_is_admin": "Compte administrateur",
     "field_notes": "Notes",
     "copy_success": "Mot de passe copié",
-    "delete_confirm": "Supprimer la session « {name} » ?"
+    "delete_confirm": "Supprimer la session « {name} » ?",
+    "toast_added": "Session ajoutée",
+    "toast_updated": "Session mise à jour",
+    "toast_deleted": "Session supprimée",
+    "field_notes_placeholder": "Détail additionnel",
+    "field_assigned_user_placeholder": "Perline, Felana, …",
+    "new_password_hint": "Nouveau mot de passe (laisser vide pour conserver)",
+    "password_encrypted_note": "Le mot de passe sera chiffré AES-256 dans le Sheet.",
+    "empty_hint": "Cliquez sur « Ajouter » pour enregistrer le premier compte.",
+    "count_summary_one": "{n} session · MDP chiffrés AES-256",
+    "count_summary_many": "{n} sessions · MDP chiffrés AES-256"
   },
   "movements": {
     "eyebrow": "Historique",

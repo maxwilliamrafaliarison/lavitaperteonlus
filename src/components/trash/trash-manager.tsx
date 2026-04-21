@@ -50,10 +50,10 @@ export function TrashManager({ items, sites, rooms, lang = "fr" }: Props) {
         });
         router.refresh();
       } else {
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
-      toast.error("Erreur", { description: String(e) });
+      toast.error(t("common.error"), { description: String(e) });
     } finally {
       setLoadingId(null);
     }
@@ -72,10 +72,10 @@ export function TrashManager({ items, sites, rooms, lang = "fr" }: Props) {
         setConfirmHard(null);
         router.refresh();
       } else {
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
-      toast.error("Erreur", { description: String(e) });
+      toast.error(t("common.error"), { description: String(e) });
     } finally {
       setLoadingId(null);
     }

@@ -71,7 +71,7 @@ export function UsersManager({
 
   async function handleToggle(user: AppUser) {
     if (user.id === currentUserId) {
-      toast.error("Action impossible", {
+      toast.error(t("common.action_impossible"), {
         description: t("users.action_self_deactivate"),
       });
       return;
@@ -88,7 +88,7 @@ export function UsersManager({
         );
         router.refresh();
       } else {
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } finally {
       setLoadingId(null);
@@ -319,7 +319,7 @@ function InviteModal({
         onSuccess(result.user);
       } else {
         setError(result.error ?? t("material_form.error_generic"));
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
       setError(String(e));
@@ -436,7 +436,7 @@ function EditUserModal({
         onSuccess(result.user);
       } else {
         setError(result.error ?? t("material_form.error_generic"));
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
       setError(String(e));
@@ -531,7 +531,7 @@ function ResetPasswordModal({
         onSuccess();
       } else {
         setError(result.error ?? t("material_form.error_generic"));
-        toast.error("Échec", { description: result.error });
+        toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
       setError(String(e));

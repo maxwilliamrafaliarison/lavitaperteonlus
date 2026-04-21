@@ -129,6 +129,11 @@ export default async function MaterialDetailPage({
                   {material.designation || material.ref}
                 </h2>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {material.deletedAt && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/12 text-primary px-2.5 h-7 text-[11px] font-medium">
+                      {t("material_detail.in_trash_badge")}
+                    </span>
+                  )}
                   <StateBadge state={material.state} lang={lang} />
                   <ObsolescenceBadge level={obs.level} score={obs.score} lang={lang} />
                   <span className="inline-flex items-center gap-1.5 rounded-full glass border px-2.5 h-7 text-[11px] font-mono text-muted-foreground">
