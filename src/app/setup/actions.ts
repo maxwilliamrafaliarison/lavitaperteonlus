@@ -13,46 +13,76 @@ export async function setupAdminAction(
   _prev: SetupState | undefined,
   formData: FormData,
 ): Promise<SetupState> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-  const confirm = String(formData.get("confirm") ?? "");
+  try {
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const password = String(formData.get("password") ?? "");
+    const confirm = String(formData.get("confirm") ?? "");
 
-  if (!email || !password) {
-    return { ok: false, error: "Email et mot de passe requis." };
-  }
-  if (password !== confirm) {
-    return { ok: false, error: "Les mots de passe ne correspondent pas." };
-  }
+    if (!email || !password) {
+      return { ok: false, error: "Email et mot de passe requis." };
+    }
+    if (password !== confirm) {
+      return { ok: false, error: "Les mots de passe ne correspondent pas." };
+    }
 
-  const validation = validatePassword(password);
-  if (!validation.ok) {
-    return { ok: false, error: validation.error };
-  }
+    const validation = validatePassword(password);
+    if (!validation.ok) {
+      return { ok: false, error: validation.error };
+    }
 
-  // L'utilisateur doit exister dans le Sheet et avoir un MDP non défini
-  const user = await getUserByEmail(email);
-  if (!user) {
+    // L'utilisateur doit exister dans le Sheet et avoir un MDP non défini
+    let user;
+    try {
+      user = await getUserByEmail(email);
+    } catch (e) {
+      // Erreur de config Google Sheets (env vars manquantes/invalides)
+      const msg = String(e);
+      if (msg.includes("Google Sheets non configuré") || msg.includes("DECODER")) {
+        return {
+          ok: false,
+          error:
+            "Connexion au Google Sheet impossible. Vérifiez les variables GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL et GOOGLE_PRIVATE_KEY côté Vercel.",
+        };
+      }
+      return { ok: false, error: `Erreur lecture Sheet : ${msg}` };
+    }
+
+    if (!user) {
+      return {
+        ok: false,
+        error:
+          "Aucun utilisateur avec cet email dans l'onglet `users` du Sheet. Vérifiez la casse (email en minuscules).",
+      };
+    }
+    if (user.passwordHash && user.passwordHash !== "TO_SET_IN_PHASE_2") {
+      return {
+        ok: false,
+        error:
+          "Ce compte a déjà un mot de passe défini. Utilisez la page de connexion ou demandez à l'admin une réinitialisation.",
+      };
+    }
+
+    const hash = await hashPassword(password);
+
+    try {
+      await updateUser(user.id, { passwordHash: hash, active: true });
+    } catch (e) {
+      return { ok: false, error: `Erreur écriture Sheet : ${String(e)}` };
+    }
+
+    return {
+      ok: true,
+      message:
+        "Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.",
+    };
+  } catch (e) {
+    // Filet de sécurité — tout autre crash devient un message lisible
+    console.error("[setup] unexpected error", e);
     return {
       ok: false,
-      error:
-        "Aucun utilisateur avec cet email dans le Sheet. Vérifiez l'onglet `users` ou contactez l'admin.",
+      error: `Erreur inattendue : ${String(e)}`,
     };
   }
-  if (user.passwordHash && user.passwordHash !== "TO_SET_IN_PHASE_2") {
-    return {
-      ok: false,
-      error:
-        "Ce compte a déjà un mot de passe défini. Utilisez la page de connexion ou réinitialisez via l'admin.",
-    };
-  }
-
-  const hash = await hashPassword(password);
-  await updateUser(user.id, { passwordHash: hash, active: true });
-
-  return {
-    ok: true,
-    message: "Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.",
-  };
 }
 
 /** Vérifie si un setup initial est nécessaire (au moins un compte avec TO_SET_IN_PHASE_2). */
