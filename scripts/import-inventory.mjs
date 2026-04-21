@@ -33,10 +33,14 @@
  * ============================================================
  */
 
-import "dotenv/config";
+import { config } from "dotenv";
 import { readFileSync } from "node:fs";
 import { google } from "googleapis";
 import xlsx from "xlsx";
+
+// Charge .env.local en priorité, puis .env en fallback
+config({ path: ".env.local" });
+config({ path: ".env" });
 
 const COMMIT = process.argv.includes("--commit");
 const FILE = process.argv.find((a) => a.startsWith("--file="))?.slice(7)

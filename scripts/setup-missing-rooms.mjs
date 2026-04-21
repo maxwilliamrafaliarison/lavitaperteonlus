@@ -20,8 +20,12 @@
  * ============================================================
  */
 
-import "dotenv/config";
+import { config } from "dotenv";
 import { google } from "googleapis";
+
+// Charge .env.local en priorité, puis .env en fallback
+config({ path: ".env.local" });
+config({ path: ".env" });
 
 const COMMIT = process.argv.includes("--commit");
 
