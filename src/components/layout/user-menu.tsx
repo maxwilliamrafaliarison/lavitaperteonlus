@@ -74,21 +74,14 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
         </div>
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            router.push("/settings");
-          }}
-        >
+        <DropdownMenuItem onClick={() => router.push("/settings")}>
           <Settings className="size-4 mr-2" />
           {t("user_menu.my_settings")}
         </DropdownMenuItem>
 
         <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            setTheme(isDark ? "light" : "dark");
-          }}
+          onClick={() => setTheme(isDark ? "light" : "dark")}
+          closeOnClick={false}
         >
           {isDark ? <Sun className="size-4 mr-2" /> : <Moon className="size-4 mr-2" />}
           {isDark ? t("user_menu.theme_light") : t("user_menu.theme_dark")}
@@ -103,8 +96,7 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
 
         <DropdownMenuItem
           variant="destructive"
-          onSelect={(e) => {
-            e.preventDefault();
+          onClick={() => {
             // Navigation vers /logout qui gère audit + signOut dans un
             // useEffect — isolé du cycle de vie du DropdownMenu Base UI.
             router.push("/logout");
