@@ -9,7 +9,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -62,7 +61,9 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="flex flex-col gap-0.5">
+        {/* En-tête : div stylisé (pas DropdownMenuLabel qui exige un
+            DropdownMenuGroup parent → Base UI #31 sinon) */}
+        <div className="flex flex-col gap-0.5 px-2 py-1.5 text-sm">
           <span className="font-medium">{name}</span>
           <span className="text-xs text-muted-foreground font-normal">
             {email}
@@ -70,7 +71,7 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
           <span className="mt-1.5 inline-flex w-fit items-center rounded-full bg-primary/15 text-primary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider">
             {ROLE_LABELS[role][lang]}
           </span>
-        </DropdownMenuLabel>
+        </div>
         <DropdownMenuSeparator />
 
         <DropdownMenuItem
