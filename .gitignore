@@ -47,3 +47,5 @@ next-env.d.ts
 # Google service account keys
 *service-account*.json
 *credentials*.json
+# Inventaire local (importé une fois, source de vérité = Google Sheet)
+/data/
