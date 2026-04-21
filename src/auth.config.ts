@@ -64,6 +64,7 @@ export const authConfig: NextAuthConfig = {
       const isPublic =
         PUBLIC_PATHS.has(pathname) ||
         pathname.startsWith("/api/auth") ||
+        pathname.startsWith("/api/health") ||
         pathname.startsWith("/_next") ||
         pathname.startsWith("/logo");
 
