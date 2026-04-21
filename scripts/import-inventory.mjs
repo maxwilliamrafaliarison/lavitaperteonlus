@@ -43,19 +43,30 @@ const FILE = process.argv.find((a) => a.startsWith("--file="))?.slice(7)
   ?? "data/inventory.xls";
 
 // --- Mappings -----------------------------------------------
+// Ordre important : les plus spécifiques d'abord (ex: "ordinateur portable"
+// avant "ordinateur"), les périphériques en dernier.
 const TYPE_KEYWORDS = [
-  { keys: ["ordinateur fixe", "ordinateur de bureau", "desktop"], type: "ordinateur_fixe" },
   { keys: ["ordinateur portable", "laptop"], type: "ordinateur_portable" },
   { keys: ["ordinateur bdd"], type: "ordinateur_bdd" },
+  { keys: ["ordinateur fixe", "ordinateur de bureau", "desktop", "unité centrale", "unite centrale", "pc "], type: "ordinateur_fixe" },
   { keys: ["serveur"], type: "serveur" },
   { keys: ["routeur", "router"], type: "routeur" },
   { keys: ["switch", "fast ethernet"], type: "switch" },
-  { keys: ["box", "flybox"], type: "box" },
-  { keys: ["imprimante", "printer", "deskjet"], type: "imprimante" },
+  { keys: ["flybox", "box internet", "box orange"], type: "box" },
+  { keys: ["imprimante", "printer", "deskjet", "photocopieur", "laserjet"], type: "imprimante" },
   { keys: ["scan", "scanner"], type: "scanner" },
-  { keys: ["telephone", "téléphone", "phone"], type: "telephone" },
+  { keys: ["telephone", "téléphone", "phone", "smartphone", "gsm"], type: "telephone" },
   { keys: ["ecran", "écran", "moniteur", "monitor"], type: "ecran" },
-  { keys: ["usb", "câble", "adapter", "capteur", "disque"], type: "peripherique" },
+  // Périphériques en dernier (plus large, ne doit pas "voler" les types précédents)
+  {
+    keys: [
+      "clavier", "souris", "usb", "câble", "cable", "adapter",
+      "capteur", "disque", "hub", "cle usb", "clé usb", "imprimante 3d",
+      "pointeuse", "contrôleur d'accès", "controleur d'acces", "webcam",
+      "casque", "haut-parleur", "enceinte", "onduleur", "multiprise",
+    ],
+    type: "peripherique",
+  },
 ];
 
 function inferType(designation) {
@@ -67,37 +78,127 @@ function inferType(designation) {
 }
 
 const ROOM_MAP = {
-  // Mappings textuels vers les ids créés par setupSheet()
-  "salle3": "room_rex_03",
-  "salle 3": "room_rex_03",
-  "salle3-direction": "room_rex_03",
-  "salle 03": "room_rex_03",
-  "direction": "room_rex_03",
-  "salle 01": "room_rex_01",
+  // Accueil / entrée
+  "accueil": "room_rex_00",
+  "reception": "room_rex_00",
+  "réception": "room_rex_00",
+
+  // Salle 01 — Mammographie
+  "sale mammo": "room_rex_01",
+  "salle mammo": "room_rex_01",
   "mammo": "room_rex_01",
   "mammographie": "room_rex_01",
-  "salle 02": "room_rex_02",
+  "salle 01": "room_rex_01",
+  "salle 1": "room_rex_01",
+
+  // Salle 02 — Réunion
   "salle de réunion": "room_rex_02",
+  "salle de reunion": "room_rex_02",
+  "saslle de réunion": "room_rex_02",   // typo courant
+  "saslle de reunion": "room_rex_02",
+  "salle 02": "room_rex_02",
+  "salle 2": "room_rex_02",
+
+  // Salle 03 — Direction / Porte 3
+  "salle3-direction": "room_rex_03",
+  "salle3 direction": "room_rex_03",
+  "salle 3-direction": "room_rex_03",
+  "porte 3-salle direction": "room_rex_03",
+  "porte 3-direction": "room_rex_03",
+  "au porte 3-direction": "room_rex_03",
+  "porte 3": "room_rex_03",
+  "direction": "room_rex_03",
+  "salle 03": "room_rex_03",
+  "salle 3": "room_rex_03",
+  "salle3": "room_rex_03",
+
+  // Salle 04 — Claudia / Felana
   "salle 04": "room_rex_04",
+  "salle 4": "room_rex_04",
+  "claudia": "room_rex_04",
+  "felana": "room_rex_04",
+
+  // Salle 05 — Écho / Logistique / Porte 5
   "salle 05": "room_rex_05",
+  "salle 5": "room_rex_05",
   "porte 5": "room_rex_05",
   "logistique": "room_rex_05",
+  "echographie": "room_rex_05",
+  "échographie": "room_rex_05",
   "echo": "room_rex_05",
+
+  // Salle 06 — Dr Alice
   "salle 06": "room_rex_06",
+  "salle 6": "room_rex_06",
+  "salle6": "room_rex_06",
   "dr alice": "room_rex_06",
+
+  // Salle 07 — Compta / Admin / Porte 7
   "salle 07": "room_rex_07",
+  "salle 7": "room_rex_07",
   "porte 7": "room_rex_07",
   "administration": "room_rex_07",
   "comptabilite": "room_rex_07",
+  "comptabilité": "room_rex_07",
+
+  // Salle 08 — Pédiatrie
   "salle 08": "room_rex_08",
+  "salle 8": "room_rex_08",
   "pediatrie": "room_rex_08",
+  "pédiatrie": "room_rex_08",
+
+  // Salle 09 — Labo BDD
   "salle 09": "room_rex_09",
+  "salle 9": "room_rex_09",
+  "labo cap": "room_rex_09",
+  "labo ": "room_rex_09",                 // espace final : "Labo" seul
   "labo": "room_rex_09",
-  "labo galenique": "room_rex_labgal",
+
+  // Salle 10 — Écho / Pharma
   "salle 10": "room_rex_10",
-  "accueil": "room_rex_00",
-  "centre miaraka": "room_miaraka_garcons",
+  "salle10": "room_rex_10",
+  "pharma": "room_rex_10",
+
+  // Salle 11 & 12
+  "salle 11": "room_rex_11",
+  "salle11": "room_rex_11",
+  "salle 12": "room_rex_12",
+  "salle12": "room_rex_12",
+
+  // Labo galénique
+  "labo galenique": "room_rex_labgal",
+  "labo galénique": "room_rex_labgal",
+  "galenique": "room_rex_labgal",
+
+  // Stock / Sous-sol (nouvelle salle ajoutée)
+  "stock sous sol": "room_rex_sous_sol",
+  "stock Sous sol": "room_rex_sous_sol",
+  "sous sol": "room_rex_sous_sol",
+  "entrepot manitra": "room_rex_sous_sol",
+  "labo sous sol": "room_rex_sous_sol",
+
+  // Couloir / Sécurité / Siège
+  "couloir": "room_rex_couloir",
+  "securite": "room_rex_couloir",
+  "sécurite": "room_rex_couloir",
+  "sécurité": "room_rex_couloir",
+  "au siege": "room_rex_couloir",
+  "au siège": "room_rex_couloir",
+  "siege ong": "room_rex_couloir",
+  "siège ong": "room_rex_couloir",
+
+  // Miaraka — Garçons (Ambatolahikosoa)
   "centre miaraka ambatolahikosoa": "room_miaraka_garcons",
+  "miaraka ambatolahikosoa": "room_miaraka_garcons",
+
+  // Miaraka — Ankofafa (nouvelle salle)
+  "centre miaraka ankofafa": "room_miaraka_ankofafa",
+  "miaraka ankofafa": "room_miaraka_ankofafa",
+  "ankofafa": "room_miaraka_ankofafa",
+
+  // Miaraka générique (fallback) — doit être en dernier
+  "centre miaraka": "room_miaraka_garcons",
+  "miaraka": "room_miaraka_garcons",
 };
 
 function inferRoom(localisation) {
