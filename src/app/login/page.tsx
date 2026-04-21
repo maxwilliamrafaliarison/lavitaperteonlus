@@ -12,6 +12,7 @@ import { GlassButton } from "@/components/glass/glass-button";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { LanguageSwitcher, type Lang } from "@/components/layout/language-switcher";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { getStoredLang, detectBrowserLang } from "@/lib/i18n/persist";
 import fr from "@/lib/i18n/messages/fr.json";
 import it from "@/lib/i18n/messages/it.json";
 
@@ -19,7 +20,7 @@ import { loginAction, type LoginState } from "./actions";
 
 const messages = { fr, it } as const;
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, submittingLabel }: { label: string; submittingLabel: string }) {
   const { pending } = useFormStatus();
   return (
     <GlassButton
@@ -33,7 +34,7 @@ function SubmitButton({ label }: { label: string }) {
       {pending ? (
         <>
           <Loader2 className="size-4 animate-spin" />
-          Connexion...
+          {submittingLabel}
         </>
       ) : (
         label
@@ -46,6 +47,13 @@ export default function LoginPage() {
   const router = useRouter();
   const [lang, setLang] = React.useState<Lang>("fr");
   const t = messages[lang];
+
+  // Initialise depuis cookie/localStorage ou langue du navigateur
+  React.useEffect(() => {
+    const stored = getStoredLang();
+    if (stored) setLang(stored);
+    else setLang(detectBrowserLang());
+  }, []);
 
   const [state, formAction] = React.useActionState<LoginState | undefined, FormData>(
     loginAction,
@@ -74,10 +82,10 @@ export default function LoginPage() {
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="size-4" />
-            Retour
+            {t.common.back}
           </Link>
           <div className="flex items-center gap-2">
-            <LanguageSwitcher value={lang} onChange={setLang} />
+            <LanguageSwitcher value={lang} onChange={setLang} persist />
             <ThemeToggle />
           </div>
         </div>
@@ -154,21 +162,21 @@ export default function LoginPage() {
                 </div>
               )}
 
-              <SubmitButton label={t.login.submit} />
+              <SubmitButton label={t.login.submit} submittingLabel={t.login.submitting} />
 
               <div className="text-center space-y-2">
                 <Link
                   href="/setup"
                   className="block text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Première connexion ? Configurer le mot de passe admin →
+                  {t.login.first_setup}
                 </Link>
               </div>
             </form>
           </GlassCard>
 
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            Accès réservé aux personnels du Centre REX & MIARAKA
+            {t.login.footer}
           </p>
         </motion.div>
       </main>

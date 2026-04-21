@@ -18,6 +18,7 @@ import { GlassButton } from "@/components/glass/glass-button";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { LanguageSwitcher, type Lang } from "@/components/layout/language-switcher";
+import { getStoredLang, detectBrowserLang } from "@/lib/i18n/persist";
 import fr from "@/lib/i18n/messages/fr.json";
 import it from "@/lib/i18n/messages/it.json";
 
@@ -26,6 +27,13 @@ const messages = { fr, it } as const;
 export default function LandingPage() {
   const [lang, setLang] = React.useState<Lang>("fr");
   const t = messages[lang];
+
+  // Initialise depuis cookie/localStorage ou langue du navigateur (un seul effet au mount)
+  React.useEffect(() => {
+    const stored = getStoredLang();
+    if (stored) setLang(stored);
+    else setLang(detectBrowserLang());
+  }, []);
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -41,7 +49,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 md:px-10">
           <BrandLogo />
           <div className="flex items-center gap-2">
-            <LanguageSwitcher value={lang} onChange={setLang} />
+            <LanguageSwitcher value={lang} onChange={setLang} persist />
             <ThemeToggle />
           </div>
         </div>

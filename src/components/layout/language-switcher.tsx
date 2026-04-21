@@ -2,16 +2,30 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { setStoredLang } from "@/lib/i18n/persist";
+import { type Lang } from "@/lib/i18n";
 
-export type Lang = "fr" | "it";
+export type { Lang };
 
 interface LanguageSwitcherProps {
   value: Lang;
   onChange: (lang: Lang) => void;
+  /** Si true, persiste aussi le choix dans cookie + localStorage (pages publiques). */
+  persist?: boolean;
   className?: string;
 }
 
-export function LanguageSwitcher({ value, onChange, className }: LanguageSwitcherProps) {
+export function LanguageSwitcher({
+  value,
+  onChange,
+  persist = false,
+  className,
+}: LanguageSwitcherProps) {
+  function handleChange(lang: Lang) {
+    if (persist) setStoredLang(lang);
+    onChange(lang);
+  }
+
   return (
     <div
       className={cn(
@@ -23,7 +37,7 @@ export function LanguageSwitcher({ value, onChange, className }: LanguageSwitche
         <button
           key={lang}
           type="button"
-          onClick={() => onChange(lang)}
+          onClick={() => handleChange(lang)}
           className={cn(
             "px-3 h-7 rounded-full text-xs font-medium uppercase tracking-wider transition-all",
             value === lang
@@ -32,7 +46,7 @@ export function LanguageSwitcher({ value, onChange, className }: LanguageSwitche
           )}
           aria-pressed={value === lang}
         >
-          {lang}
+          {lang === "fr" ? "🇫🇷 FR" : "🇮🇹 IT"}
         </button>
       ))}
     </div>

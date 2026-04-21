@@ -13,10 +13,9 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
 import {
-  MATERIAL_TYPE_LABELS,
   type Material, type Site, type Room, type MaterialType, type MaterialState,
 } from "@/types";
-import { type Lang } from "@/lib/i18n";
+import { getT, type Lang } from "@/lib/i18n";
 
 import {
   createMaterialAction,
@@ -39,12 +38,8 @@ const TYPES: MaterialType[] = [
   "telephone", "serveur", "ecran", "peripherique", "autre",
 ];
 
-const STATES: { value: MaterialState; label: string }[] = [
-  { value: "operationnel", label: "Opérationnel" },
-  { value: "en_panne", label: "En panne" },
-  { value: "en_reparation", label: "En réparation" },
-  { value: "obsolete", label: "Obsolète" },
-  { value: "hors_service", label: "Hors service" },
+const STATES: MaterialState[] = [
+  "operationnel", "en_panne", "en_reparation", "obsolete", "hors_service",
 ];
 
 export function MaterialForm({
@@ -57,6 +52,7 @@ export function MaterialForm({
   lang = "fr",
 }: Props) {
   const router = useRouter();
+  const t = React.useMemo(() => getT(lang), [lang]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -95,13 +91,15 @@ export function MaterialForm({
 
       if (result.ok && result.material) {
         toast.success(
-          mode === "create" ? "Matériel créé" : "Matériel mis à jour",
+          mode === "create"
+            ? t("material_form.success_create")
+            : t("material_form.success_edit"),
         );
         router.push(`/materials/${result.material.id}`);
         router.refresh();
       } else {
-        setError(result.error ?? "Erreur inconnue");
-        toast.error("Échec", { description: result.error });
+        setError(result.error ?? t("material_form.error_generic"));
+        toast.error("Error", { description: result.error });
       }
     } catch (e) {
       setError(String(e));
@@ -119,60 +117,60 @@ export function MaterialForm({
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ArrowLeft className="size-4" />
-        Retour
+        {t("common.back")}
       </Link>
 
       {/* Identification */}
-      <Section icon={<Package className="size-5" />} title="Identification">
+      <Section icon={<Package className="size-5" />} title={t("material_form.section_identification")}>
         <Grid>
-          <Field label="Référence *" required>
+          <Field label={t("material_form.field_ref")} required>
             <Input
               name="ref"
               defaultValue={material?.ref ?? ""}
-              placeholder="REX-INFO-043A-2026"
+              placeholder={t("material_form.field_ref_placeholder")}
               required
               className="font-mono"
             />
           </Field>
-          <Field label="Type *" required>
+          <Field label={t("material_form.field_type")} required>
             <Select name="type" defaultValue={material?.type ?? "autre"} required>
-              {TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {MATERIAL_TYPE_LABELS[t][lang]}
+              {TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(`material_types.${type}`)}
                 </option>
               ))}
             </Select>
           </Field>
         </Grid>
-        <Field label="Désignation *" required>
+        <Field label={t("material_form.field_designation")} required>
           <Input
             name="designation"
             defaultValue={material?.designation ?? ""}
-            placeholder="Ex: Ordinateur portable HP ProBook"
+            placeholder={t("material_form.field_designation_placeholder")}
             required
           />
         </Field>
         <Grid>
-          <Field label="Marque">
-            <Input name="brand" defaultValue={material?.brand ?? ""} placeholder="HP, Dell, TP-Link…" />
+          <Field label={t("material_form.field_brand")}>
+            <Input name="brand" defaultValue={material?.brand ?? ""} placeholder={t("material_form.field_brand_placeholder")} />
           </Field>
-          <Field label="Modèle">
-            <Input name="model" defaultValue={material?.model ?? ""} placeholder="ProBook 450" />
+          <Field label={t("material_form.field_model")}>
+            <Input name="model" defaultValue={material?.model ?? ""} placeholder={t("material_form.field_model_placeholder")} />
           </Field>
         </Grid>
-        <Field label="N° de série">
+        <Field label={t("material_form.field_serial")}>
           <Input
             name="serialNumber"
             defaultValue={material?.serialNumber ?? ""}
-            placeholder="SN123456789"
+            placeholder={t("material_form.field_serial_placeholder")}
             className="font-mono text-xs"
           />
         </Field>
-        <Field label="État">
+        <Field label={t("material_form.field_state")}>
           <Select name="state" defaultValue={material?.state ?? "operationnel"}>
             {STATES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
+              <option key={s} value={s}>
+                {t(`state.${s}`)}
               </option>
             ))}
           </Select>
@@ -180,9 +178,9 @@ export function MaterialForm({
       </Section>
 
       {/* Localisation */}
-      <Section icon={<MapPin className="size-5" />} title="Localisation">
+      <Section icon={<MapPin className="size-5" />} title={t("material_form.section_location")}>
         <Grid>
-          <Field label="Site *" required>
+          <Field label={t("material_form.field_site")} required>
             <Select
               value={siteId}
               onChange={(e) => setSiteId(e.target.value)}
@@ -195,7 +193,7 @@ export function MaterialForm({
               ))}
             </Select>
           </Field>
-          <Field label="Salle *" required>
+          <Field label={t("material_form.field_room")} required>
             <Select
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
@@ -203,7 +201,7 @@ export function MaterialForm({
               disabled={availableRooms.length === 0}
             >
               {availableRooms.length === 0 && (
-                <option value="">Aucune salle pour ce site</option>
+                <option value="">{t("material_form.field_room_empty")}</option>
               )}
               {availableRooms.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -215,41 +213,41 @@ export function MaterialForm({
           </Field>
         </Grid>
         <Grid>
-          <Field label="Service">
+          <Field label={t("material_form.field_service")}>
             <Input
               name="service"
               defaultValue={material?.service ?? ""}
-              placeholder="Médical, Administration…"
+              placeholder={t("material_form.field_service_placeholder")}
             />
           </Field>
-          <Field label="Affecté à">
+          <Field label={t("material_form.field_assigned_to")}>
             <Input
               name="assignedTo"
               defaultValue={material?.assignedTo ?? ""}
-              placeholder="Nom de la personne"
+              placeholder={t("material_form.field_assigned_to_placeholder")}
             />
           </Field>
         </Grid>
-        <Field label="Propriétaire">
+        <Field label={t("material_form.field_owner")}>
           <Input
             name="owner"
             defaultValue={material?.owner ?? ""}
-            placeholder="Alfeo Corassori, ONG…"
+            placeholder={t("material_form.field_owner_placeholder")}
           />
         </Field>
       </Section>
 
       {/* Achat */}
-      <Section icon={<Banknote className="size-5" />} title="Achat & finance">
+      <Section icon={<Banknote className="size-5" />} title={t("material_form.section_purchase")}>
         <Grid>
-          <Field label="Date d'achat">
+          <Field label={t("material_form.field_purchase_date")}>
             <Input
               name="purchaseDate"
               type="date"
               defaultValue={material?.purchaseDate?.slice(0, 10) ?? ""}
             />
           </Field>
-          <Field label="Prix d'achat (EUR)">
+          <Field label={t("material_form.field_purchase_price")}>
             <Input
               name="purchasePrice"
               type="number"
@@ -259,39 +257,39 @@ export function MaterialForm({
             />
           </Field>
         </Grid>
-        <Field label="Amortissement">
+        <Field label={t("material_form.field_amortization")}>
           <Input
             name="amortization"
             defaultValue={material?.amortization ?? ""}
-            placeholder="Ex: 3 ans · en cours"
+            placeholder={t("material_form.field_amortization_placeholder")}
           />
         </Field>
       </Section>
 
       {/* Caractéristiques */}
-      <Section icon={<Cpu className="size-5" />} title="Caractéristiques techniques">
+      <Section icon={<Cpu className="size-5" />} title={t("material_form.section_specs")}>
         <Grid>
-          <Field label="Système d'exploitation">
-            <Input name="os" defaultValue={material?.os ?? ""} placeholder="Windows 10, macOS Sonoma…" />
+          <Field label={t("material_form.field_os")}>
+            <Input name="os" defaultValue={material?.os ?? ""} placeholder={t("material_form.field_os_placeholder")} />
           </Field>
-          <Field label="Processeur">
-            <Input name="cpu" defaultValue={material?.cpu ?? ""} placeholder="Intel i5, AMD Ryzen 5…" />
+          <Field label={t("material_form.field_cpu")}>
+            <Input name="cpu" defaultValue={material?.cpu ?? ""} placeholder={t("material_form.field_cpu_placeholder")} />
           </Field>
         </Grid>
         <Grid>
-          <Field label="Mémoire RAM">
-            <Input name="ram" defaultValue={material?.ram ?? ""} placeholder="8 Go, 16 Go…" />
+          <Field label={t("material_form.field_ram")}>
+            <Input name="ram" defaultValue={material?.ram ?? ""} placeholder={t("material_form.field_ram_placeholder")} />
           </Field>
-          <Field label="Stockage">
-            <Input name="storage" defaultValue={material?.storage ?? ""} placeholder="256 Go SSD…" />
+          <Field label={t("material_form.field_storage")}>
+            <Input name="storage" defaultValue={material?.storage ?? ""} placeholder={t("material_form.field_storage_placeholder")} />
           </Field>
         </Grid>
       </Section>
 
       {/* Réseau */}
-      <Section icon={<Wifi className="size-5" />} title="Réseau">
+      <Section icon={<Wifi className="size-5" />} title={t("material_form.section_network")}>
         <Grid>
-          <Field label="Adresse IP">
+          <Field label={t("material_form.field_ip")}>
             <Input
               name="ipAddress"
               defaultValue={material?.ipAddress ?? ""}
@@ -299,7 +297,7 @@ export function MaterialForm({
               className="font-mono text-xs"
             />
           </Field>
-          <Field label="Adresse MAC">
+          <Field label={t("material_form.field_mac")}>
             <Input
               name="macAddress"
               defaultValue={material?.macAddress ?? ""}
@@ -309,7 +307,7 @@ export function MaterialForm({
           </Field>
         </Grid>
         <Grid>
-          <Field label="Accès internet">
+          <Field label={t("material_form.field_internet")}>
             <Select
               name="internetAccess"
               defaultValue={
@@ -320,12 +318,12 @@ export function MaterialForm({
                     : "false"
               }
             >
-              <option value="">— non spécifié —</option>
-              <option value="true">Oui</option>
-              <option value="false">Non</option>
+              <option value="">— {t("common.none")} —</option>
+              <option value="true">{t("common.yes")}</option>
+              <option value="false">{t("common.no")}</option>
             </Select>
           </Field>
-          <Field label="Lié à la BDD">
+          <Field label={t("material_form.field_linked_bdd")}>
             <Select
               name="linkedToBDD"
               defaultValue={
@@ -336,22 +334,22 @@ export function MaterialForm({
                     : "false"
               }
             >
-              <option value="">— non spécifié —</option>
-              <option value="true">Oui</option>
-              <option value="false">Non</option>
+              <option value="">— {t("common.none")} —</option>
+              <option value="true">{t("common.yes")}</option>
+              <option value="false">{t("common.no")}</option>
             </Select>
           </Field>
         </Grid>
       </Section>
 
       {/* Notes */}
-      <Section icon={<FileText className="size-5" />} title="Remarques">
-        <Field label="Notes internes">
+      <Section icon={<FileText className="size-5" />} title={t("material_form.section_notes")}>
+        <Field label={t("material_form.field_notes")}>
           <textarea
             name="notes"
             defaultValue={material?.notes ?? ""}
             rows={4}
-            placeholder="Toute information utile : condition physique, historique, instructions particulières…"
+            placeholder={t("material_form.field_notes_placeholder")}
             className={cn(
               "w-full rounded-xl glass border px-3.5 py-2.5 text-sm",
               "focus:outline-none focus:ring-2 focus:ring-primary/40",
@@ -371,7 +369,7 @@ export function MaterialForm({
       <div className="flex flex-wrap gap-2 justify-end sticky bottom-4 z-10">
         <Link href={backHref}>
           <GlassButton type="button" variant="glass" size="md">
-            Annuler
+            {t("common.cancel")}
           </GlassButton>
         </Link>
         <GlassButton type="submit" variant="brand" size="md" disabled={loading}>
@@ -381,10 +379,10 @@ export function MaterialForm({
             <Save className="size-4" />
           )}
           {loading
-            ? "Enregistrement…"
+            ? t("material_form.submit_saving")
             : mode === "create"
-              ? "Créer le matériel"
-              : "Enregistrer les modifications"}
+              ? t("material_form.submit_create")
+              : t("material_form.submit_edit")}
         </GlassButton>
       </div>
     </form>

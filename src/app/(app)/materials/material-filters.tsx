@@ -4,14 +4,16 @@ import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 
-import { MATERIAL_TYPE_LABELS, type MaterialType } from "@/types";
+import { type MaterialType } from "@/types";
 import type { Site } from "@/types";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface MaterialFiltersProps {
   sites: Site[];
   initialQuery?: string;
   initialType?: string;
   initialSite?: string;
+  lang?: Lang;
 }
 
 const TYPES: MaterialType[] = [
@@ -35,10 +37,12 @@ export function MaterialFilters({
   initialQuery = "",
   initialType = "",
   initialSite = "",
+  lang = "fr",
 }: MaterialFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = React.useState(initialQuery);
+  const t = React.useMemo(() => getT(lang), [lang]);
 
   // Debounced URL update
   React.useEffect(() => {
@@ -74,7 +78,7 @@ export function MaterialFilters({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Rechercher par REF, désignation, marque, série…"
+          placeholder={t("common.search_placeholder")}
           className="w-full h-11 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
         />
       </div>
@@ -84,9 +88,9 @@ export function MaterialFilters({
           value={initialSite}
           onChange={(e) => setParam("site", e.target.value)}
           className="h-11 rounded-2xl glass border px-3 text-sm outline-none focus:border-primary/50"
-          aria-label="Filtrer par site"
+          aria-label={t("materials_list.filter_site")}
         >
-          <option value="">Tous les sites</option>
+          <option value="">{t("materials_list.filter_all_sites")}</option>
           {sites.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -98,12 +102,12 @@ export function MaterialFilters({
           value={initialType}
           onChange={(e) => setParam("type", e.target.value)}
           className="h-11 rounded-2xl glass border px-3 text-sm outline-none focus:border-primary/50"
-          aria-label="Filtrer par type"
+          aria-label={t("materials_list.filter_type")}
         >
-          <option value="">Tous les types</option>
-          {TYPES.map((t) => (
-            <option key={t} value={t}>
-              {MATERIAL_TYPE_LABELS[t].fr}
+          <option value="">{t("materials_list.filter_all_types")}</option>
+          {TYPES.map((type) => (
+            <option key={type} value={type}>
+              {t(`material_types.${type}`)}
             </option>
           ))}
         </select>
@@ -114,7 +118,7 @@ export function MaterialFilters({
             className="inline-flex items-center gap-1.5 h-11 px-4 rounded-2xl glass border text-sm hover:bg-white/10 transition-colors text-muted-foreground"
           >
             <X className="size-4" />
-            Effacer
+            {t("common.cancel")}
           </button>
         )}
       </div>
