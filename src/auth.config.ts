@@ -31,13 +31,21 @@ export const authConfig: NextAuthConfig = {
   pages: { signIn: "/login" },
   providers: [], // ajoutés dans auth.ts (runtime Node)
   callbacks: {
-    jwt: async ({ token, user }) => {
+    jwt: async ({ token, user, trigger, session: updatedSession }) => {
       // À la connexion, `user` est défini → on injecte les champs custom dans le JWT
       if (user) {
         const u = user as { id?: string; role?: UserRole; lang?: "fr" | "it" };
         if (u.id) (token as Record<string, unknown>).id = u.id;
         if (u.role) (token as Record<string, unknown>).role = u.role;
         if (u.lang) (token as Record<string, unknown>).lang = u.lang;
+      }
+      // Lors d'un `update()` depuis le client, on merge les champs permis
+      if (trigger === "update" && updatedSession && typeof updatedSession === "object") {
+        const s = updatedSession as { lang?: "fr" | "it"; name?: string };
+        if (s.lang === "fr" || s.lang === "it") {
+          (token as Record<string, unknown>).lang = s.lang;
+        }
+        if (s.name) (token as Record<string, unknown>).name = s.name;
       }
       return token;
     },

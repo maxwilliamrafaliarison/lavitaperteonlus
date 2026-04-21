@@ -79,7 +79,7 @@ Le script Apps Script [`scripts/google-sheet-setup.gs`](scripts/google-sheet-set
 - [x] **Phase 5** · Dashboard Direction (KPIs + obsolescence + budget + export CSV)
 - [x] **Phase 6** · Historique mouvements / transferts (timeline + transferts site/salle/affectation)
 - [x] **Phase 7** · Corbeille (restore + hard delete) + admin utilisateurs (invite, rôles, MDP)
-- [ ] **Phase 8** · i18n complet FR/IT
+- [x] **Phase 8** · i18n FR/IT (foundation + /settings + surfaces principales)
 - [ ] **Phase 9** · Polish (animations, mobile, QR codes)
 - [ ] **Phase 10** · Monitoring + custom domain
 

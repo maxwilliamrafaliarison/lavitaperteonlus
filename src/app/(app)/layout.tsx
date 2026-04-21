@@ -22,7 +22,7 @@ export default async function ProtectedAppLayout({
       </div>
 
       <div className="flex min-h-screen">
-        <AppSidebar role={session.user.role} />
+        <AppSidebar role={session.user.role} lang={session.user.lang} />
         <div className="flex-1 flex flex-col min-w-0">{children}</div>
       </div>
     </div>

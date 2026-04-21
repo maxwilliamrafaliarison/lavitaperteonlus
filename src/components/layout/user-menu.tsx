@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { LogOut, User as UserIcon, Languages, Sun, Moon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, User as UserIcon, Languages, Sun, Moon, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import {
@@ -16,12 +17,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { logoutAction } from "@/lib/auth/actions";
 import type { UserRole } from "@/types";
 import { ROLE_LABELS } from "@/types";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface UserMenuProps {
   name: string;
   email: string;
   role: UserRole;
-  lang: "fr" | "it";
+  lang: Lang;
 }
 
 function initials(name: string): string {
@@ -34,16 +36,18 @@ function initials(name: string): string {
 }
 
 export function UserMenu({ name, email, role, lang }: UserMenuProps) {
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const isDark = mounted ? theme === "dark" : true;
+  const t = React.useMemo(() => getT(lang), [lang]);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex items-center gap-3 rounded-full glass border pl-1.5 pr-4 h-10 transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-        aria-label="Menu utilisateur"
+        aria-label="Menu"
       >
         <Avatar className="size-7">
           <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
@@ -73,16 +77,26 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();
+            router.push("/settings");
+          }}
+        >
+          <Settings className="size-4 mr-2" />
+          {t("user_menu.my_settings")}
+        </DropdownMenuItem>
+
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
             setTheme(isDark ? "light" : "dark");
           }}
         >
           {isDark ? <Sun className="size-4 mr-2" /> : <Moon className="size-4 mr-2" />}
-          {isDark ? "Mode clair" : "Mode sombre"}
+          {isDark ? t("user_menu.theme_light") : t("user_menu.theme_dark")}
         </DropdownMenuItem>
 
         <DropdownMenuItem disabled>
           <Languages className="size-4 mr-2" />
-          Langue : {lang.toUpperCase()}
+          {t("user_menu.language_label")} : {lang.toUpperCase()}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
@@ -93,7 +107,7 @@ export function UserMenu({ name, email, role, lang }: UserMenuProps) {
             className="flex w-full items-center px-2 py-1.5 text-sm rounded-sm hover:bg-destructive/10 text-destructive transition-colors"
           >
             <LogOut className="size-4 mr-2" />
-            Se déconnecter
+            {t("user_menu.logout")}
           </button>
         </form>
       </DropdownMenuContent>

@@ -19,28 +19,30 @@ import { cn } from "@/lib/utils";
 import { BrandLogo } from "./brand-logo";
 import type { UserRole } from "@/types";
 import { can } from "@/lib/auth/permissions";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   icon: LucideIcon;
   /** Si défini, l'item n'apparait que pour les rôles autorisés. */
   visibleFor?: UserRole[];
 }
 
 const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-  { href: "/sites", label: "Sites & salles", icon: Building2 },
-  { href: "/materials", label: "Parc matériel", icon: Cpu },
-  { href: "/movements", label: "Mouvements", icon: ArrowLeftRight },
-  { href: "/users", label: "Utilisateurs", icon: Users, visibleFor: ["admin"] },
-  { href: "/trash", label: "Corbeille", icon: Trash2, visibleFor: ["admin"] },
-  { href: "/audit", label: "Journal d'audit", icon: ScrollText, visibleFor: ["admin"] },
-  { href: "/settings", label: "Réglages", icon: Settings },
+  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+  { href: "/sites", labelKey: "nav.sites", icon: Building2 },
+  { href: "/materials", labelKey: "nav.materials", icon: Cpu },
+  { href: "/movements", labelKey: "nav.movements", icon: ArrowLeftRight },
+  { href: "/users", labelKey: "nav.users", icon: Users, visibleFor: ["admin"] },
+  { href: "/trash", labelKey: "nav.trash", icon: Trash2, visibleFor: ["admin"] },
+  { href: "/audit", labelKey: "nav.audit", icon: ScrollText, visibleFor: ["admin"] },
+  { href: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
-export function AppSidebar({ role }: { role: UserRole }) {
+export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang }) {
   const pathname = usePathname();
+  const t = React.useMemo(() => getT(lang), [lang]);
 
   const items = NAV.filter(
     (item) => !item.visibleFor || item.visibleFor.includes(role),
@@ -71,14 +73,14 @@ export function AppSidebar({ role }: { role: UserRole }) {
               )}
             >
               <Icon className={cn("size-4", active && "text-primary")} />
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           );
         })}
       </nav>
 
       <div className="px-3 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/70">
-        v0.1 · Phase 2
+        v0.1 · Phase 8
       </div>
     </aside>
   );

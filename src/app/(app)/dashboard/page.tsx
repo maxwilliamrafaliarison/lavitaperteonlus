@@ -32,6 +32,7 @@ import {
   ageHistogram,
   estimateReplacementBudget,
 } from "@/lib/dashboard-stats";
+import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { name, role, lang } = session.user;
+  const t = getT(lang);
 
   const [materialsRes, sitesRes, roomsRes, usersRes] = await Promise.all([
     safe<Material[]>(() => listMaterials(), []),
@@ -74,7 +76,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <AppTopbar title="Tableau de bord" />
+      <AppTopbar title={t("topbar.dashboard")} />
 
       <main className="flex-1 p-6 md:p-10 space-y-10">
         {/* Hero greeting + export */}
@@ -84,10 +86,10 @@ export default async function DashboardPage() {
               {ROLE_LABELS[role][lang]}
             </p>
             <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-              Bienvenue, {name?.split(" ")[0] ?? "personnel"} 👋
+              {t("dashboard.welcome", { name: name?.split(" ")[0] ?? "" })}
             </h2>
             <p className="mt-2 text-muted-foreground max-w-2xl">
-              Vue d&apos;ensemble du parc informatique La Vita Per Te.
+              {t("dashboard.subtitle")}
             </p>
           </div>
           {materials.length > 0 && (
@@ -104,33 +106,33 @@ export default async function DashboardPage() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <KPI
             icon={<Cpu className="size-5" />}
-            label="Matériels"
+            label={t("dashboard.kpi_materials")}
             value={materials.length.toString()}
-            hint={`${sites.length} site${sites.length > 1 ? "s" : ""} · ${rooms.length} salles`}
+            hint={`${sites.length} · ${rooms.length}`}
             accent="primary"
           />
           <KPI
             icon={<Activity className="size-5" />}
-            label="Score parc moyen"
+            label={t("dashboard.kpi_score")}
             value={`${avgScore}/100`}
             hint={
-              avgScore >= 70 ? "Parc en bonne santé" :
-              avgScore >= 40 ? "À surveiller" : "Action requise"
+              avgScore >= 70 ? t("dashboard.kpi_score_hint_good") :
+              avgScore >= 40 ? t("dashboard.kpi_score_hint_warn") : t("dashboard.kpi_score_hint_bad")
             }
             accent={avgScore >= 70 ? "success" : avgScore >= 40 ? "warning" : "primary"}
           />
           <KPI
             icon={<AlertTriangle className="size-5" />}
-            label="À remplacer"
+            label={t("dashboard.kpi_to_replace")}
             value={distribution.critical.toString()}
-            hint={`${distribution.warning} à surveiller`}
+            hint={`${distribution.warning} ${t("obsolescence.level_warning").toLowerCase()}`}
             accent="primary"
           />
           <KPI
             icon={<UsersIcon className="size-5" />}
-            label="Utilisateurs app"
+            label={t("dashboard.kpi_users")}
             value={usersCount.toString()}
-            hint={`${sites.length} centres supervisés`}
+            hint={`${sites.length} centres`}
             accent="cyan"
           />
         </section>
@@ -161,16 +163,16 @@ export default async function DashboardPage() {
             <div className="flex items-end justify-between mb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                  Décisions
+                  {t("dashboard.priorities_eyebrow")}
                 </p>
                 <h3 className="mt-1 font-display text-2xl font-semibold flex items-center gap-2">
                   <TrendingDown className="size-5 text-primary" />
-                  Priorités de remplacement
+                  {t("dashboard.priorities_title")}
                 </h3>
               </div>
               <Link href="/materials?sort=score">
                 <GlassButton variant="glass" size="sm">
-                  Voir tout
+                  {t("common.view_all")}
                   <ArrowRight className="size-3.5" />
                 </GlassButton>
               </Link>
@@ -205,22 +207,22 @@ export default async function DashboardPage() {
           <Link href="/sites">
             <GlassCard interactive className="p-6 group h-full">
               <Building2 className="size-8 text-accent mb-3" />
-              <h3 className="font-display font-semibold">Sites & salles</h3>
-              <p className="text-sm text-muted-foreground mt-1">Naviguer par centre puis par salle.</p>
+              <h3 className="font-display font-semibold">{t("dashboard.quick_sites")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("dashboard.quick_sites_desc")}</p>
             </GlassCard>
           </Link>
           <Link href="/materials">
             <GlassCard interactive className="p-6 group h-full">
               <Cpu className="size-8 text-primary mb-3" />
-              <h3 className="font-display font-semibold">Parc complet</h3>
-              <p className="text-sm text-muted-foreground mt-1">Liste détaillée avec recherche et filtres.</p>
+              <h3 className="font-display font-semibold">{t("dashboard.quick_materials")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("dashboard.quick_materials_desc")}</p>
             </GlassCard>
           </Link>
           <Link href="/movements">
             <GlassCard interactive className="p-6 group h-full">
               <ArrowRight className="size-8 text-[oklch(0.75_0.18_150)] mb-3" />
-              <h3 className="font-display font-semibold">Mouvements</h3>
-              <p className="text-sm text-muted-foreground mt-1">Historique des transferts (Phase 6).</p>
+              <h3 className="font-display font-semibold">{t("dashboard.quick_movements")}</h3>
+              <p className="text-sm text-muted-foreground mt-1">{t("dashboard.quick_movements_desc")}</p>
             </GlassCard>
           </Link>
         </section>
