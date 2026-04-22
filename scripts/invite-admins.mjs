@@ -52,6 +52,12 @@ const NEW_USERS = [
     role: "logistique",
     lang: "fr",
   },
+  {
+    name: "Elisa SALA",
+    email: "direction.lavitaperte@gmail.com",
+    role: "direction",
+    lang: "it",
+  },
 ];
 
 function genUserId() {
