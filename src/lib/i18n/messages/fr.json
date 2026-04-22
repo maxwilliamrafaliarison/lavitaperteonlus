@@ -24,7 +24,7 @@
     "email": "Adresse email professionnelle",
     "email_placeholder": "nom.prenom@exemple.com",
     "password": "Mot de passe",
-    "password_placeholder": "Identifiant secret",
+    "password_placeholder": "Mot de passe",
     "submit": "Se connecter",
     "submitting": "Connexion…",
     "forgot": "Mot de passe oublié ?",

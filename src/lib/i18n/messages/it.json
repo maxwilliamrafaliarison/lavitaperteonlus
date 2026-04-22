@@ -24,7 +24,7 @@
     "email": "Indirizzo email professionale",
     "email_placeholder": "nome.cognome@esempio.com",
     "password": "Password",
-    "password_placeholder": "Credenziale segreta",
+    "password_placeholder": "Password",
     "submit": "Accedi",
     "submitting": "Accesso in corso…",
     "forgot": "Password dimenticata?",
