@@ -124,6 +124,7 @@ export const Material = z.object({
   purchaseDate: z.string().optional(),
   purchasePrice: z.number().optional(),
   amortization: z.string().optional(),
+  biosDate: z.string().optional(),                    // Date du BIOS/firmware — plus fidèle à l'âge réel du hardware que purchaseDate (utile pour les dons, achats d'occasion)
   // Specs (pour obsolescence)
   os: z.string().optional(),                          // Windows 7 Pro
   cpu: z.string().optional(),

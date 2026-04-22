@@ -214,6 +214,7 @@ export default async function MaterialDetailPage({
           {/* Achat / Amortissement */}
           <Section title={t("material_detail.section_purchase")} icon={<Banknote className="size-5" />}>
             <Field label={t("material_detail.field_purchase_date")} value={material.purchaseDate} icon={<Calendar className="size-4" />} />
+            <Field label={t("material_detail.field_bios_date")} value={material.biosDate} icon={<Calendar className="size-4" />} />
             <Field label={t("material_detail.field_cost")} value={material.purchasePrice ? `${material.purchasePrice.toLocaleString("fr-FR")} Ar` : undefined} />
             <Field label={t("material_detail.field_amortization")} value={material.amortization} />
             <Field label={t("material_detail.field_quantity_2025")} value={material.quantity2025?.toString()} />

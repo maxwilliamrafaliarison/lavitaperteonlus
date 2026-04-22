@@ -68,6 +68,7 @@ function rowToMaterial(row: RawRow): Material | null {
     createdAt: String(row.createdAt ?? ""),
     updatedAt: String(row.updatedAt ?? ""),
     deletedAt: row.deletedAt ? String(row.deletedAt) : undefined,
+    biosDate: row.biosDate ? String(row.biosDate) : undefined,
   };
 }
 
@@ -86,6 +87,7 @@ function materialToRow(m: Material): unknown[] {
     m.photos.join(","),
     m.quantity2023 ?? "", m.quantity2024 ?? "", m.quantity2025 ?? "",
     m.createdAt, m.updatedAt, m.deletedAt ?? "",
+    m.biosDate ?? "",
   ];
 }
 

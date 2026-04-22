@@ -26,21 +26,36 @@ export interface ObsolescenceResult {
 }
 
 export function scoreObsolescence(
-  material: Pick<Material, "purchaseDate" | "os" | "state">,
+  material: Pick<Material, "purchaseDate" | "biosDate" | "os" | "state">,
   options?: { pannesCount?: number },
 ): ObsolescenceResult {
   let score = 100;
   const reasons: string[] = [];
 
-  // --- Âge (à partir de la date d'achat) ---
-  if (material.purchaseDate) {
-    const purchase = new Date(material.purchaseDate);
-    if (!Number.isNaN(purchase.getTime())) {
-      const ageYears = (Date.now() - purchase.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-      if (ageYears > 3) {
-        const penalty = Math.min(40, Math.round((ageYears - 3) * 5));
-        score -= penalty;
-        if (penalty > 0) reasons.push(`Âge : ${ageYears.toFixed(1)} ans (-${penalty})`);
+  // --- Âge ---
+  // Priorité : biosDate (âge réel du hardware) > purchaseDate (date d'acquisition
+  // par l'ONG, peut être plus récente si matos d'occasion ou don).
+  // Si les deux sont renseignées, on prend la PLUS ANCIENNE (plus pessimiste
+  // donc plus sûr pour la décision de remplacement).
+  type DateSource = { label: string; date: Date };
+  const dateSources: DateSource[] = [];
+  const biosParsed = parseDate(material.biosDate);
+  if (biosParsed) dateSources.push({ label: "BIOS", date: biosParsed });
+  const purchParsed = parseDate(material.purchaseDate);
+  if (purchParsed) dateSources.push({ label: "achat", date: purchParsed });
+
+  if (dateSources.length > 0) {
+    const oldest = dateSources.reduce((a, b) =>
+      a.date.getTime() < b.date.getTime() ? a : b,
+    );
+    const ageYears = (Date.now() - oldest.date.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    if (ageYears > 3) {
+      const penalty = Math.min(40, Math.round((ageYears - 3) * 5));
+      score -= penalty;
+      if (penalty > 0) {
+        reasons.push(
+          `Âge : ${ageYears.toFixed(1)} ans (réf. ${oldest.label}) (-${penalty})`,
+        );
       }
     }
   }
@@ -93,6 +108,12 @@ export function scoreObsolescence(
   const level: ObsolescenceLevel = score >= 70 ? "ok" : score >= 40 ? "warning" : "critical";
 
   return { score, level, reasons };
+}
+
+function parseDate(s: string | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export const LEVEL_LABELS: Record<ObsolescenceLevel, { fr: string; it: string }> = {

@@ -257,13 +257,25 @@ export function MaterialForm({
             />
           </Field>
         </Grid>
-        <Field label={t("material_form.field_amortization")}>
-          <Input
-            name="amortization"
-            defaultValue={material?.amortization ?? ""}
-            placeholder={t("material_form.field_amortization_placeholder")}
-          />
-        </Field>
+        <Grid>
+          <Field label={t("material_form.field_bios_date")}>
+            <Input
+              name="biosDate"
+              type="date"
+              defaultValue={material?.biosDate?.slice(0, 10) ?? ""}
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {t("material_form.field_bios_date_hint")}
+            </p>
+          </Field>
+          <Field label={t("material_form.field_amortization")}>
+            <Input
+              name="amortization"
+              defaultValue={material?.amortization ?? ""}
+              placeholder={t("material_form.field_amortization_placeholder")}
+            />
+          </Field>
+        </Grid>
       </Section>
 
       {/* Caractéristiques */}

@@ -59,6 +59,7 @@ function parseFormData(formData: FormData) {
     purchaseDate: get("purchaseDate") || undefined,
     purchasePrice: getNum("purchasePrice"),
     amortization: get("amortization") || undefined,
+    biosDate: get("biosDate") || undefined,
     os: get("os") || undefined,
     cpu: get("cpu") || undefined,
     ram: get("ram") || undefined,
