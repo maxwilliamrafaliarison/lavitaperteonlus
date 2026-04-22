@@ -59,6 +59,7 @@
     "sites": "Siti & sale",
     "materials": "Inventario",
     "movements": "Movimenti",
+    "reports": "Rapporti",
     "users": "Utenti",
     "trash": "Cestino",
     "audit": "Registro audit",
@@ -74,11 +75,21 @@
     "materials_new": "Nuovo dispositivo",
     "materials_edit": "Modifica dispositivo",
     "movements": "Movimenti",
+    "reports": "Rapporti",
     "users": "Utenti",
     "trash": "Cestino",
     "audit": "Registro audit",
     "settings": "Impostazioni",
     "transfer": "Trasferimento"
+  },
+  "reports": {
+    "eyebrow": "Analisi & esportazione",
+    "title": "Rapporti",
+    "subtitle": "Genera rapporti PDF dettagliati per il tuo utilizzo (direzione, contabilità, audit in loco, ordini di rinnovo…). Tutti i profili hanno accesso ai rapporti.",
+    "generate_pdf": "Genera il PDF",
+    "generating": "Generazione…",
+    "toast_success_title": "Rapporto generato",
+    "toast_success_desc": "{type} — download in corso"
   },
   "common": {
     "save": "Salva",

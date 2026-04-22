@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Menu, X,
-  LayoutDashboard, Building2, Cpu, ArrowLeftRight,
+  LayoutDashboard, Building2, Cpu, ArrowLeftRight, FileBarChart2,
   Users, Trash2, ScrollText, Settings,
   type LucideIcon,
 } from "lucide-react";
@@ -27,6 +27,7 @@ const NAV: NavItem[] = [
   { href: "/sites", labelKey: "nav.sites", icon: Building2 },
   { href: "/materials", labelKey: "nav.materials", icon: Cpu },
   { href: "/movements", labelKey: "nav.movements", icon: ArrowLeftRight },
+  { href: "/reports", labelKey: "nav.reports", icon: FileBarChart2 },
   { href: "/users", labelKey: "nav.users", icon: Users, visibleFor: ["admin"] },
   { href: "/trash", labelKey: "nav.trash", icon: Trash2, visibleFor: ["admin"] },
   { href: "/audit", labelKey: "nav.audit", icon: ScrollText, visibleFor: ["admin"] },

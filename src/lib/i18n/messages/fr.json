@@ -59,6 +59,7 @@
     "sites": "Sites & salles",
     "materials": "Parc matériel",
     "movements": "Mouvements",
+    "reports": "Rapports",
     "users": "Utilisateurs",
     "trash": "Corbeille",
     "audit": "Journal d'audit",
@@ -74,11 +75,21 @@
     "materials_new": "Nouveau matériel",
     "materials_edit": "Modifier le matériel",
     "movements": "Mouvements",
+    "reports": "Rapports",
     "users": "Utilisateurs",
     "trash": "Corbeille",
     "audit": "Journal d'audit",
     "settings": "Réglages",
     "transfer": "Transfert"
+  },
+  "reports": {
+    "eyebrow": "Analyse & export",
+    "title": "Rapports",
+    "subtitle": "Génère des rapports PDF détaillés pour ton usage (direction, comptabilité, audit terrain, commandes de renouvellement…). Tous les profils ont accès aux rapports.",
+    "generate_pdf": "Générer le PDF",
+    "generating": "Génération…",
+    "toast_success_title": "Rapport généré",
+    "toast_success_desc": "{type} — téléchargement en cours"
   },
   "common": {
     "save": "Enregistrer",
