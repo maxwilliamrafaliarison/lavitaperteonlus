@@ -7,23 +7,25 @@ import { scoreObsolescence, type ObsolescenceLevel } from "./obsolescence";
    Entrée : liste Material[], sortie : stats prêtes à afficher
    ============================================================ */
 
-// --- Prix moyens de remplacement (EUR) par type, si purchasePrice absent ---
-// Ajusté pour le marché malgache (import + livraison). Modifiable par la direction.
+// --- Prix moyens de remplacement (Ariary) par type, si purchasePrice absent ---
+// Valeurs indicatives marché malgache (import + livraison à Fianarantsoa).
+// Ajustables par la direction selon les devis fournisseurs locaux.
+// Ordre de grandeur : 1 EUR ≈ 5 000 Ar (avril 2026).
 export const AVG_REPLACEMENT_PRICE: Record<MaterialType, number> = {
-  ordinateur_fixe: 800,
-  ordinateur_portable: 900,
-  ordinateur_bdd: 1200,
-  imprimante: 300,
-  scanner: 200,
-  routeur: 80,
-  switch: 120,
-  box: 60,
-  telephone: 120,
-  serveur: 2000,
-  ecran: 200,
-  onduleur: 180,
-  peripherique: 40,
-  autre: 150,
+  ordinateur_fixe: 4_000_000,
+  ordinateur_portable: 4_500_000,
+  ordinateur_bdd: 6_000_000,
+  imprimante: 1_500_000,
+  scanner: 1_000_000,
+  routeur: 400_000,
+  switch: 600_000,
+  box: 300_000,
+  telephone: 600_000,
+  serveur: 10_000_000,
+  ecran: 1_000_000,
+  onduleur: 900_000,
+  peripherique: 200_000,
+  autre: 750_000,
 };
 
 export interface LevelDistribution {

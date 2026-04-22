@@ -6,12 +6,13 @@ interface Props {
   budget: BudgetEstimate;
 }
 
-function fmtEuro(n: number): string {
-  return new Intl.NumberFormat("fr-FR", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(n);
+function fmtAriary(n: number): string {
+  // Séparateur milliers + suffixe "Ar" (MGA n'a pas de subdivision usuelle)
+  return (
+    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
+      .format(n)
+      .replace(/\u202f/g, " ") + " Ar"
+  );
 }
 
 export function BudgetCard({ budget }: Props) {
@@ -35,7 +36,7 @@ export function BudgetCard({ budget }: Props) {
 
       <div className="mt-6">
         <p className="font-display text-4xl font-semibold tabular-nums text-primary">
-          {fmtEuro(budget.totalEstimated)}
+          {fmtAriary(budget.totalEstimated)}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           {budget.totalCritical > 0 ? (
@@ -45,7 +46,7 @@ export function BudgetCard({ budget }: Props) {
                 {budget.totalCritical}
               </span>{" "}
               matériels critiques ·{" "}
-              <span className="tabular-nums">{fmtEuro(budget.avgPerItem)}</span>{" "}
+              <span className="tabular-nums">{fmtAriary(budget.avgPerItem)}</span>{" "}
               par unité (moy.)
             </>
           ) : (
@@ -75,7 +76,7 @@ export function BudgetCard({ budget }: Props) {
                   ×{item.count}
                 </span>
                 <span className="tabular-nums font-medium">
-                  {fmtEuro(item.cost)}
+                  {fmtAriary(item.cost)}
                 </span>
                 <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-right">
                   {pct}%
