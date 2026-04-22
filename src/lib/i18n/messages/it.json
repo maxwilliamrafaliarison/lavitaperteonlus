@@ -87,6 +87,11 @@
     "title": "Rapporti",
     "subtitle": "Genera rapporti PDF dettagliati per il tuo utilizzo (direzione, contabilità, audit in loco, ordini di rinnovo…). Tutti i profili hanno accesso ai rapporti.",
     "generate_pdf": "Genera il PDF",
+    "download_pdf": "Scarica il PDF",
+    "download": "Scarica",
+    "preview": "Anteprima",
+    "preview_or_download": "Anteprima · PDF",
+    "preview_title": "Anteprima del rapporto",
     "generating": "Generazione…",
     "toast_success_title": "Rapporto generato",
     "toast_success_desc": "{type} — download in corso"

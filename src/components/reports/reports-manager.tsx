@@ -3,7 +3,7 @@
 import * as React from "react";
 import {
   FileText, AlertOctagon, Banknote, ArrowRightLeft, Users as UsersIcon,
-  DoorOpen, Download, Loader2, X, Calendar,
+  DoorOpen, Download, Loader2, X, Eye, Maximize2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,28 +41,52 @@ const ACCENTS: Record<ReportType, string> = {
   par_salle: "text-[oklch(0.82_0.16_85)] bg-[oklch(0.82_0.16_85_/_0.12)]",
 };
 
+interface PreviewState {
+  url: string;
+  type: ReportType;
+  filename: string;
+}
+
 export function ReportsManager({ sites, rooms, users, lang = "fr" }: Props) {
   const t = React.useMemo(() => getT(lang), [lang]);
   const [openType, setOpenType] = React.useState<ReportType | null>(null);
-  const [generating, setGenerating] = React.useState<ReportType | null>(null);
+  const [busyAction, setBusyAction] = React.useState<"download" | "preview" | null>(null);
+  const [preview, setPreview] = React.useState<PreviewState | null>(null);
 
-  async function handleGenerate(type: ReportType, filters: ReportFilters, extras?: { groupedByService?: boolean }) {
-    setGenerating(type);
+  /** Fetch le PDF et retourne le blob + URL objet (à révoquer après usage). */
+  async function fetchPdf(
+    type: ReportType,
+    filters: ReportFilters,
+    extras?: { groupedByService?: boolean },
+  ): Promise<{ blob: Blob; url: string }> {
+    const res = await fetch(`/api/reports/${type}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filters, ...(extras ?? {}) }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Erreur inconnue" }));
+      throw new Error(err.error ?? `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    return { blob, url: URL.createObjectURL(blob) };
+  }
+
+  function filenameFor(type: ReportType) {
+    return `rapport-${type.replace(/_/g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`;
+  }
+
+  async function handleDownload(
+    type: ReportType,
+    filters: ReportFilters,
+    extras?: { groupedByService?: boolean },
+  ) {
+    setBusyAction("download");
     try {
-      const res = await fetch(`/api/reports/${type}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filters, ...(extras ?? {}) }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Erreur inconnue" }));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const { url } = await fetchPdf(type, filters, extras);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `rapport-${type.replace(/_/g, "-")}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = filenameFor(type);
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -75,9 +99,53 @@ export function ReportsManager({ sites, rooms, users, lang = "fr" }: Props) {
     } catch (e) {
       toast.error(t("common.failed"), { description: String(e) });
     } finally {
-      setGenerating(null);
+      setBusyAction(null);
     }
   }
+
+  async function handlePreview(
+    type: ReportType,
+    filters: ReportFilters,
+    extras?: { groupedByService?: boolean },
+  ) {
+    setBusyAction("preview");
+    try {
+      const { url } = await fetchPdf(type, filters, extras);
+      // Révoque l'ancien preview s'il y en a un
+      if (preview) URL.revokeObjectURL(preview.url);
+      setPreview({ url, type, filename: filenameFor(type) });
+      setOpenType(null);
+    } catch (e) {
+      toast.error(t("common.failed"), { description: String(e) });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function closePreview() {
+    if (preview) URL.revokeObjectURL(preview.url);
+    setPreview(null);
+  }
+
+  /** Déclenche un téléchargement depuis l'aperçu (pas de nouvel appel API). */
+  function downloadFromPreview() {
+    if (!preview) return;
+    const a = document.createElement("a");
+    a.href = preview.url;
+    a.download = preview.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast.success(t("reports.toast_success_title"));
+  }
+
+  // Cleanup au unmount
+  React.useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const cards: ReportType[] = [
     "inventaire",
@@ -99,7 +167,7 @@ export function ReportsManager({ sites, rooms, users, lang = "fr" }: Props) {
               key={type}
               type="button"
               onClick={() => setOpenType(type)}
-              disabled={generating !== null}
+              disabled={busyAction !== null}
               className="text-left block disabled:opacity-50 transition-transform hover:-translate-y-0.5"
             >
               <GlassCard interactive className="p-6 h-full">
@@ -113,17 +181,8 @@ export function ReportsManager({ sites, rooms, users, lang = "fr" }: Props) {
                   {meta.description[lang]}
                 </p>
                 <div className="mt-4 flex items-center gap-1.5 text-xs text-muted-foreground">
-                  {generating === type ? (
-                    <>
-                      <Loader2 className="size-3.5 animate-spin" />
-                      {t("reports.generating")}
-                    </>
-                  ) : (
-                    <>
-                      <Download className="size-3.5" />
-                      {t("reports.generate_pdf")}
-                    </>
-                  )}
+                  <Eye className="size-3.5" />
+                  {t("reports.preview_or_download")}
                 </div>
               </GlassCard>
             </button>
@@ -140,11 +199,93 @@ export function ReportsManager({ sites, rooms, users, lang = "fr" }: Props) {
           lang={lang}
           t={t}
           onClose={() => setOpenType(null)}
-          onGenerate={(filters, extras) => handleGenerate(openType, filters, extras)}
-          generating={generating === openType}
+          onDownload={(filters, extras) => handleDownload(openType, filters, extras)}
+          onPreview={(filters, extras) => handlePreview(openType, filters, extras)}
+          busyAction={busyAction}
+        />
+      )}
+
+      {preview && (
+        <PreviewOverlay
+          preview={preview}
+          lang={lang}
+          t={t}
+          onClose={closePreview}
+          onDownload={downloadFromPreview}
         />
       )}
     </>
+  );
+}
+
+/* ============================================================
+   PREVIEW OVERLAY — iframe plein écran avec le PDF
+   ============================================================ */
+
+function PreviewOverlay({
+  preview,
+  lang,
+  t,
+  onClose,
+  onDownload,
+}: {
+  preview: PreviewState;
+  lang: Lang;
+  t: ReturnType<typeof getT>;
+  onClose: () => void;
+  onDownload: () => void;
+}) {
+  // ESC ferme l'overlay
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const meta = REPORT_CATALOG[preview.type];
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm animate-in fade-in">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-3 px-4 md:px-6 h-14 border-b border-white/10 bg-background/80 backdrop-blur-xl shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <Maximize2 className="size-4 text-primary shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              {t("reports.preview_title")}
+            </p>
+            <p className="text-sm font-medium truncate">
+              {meta.title[lang]}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <GlassButton type="button" variant="brand" size="sm" onClick={onDownload}>
+            <Download className="size-3.5" />
+            {t("reports.download")}
+          </GlassButton>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex size-9 items-center justify-center rounded-xl hover:bg-white/10 transition-colors"
+            aria-label={t("common.close")}
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Iframe */}
+      <div className="flex-1 overflow-hidden bg-neutral-900">
+        <iframe
+          src={preview.url}
+          className="w-full h-full border-0"
+          title={meta.title[lang]}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -160,8 +301,9 @@ function ReportModal({
   lang,
   t,
   onClose,
-  onGenerate,
-  generating,
+  onDownload,
+  onPreview,
+  busyAction,
 }: {
   type: ReportType;
   sites: Site[];
@@ -170,8 +312,9 @@ function ReportModal({
   lang: Lang;
   t: ReturnType<typeof getT>;
   onClose: () => void;
-  onGenerate: (filters: ReportFilters, extras?: { groupedByService?: boolean }) => void;
-  generating: boolean;
+  onDownload: (filters: ReportFilters, extras?: { groupedByService?: boolean }) => void;
+  onPreview: (filters: ReportFilters, extras?: { groupedByService?: boolean }) => void;
+  busyAction: "download" | "preview" | null;
 }) {
   const meta = REPORT_CATALOG[type];
   const [siteId, setSiteId] = React.useState<string>("");
@@ -188,8 +331,7 @@ function ReportModal({
 
   const availableRooms = siteId ? rooms.filter((r) => r.siteId === siteId) : rooms;
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function collectFilters(): { filters: ReportFilters; extras: { groupedByService: boolean } } {
     const filters: ReportFilters = {};
     if (siteId) filters.siteId = siteId;
     if (roomId) filters.roomId = roomId;
@@ -205,13 +347,24 @@ function ReportModal({
       if (groupBy === "service" && service) filters.service = service;
       if (groupBy === "user" && assignedTo) filters.assignedTo = assignedTo;
     }
-    onGenerate(filters, { groupedByService: groupBy === "service" });
+    return { filters, extras: { groupedByService: groupBy === "service" } };
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const { filters, extras } = collectFilters();
+    onDownload(filters, extras);
+  }
+
+  function handlePreviewClick() {
+    const { filters, extras } = collectFilters();
+    onPreview(filters, extras);
   }
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto"
-      onClick={() => !generating && onClose()}
+      onClick={() => busyAction === null && onClose()}
     >
       <form
         onSubmit={handleSubmit}
@@ -226,7 +379,7 @@ function ReportModal({
           <button
             type="button"
             onClick={onClose}
-            disabled={generating}
+            disabled={busyAction !== null}
             className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             aria-label={t("common.close")}
           >
@@ -414,17 +567,31 @@ function ReportModal({
           )}
         </div>
 
-        <div className="mt-6 flex gap-2 justify-end">
-          <GlassButton type="button" variant="glass" size="sm" onClick={onClose} disabled={generating}>
+        <div className="mt-6 flex gap-2 justify-end flex-wrap">
+          <GlassButton type="button" variant="glass" size="sm" onClick={onClose} disabled={busyAction !== null}>
             {t("common.cancel")}
           </GlassButton>
-          <GlassButton type="submit" variant="brand" size="sm" disabled={generating}>
-            {generating ? (
+          <GlassButton
+            type="button"
+            variant="glass"
+            size="sm"
+            onClick={handlePreviewClick}
+            disabled={busyAction !== null}
+          >
+            {busyAction === "preview" ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Eye className="size-3.5" />
+            )}
+            {t("reports.preview")}
+          </GlassButton>
+          <GlassButton type="submit" variant="brand" size="sm" disabled={busyAction !== null}>
+            {busyAction === "download" ? (
               <Loader2 className="size-3.5 animate-spin" />
             ) : (
               <Download className="size-3.5" />
             )}
-            {t("reports.generate_pdf")}
+            {t("reports.download_pdf")}
           </GlassButton>
         </div>
       </form>

@@ -87,6 +87,11 @@
     "title": "Rapports",
     "subtitle": "Génère des rapports PDF détaillés pour ton usage (direction, comptabilité, audit terrain, commandes de renouvellement…). Tous les profils ont accès aux rapports.",
     "generate_pdf": "Générer le PDF",
+    "download_pdf": "Télécharger le PDF",
+    "download": "Télécharger",
+    "preview": "Aperçu",
+    "preview_or_download": "Aperçu · PDF",
+    "preview_title": "Aperçu du rapport",
     "generating": "Génération…",
     "toast_success_title": "Rapport généré",
     "toast_success_desc": "{type} — téléchargement en cours"
