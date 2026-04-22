@@ -46,6 +46,12 @@ const NEW_USERS = [
     role: "admin",
     lang: "it",
   },
+  {
+    name: "William Andriamifidy RANDRIANASOLO",
+    email: "logistique.lavitaperte@gmail.com",
+    role: "logistique",
+    lang: "fr",
+  },
 ];
 
 function genUserId() {
@@ -153,50 +159,104 @@ for (const u of createdUsers) {
   console.log("\n" + "-".repeat(72));
   console.log(`À : ${u.email}`);
 
+  const ROLE_FR = {
+    admin: {
+      label: "administrateur",
+      perms: `  • l'inventaire complet du parc (222 matériels)
+  • les mots de passe chiffrés des postes
+  • le journal d'audit
+  • la gestion des utilisateurs et la corbeille`,
+    },
+    informaticien: {
+      label: "informaticien",
+      perms: `  • l'inventaire complet du parc (222 matériels)
+  • les mots de passe chiffrés des postes
+  • créer / modifier / supprimer des matériels
+  • enregistrer les transferts entre salles`,
+    },
+    direction: {
+      label: "membre de la direction",
+      perms: `  • l'inventaire complet du parc (lecture seule)
+  • les mots de passe chiffrés des postes
+  • le dashboard avec les indicateurs décisionnels`,
+    },
+    logistique: {
+      label: "responsable logistique",
+      perms: `  • l'inventaire complet du parc (222 matériels)
+  • ajouter / modifier / supprimer des matériels
+  • déplacer un matériel d'une salle à une autre (transferts)
+  • l'historique des mouvements`,
+    },
+  };
+  const ROLE_IT = {
+    admin: {
+      label: "amministratore",
+      perms: `  • l'inventario completo del parco (222 dispositivi)
+  • le password cifrate delle postazioni
+  • il registro di audit
+  • la gestione degli utenti e il cestino`,
+    },
+    informaticien: {
+      label: "informatico",
+      perms: `  • l'inventario completo del parco (222 dispositivi)
+  • le password cifrate delle postazioni
+  • creare / modificare / eliminare dispositivi
+  • registrare i trasferimenti tra sale`,
+    },
+    direction: {
+      label: "membro della direzione",
+      perms: `  • l'inventario completo (sola lettura)
+  • le password cifrate delle postazioni
+  • la dashboard con gli indicatori decisionali`,
+    },
+    logistique: {
+      label: "responsabile logistica",
+      perms: `  • l'inventario completo del parco (222 dispositivi)
+  • aggiungere / modificare / eliminare dispositivi
+  • spostare un dispositivo da una sala a un'altra (trasferimenti)
+  • lo storico dei movimenti`,
+    },
+  };
+
   if (u.lang === "fr") {
+    const role = ROLE_FR[u.role] ?? ROLE_FR.admin;
     console.log(`Objet : Votre accès au tableau de bord La Vita Per Te\n`);
     console.log(`Bonjour ${u.name.split(" ")[0]},
 
-Ton compte administrateur sur le tableau de bord numérique du Centre REX
+Ton compte ${role.label} sur le tableau de bord numérique du Centre REX
 est prêt. Voici tes identifiants de connexion :
 
-  URL      : ${loginUrl}
-  Email    : ${u.email}
-  Mot de passe : ${u.password}
+  URL           : ${loginUrl}
+  Email         : ${u.email}
+  Mot de passe  : ${u.password}
 
-À ta première connexion, va dans "Réglages" (en haut à droite → Mes
-réglages) pour changer ton mot de passe et, si tu veux, basculer
-l'interface en italien.
+À ta première connexion, va dans « Réglages » (avatar en haut à droite
+→ Mes réglages) pour choisir ton propre mot de passe.
 
-Ton rôle "administrateur" te donne accès à :
-  • l'inventaire complet du parc (218 matériels)
-  • les mots de passe chiffrés des postes
-  • le journal d'audit
-  • la gestion des utilisateurs et la corbeille
+Avec ton rôle « ${role.label} », tu peux accéder à :
+${role.perms}
 
 Merci de ne pas partager ces identifiants. À très vite sur la plateforme !
 
 — Max`);
   } else {
-    console.log(`Oggetto : Il tuo accesso al cruscotto La Vita Per Te\n`);
+    const role = ROLE_IT[u.role] ?? ROLE_IT.admin;
+    console.log(`Oggetto : Il tuo accesso alla dashboard La Vita Per Te\n`);
     console.log(`Ciao ${u.name.split(" ")[0]},
 
-Il tuo account di amministratore sul cruscotto digitale del Centro REX
-è pronto. Ecco le credenziali di accesso :
+Il tuo account di ${role.label} sulla dashboard del Centro REX è pronto.
+Ecco le credenziali di accesso :
 
-  URL      : ${loginUrl}
-  Email    : ${u.email}
-  Password : ${u.password}
+  URL       : ${loginUrl}
+  Email     : ${u.email}
+  Password  : ${u.password}
 
-Al primo accesso, ti consiglio di andare in "Impostazioni" (in alto a
-destra → Le mie impostazioni) per cambiare la password e, se preferisci,
-mantenere l'interfaccia in italiano (già preconfigurato per te).
+L'interfaccia è già configurata in italiano per te. Al primo accesso,
+ti consiglio di andare in « Impostazioni » (avatar in alto a destra →
+Le mie impostazioni) per scegliere una password a tua scelta.
 
-Il ruolo "amministratore" ti consente di accedere a :
-  • l'inventario completo del parco (218 materiali)
-  • le password cifrate delle postazioni
-  • il registro di audit
-  • la gestione degli utenti e il cestino
+Con il ruolo di ${role.label} hai accesso a :
+${role.perms}
 
 Ti chiedo di non condividere queste credenziali. A presto sulla piattaforma !
 
