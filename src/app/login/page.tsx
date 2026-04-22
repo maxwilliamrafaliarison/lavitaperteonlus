@@ -128,7 +128,7 @@ export default function LoginPage() {
                     type="email"
                     required
                     autoComplete="email"
-                    placeholder="direction.lavitaperte@gmail.com"
+                    placeholder={t.login.email_placeholder}
                     className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
                 </div>
@@ -149,7 +149,7 @@ export default function LoginPage() {
                     type="password"
                     required
                     autoComplete="current-password"
-                    placeholder="••••••••"
+                    placeholder={t.login.password_placeholder}
                     className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
                 </div>
