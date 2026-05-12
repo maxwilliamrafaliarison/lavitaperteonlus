@@ -96,10 +96,16 @@ export default function LandingPage() {
 
       {/* Footer minimal */}
       <footer className="relative z-10">
-        <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-5 md:px-10">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-2 px-6 py-5 md:flex-row md:justify-between md:px-10">
           <p className="text-[11px] text-white/70">
             © {new Date().getFullYear()} La Vita Per Te · ONG-ODV Alfeo Corassori
           </p>
+          <Link
+            href="/accessibilite"
+            className="text-[11px] text-white/70 hover:text-white underline-offset-2 hover:underline transition-colors"
+          >
+            {t.a11y.page_title}
+          </Link>
         </div>
       </footer>
     </div>
