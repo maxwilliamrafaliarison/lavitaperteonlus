@@ -142,24 +142,25 @@ export default async function MovementsPage({
                   <div className="flex-1 h-px bg-glass-border" />
                 </div>
                 <GlassCard className="overflow-hidden p-0">
-                  <div className="divide-y divide-glass-border">
+                  <ul role="list" className="divide-y divide-glass-border">
                     {items.map((m) => (
-                      <MovementCard
-                        key={m.id}
-                        movement={m}
-                        siteMap={siteMap}
-                        roomMap={roomMap}
-                        userLabel={userMap.get(m.byUserId)?.name}
-                        materialLabel={
-                          materialMap.get(m.materialId)?.designation ??
-                          materialMap.get(m.materialId)?.ref ??
-                          "—"
-                        }
-                        showMaterialLink
-                        lang={lang}
-                      />
+                      <li key={m.id}>
+                        <MovementCard
+                          movement={m}
+                          siteMap={siteMap}
+                          roomMap={roomMap}
+                          userLabel={userMap.get(m.byUserId)?.name}
+                          materialLabel={
+                            materialMap.get(m.materialId)?.designation ??
+                            materialMap.get(m.materialId)?.ref ??
+                            "—"
+                          }
+                          showMaterialLink
+                          lang={lang}
+                        />
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 </GlassCard>
               </section>
             ))}

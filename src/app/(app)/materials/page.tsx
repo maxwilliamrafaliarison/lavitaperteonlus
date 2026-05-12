@@ -109,10 +109,14 @@ export default async function MaterialsPage({
             {t("materials_list.no_results")}
           </div>
         ) : (
-          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {materials.map((m) => (
-              <MaterialCard key={m.id} material={m} lang={lang} />
-            ))}
+          <section aria-label={t("materials_list.title")}>
+            <ul role="list" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {materials.map((m) => (
+                <li key={m.id}>
+                  <MaterialCard material={m} lang={lang} />
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </main>

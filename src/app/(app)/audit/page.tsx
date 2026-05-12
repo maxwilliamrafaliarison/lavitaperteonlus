@@ -143,12 +143,12 @@ export default async function AuditPage({
           />
         ) : (
           <GlassCard className="overflow-hidden p-0">
-            <div className="divide-y divide-glass-border">
+            <ul role="list" className="divide-y divide-glass-border">
               {logs.map((log) => {
                 const meta = ACTION_META[log.action] ?? ACTION_META.view_material;
                 const Icon = meta.icon;
                 return (
-                  <div
+                  <li
                     key={log.id}
                     className="flex items-start gap-4 px-5 py-4 hover:bg-white/3 transition-colors"
                   >
@@ -157,6 +157,7 @@ export default async function AuditPage({
                         "inline-flex size-9 items-center justify-center rounded-xl border shrink-0",
                         TONE_STYLES[meta.tone],
                       )}
+                      aria-hidden="true"
                     >
                       <Icon className="size-4" />
                     </div>
@@ -176,7 +177,7 @@ export default async function AuditPage({
                         </p>
                       )}
                       <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground/80 font-mono">
-                        <span>{fmtDate(log.timestamp, lang)}</span>
+                        <time dateTime={log.timestamp}>{fmtDate(log.timestamp, lang)}</time>
                         {log.targetType && log.targetId && (
                           <span className="truncate">
                             {log.targetType}: {log.targetId.slice(0, 24)}
@@ -185,10 +186,10 @@ export default async function AuditPage({
                         {log.ip && <span className="truncate">{log.ip}</span>}
                       </div>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </GlassCard>
         )}
 

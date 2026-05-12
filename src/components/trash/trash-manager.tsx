@@ -106,13 +106,13 @@ export function TrashManager({ items, sites, rooms, lang = "fr" }: Props) {
   return (
     <>
       <GlassCard className="p-2">
-        <div className="divide-y divide-glass-border">
+        <ul role="list" className="divide-y divide-glass-border">
           {items.map((m) => {
             const site = siteMap.get(m.siteId);
             const room = roomMap.get(m.roomId);
             const busy = loadingId === m.id;
             return (
-              <div
+              <li
                 key={m.id}
                 className="flex items-start gap-4 px-4 py-4 hover:bg-white/3 transition-colors rounded-2xl"
               >
@@ -175,10 +175,10 @@ export function TrashManager({ items, sites, rooms, lang = "fr" }: Props) {
                     <Trash2 className="size-3.5" />
                   </GlassButton>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </GlassCard>
 
       {/* Modal confirmation hard delete */}
