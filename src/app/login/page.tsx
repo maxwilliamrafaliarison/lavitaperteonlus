@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
@@ -70,10 +71,27 @@ export default function LoginPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Ambient orbs */}
+      {/* Image de fond (cohérence avec landing) */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-20">
+        <Image
+          src="/logo/centre-rex.jpg"
+          alt=""
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+        />
+      </div>
+      {/* Voile flouté léger : on garde l'atmosphère sans le noir lourd
+          de la landing — le glass card du formulaire prend le relais */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-background/65 backdrop-blur-2xl"
+      />
+      {/* Halos brand par-dessus le flou pour la couleur */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[600px] w-[600px] rounded-full bg-primary/15 blur-[140px]" />
-        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-accent/15 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-accent/12 blur-[120px]" />
       </div>
 
       <header className="relative z-10">
