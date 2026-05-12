@@ -109,12 +109,11 @@ export default async function SiteRoomsPage({
 }
 
 /* ----------------------------------------------------------------------
-   Tuile de salle — style "phosphore" / Apple Liquid Glass
-   - Code de salle en énorme, gradient cyan→primary + halo glow
-   - Nom et service en dessous, bien lisibles
-   - Badge "count matériels" en haut à droite
-   - Taille du code adaptée à la longueur (codes numériques courts vs
-     codes alphanumériques type "labgal", "COU")
+   Tuile de salle — style "phosphore" / Apple Liquid Glass v2
+   - Code de salle en filigrane énorme à gauche (très basse opacité)
+   - Nom de la salle en grand avec gradient phosphore cyan→primary
+   - Service en muted sous le nom
+   - Badge nombre de matériels en bas à droite
 ---------------------------------------------------------------------- */
 function RoomTile({
   siteId,
@@ -128,12 +127,13 @@ function RoomTile({
   countLabel: string;
 }) {
   const len = room.code.length;
-  const codeSize =
+  // Taille du filigrane adaptée à la longueur du code
+  const watermarkSize =
     len <= 2
-      ? "text-[88px] md:text-[112px]"
+      ? "text-[160px] md:text-[200px]"
       : len <= 4
-        ? "text-5xl md:text-6xl"
-        : "text-3xl md:text-4xl";
+        ? "text-[100px] md:text-[130px]"
+        : "text-[64px] md:text-[80px]";
 
   return (
     <Link
@@ -143,58 +143,68 @@ function RoomTile({
     >
       <GlassCard
         interactive
-        className="relative h-full overflow-hidden p-5 group min-h-[200px]"
+        className="relative h-full overflow-hidden p-5 group min-h-[180px]"
       >
-        {/* Halo "phosphore" derrière le code */}
+        {/* Filigrane : code en énorme à gauche, très basse opacité */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-2/3 opacity-70 group-hover:opacity-100 transition-opacity duration-500"
-          style={{
-            background:
-              "radial-gradient(ellipse at top, oklch(0.80 0.16 190 / 0.18), transparent 65%)",
-          }}
-        />
-
-        {/* Badge nombre de matériels — haut droite */}
-        <div className="relative z-10 flex justify-end">
-          <div className="inline-flex items-center gap-1.5 rounded-full glass border px-2.5 h-7 text-xs font-medium tabular-nums shadow-sm">
-            <Cpu className="size-3 text-primary" aria-hidden="true" />
-            <span>{count}</span>
-          </div>
-        </div>
-
-        {/* Code en énorme — effet phosphore */}
-        <div className="relative z-10 flex items-center justify-center my-3">
+          className="pointer-events-none absolute inset-y-0 left-0 flex items-center"
+        >
           <span
             className={cn(
-              "block font-display font-bold leading-none tracking-tight tabular-nums text-center",
-              "bg-gradient-to-br from-accent via-accent to-primary",
-              "bg-clip-text text-transparent",
-              "group-hover:scale-[1.02] transition-transform duration-300",
-              codeSize,
+              "block font-display font-bold leading-none tracking-tighter select-none",
+              "text-foreground/[0.07] group-hover:text-accent/20 transition-colors duration-500",
+              watermarkSize,
             )}
-            style={{
-              filter:
-                "drop-shadow(0 0 24px oklch(0.80 0.16 190 / 0.45)) drop-shadow(0 2px 8px oklch(0.65 0.20 25 / 0.18))",
-            }}
+            style={{ marginLeft: "-0.06em" }}
           >
             {room.code}
           </span>
         </div>
 
-        {/* Nom de la salle + service */}
-        <div className="relative z-10 mt-2 text-center">
-          <h4
-            className="font-semibold text-sm md:text-base leading-tight line-clamp-2"
-            title={room.name}
-          >
-            {room.name}
-          </h4>
-          {room.service && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
-              {room.service}
-            </p>
-          )}
+        {/* Halo radial doux pour la profondeur */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50 group-hover:opacity-80 transition-opacity duration-500"
+          style={{
+            background:
+              "radial-gradient(ellipse at top right, oklch(0.80 0.16 190 / 0.10), transparent 60%)",
+          }}
+        />
+
+        {/* Contenu : nom + service en haut, count en bas à droite */}
+        <div className="relative z-10 flex h-full flex-col min-h-[150px]">
+          <div className="flex-1">
+            <h4
+              className={cn(
+                "font-display font-bold leading-tight line-clamp-2",
+                "bg-gradient-to-br from-accent via-accent to-primary",
+                "bg-clip-text text-transparent",
+                "text-2xl md:text-3xl",
+              )}
+              style={{
+                filter:
+                  "drop-shadow(0 0 18px oklch(0.80 0.16 190 / 0.40)) drop-shadow(0 2px 6px oklch(0.65 0.20 25 / 0.15))",
+              }}
+              title={room.name}
+            >
+              {room.name}
+            </h4>
+            {room.service && (
+              <p className="mt-2 text-xs text-muted-foreground line-clamp-1">
+                {room.service}
+              </p>
+            )}
+          </div>
+
+          {/* Badge count — bas à droite */}
+          <div className="mt-4 flex justify-end">
+            <div className="inline-flex items-center gap-1.5 rounded-full glass border px-2.5 h-7 text-xs font-medium tabular-nums shadow-sm">
+              <Cpu className="size-3 text-primary" aria-hidden="true" />
+              <span>{count}</span>
+              <span className="text-muted-foreground">{countLabel}</span>
+            </div>
+          </div>
         </div>
       </GlassCard>
     </Link>
