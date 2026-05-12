@@ -46,6 +46,8 @@
     "password_rule": "Minimum 8 caractères, avec au moins 1 lettre et 1 chiffre.",
     "confirm_label": "Confirmation",
     "confirm_placeholder": "Retapez le mot de passe",
+    "password_show": "Afficher le mot de passe",
+    "password_hide": "Masquer le mot de passe",
     "submit": "Définir le mot de passe",
     "submitting": "Création en cours…",
     "success_message": "Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.",

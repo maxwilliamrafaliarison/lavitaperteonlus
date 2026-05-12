@@ -46,6 +46,8 @@
     "password_rule": "Minimo 8 caratteri, con almeno 1 lettera e 1 numero.",
     "confirm_label": "Conferma",
     "confirm_placeholder": "Reinserisci la password",
+    "password_show": "Mostra password",
+    "password_hide": "Nascondi password",
     "submit": "Imposta la password",
     "submitting": "Creazione in corso…",
     "success_message": "Password impostata con successo. Ora puoi accedere.",

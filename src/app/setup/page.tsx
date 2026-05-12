@@ -12,6 +12,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Sparkles,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import { GlassCard } from "@/components/glass/glass-card";
@@ -52,6 +54,8 @@ function SubmitButton({ label, submittingLabel }: { label: string; submittingLab
 
 export default function SetupPage() {
   const [lang, setLang] = React.useState<Lang>("fr");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirm, setShowConfirm] = React.useState(false);
   const t = messages[lang];
 
   // Initialise depuis cookie/localStorage ou langue du navigateur
@@ -164,13 +168,23 @@ export default function SetupPage() {
                     <input
                       id="password"
                       name="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       required
                       minLength={8}
                       autoComplete="new-password"
                       placeholder={t.setup.password_placeholder}
-                      className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
+                      className="w-full h-12 rounded-2xl glass border pl-11 pr-12 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      aria-label={showPassword ? t.setup.password_hide : t.setup.password_show}
+                      aria-pressed={showPassword}
+                      tabIndex={-1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
                     {t.setup.password_rule}
@@ -189,13 +203,23 @@ export default function SetupPage() {
                     <input
                       id="confirm"
                       name="confirm"
-                      type="password"
+                      type={showConfirm ? "text" : "password"}
                       required
                       minLength={8}
                       autoComplete="new-password"
                       placeholder={t.setup.confirm_placeholder}
-                      className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
+                      className="w-full h-12 rounded-2xl glass border pl-11 pr-12 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm((s) => !s)}
+                      aria-label={showConfirm ? t.setup.password_hide : t.setup.password_show}
+                      aria-pressed={showConfirm}
+                      tabIndex={-1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                    >
+                      {showConfirm ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
                   </div>
                 </div>
 
