@@ -35,7 +35,7 @@ export default async function NewMaterialPage({
   return (
     <>
       <AppTopbar title="Nouveau matériel" />
-      <main className="flex-1 p-6 md:p-10 max-w-4xl mx-auto w-full">
+      <main id="main-content" className="flex-1 p-6 md:p-10 max-w-4xl mx-auto w-full">
         <header className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Parc informatique

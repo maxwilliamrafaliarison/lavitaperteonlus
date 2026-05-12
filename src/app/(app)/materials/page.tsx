@@ -58,7 +58,7 @@ export default async function MaterialsPage({
     <>
       <AppTopbar title={t("topbar.materials")} />
 
-      <main className="flex-1 p-6 md:p-10 space-y-6">
+      <main id="main-content" className="flex-1 p-6 md:p-10 space-y-6">
         <header className="flex items-end justify-between gap-4 flex-wrap">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

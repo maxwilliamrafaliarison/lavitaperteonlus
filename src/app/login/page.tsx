@@ -92,7 +92,7 @@ export default function LoginPage() {
         </div>
       </header>
 
-      <main className="relative z-10 flex min-h-[calc(100vh-96px)] items-center justify-center px-6 pb-20">
+      <main id="main-content" className="relative z-10 flex min-h-[calc(100vh-96px)] items-center justify-center px-6 pb-20">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -167,8 +167,12 @@ export default function LoginPage() {
               </div>
 
               {state?.error && (
-                <div className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  <AlertCircle className="size-4 shrink-0" />
+                <div
+                  role="alert"
+                  aria-live="polite"
+                  className="flex items-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                >
+                  <AlertCircle className="size-4 shrink-0" aria-hidden="true" />
                   <span>{state.error}</span>
                 </div>
               )}

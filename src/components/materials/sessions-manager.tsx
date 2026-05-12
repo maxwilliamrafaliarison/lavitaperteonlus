@@ -434,8 +434,12 @@ function SessionFormModal({
             </label>
 
             {error && (
-              <div className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              <div
+                role="alert"
+                aria-live="polite"
+                className="flex items-start gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}

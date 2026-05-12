@@ -41,7 +41,7 @@ export default async function SiteRoomsPage({
     <>
       <AppTopbar title={site?.name ?? t("topbar.site_detail")} />
 
-      <main className="flex-1 p-6 md:p-10 space-y-8">
+      <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">
           <Link
             href="/sites"

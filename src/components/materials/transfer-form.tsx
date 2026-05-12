@@ -198,7 +198,11 @@ export function TransferForm({
         </div>
 
         {error && (
-          <div className="mt-5 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <div
+            role="alert"
+            aria-live="polite"
+            className="mt-5 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary"
+          >
             {error}
           </div>
         )}

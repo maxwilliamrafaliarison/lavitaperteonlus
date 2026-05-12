@@ -32,7 +32,7 @@ export default async function ReportsPage() {
   return (
     <>
       <AppTopbar title={t("topbar.reports")} />
-      <main className="flex-1 p-6 md:p-10 space-y-8">
+      <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             {t("reports.eyebrow")}

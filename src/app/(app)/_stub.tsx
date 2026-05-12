@@ -11,7 +11,7 @@ export function PhaseStub({
   description: string;
 }) {
   return (
-    <main className="flex-1 p-6 md:p-10">
+    <main id="main-content" className="flex-1 p-6 md:p-10">
       <GlassCard className="p-10 max-w-2xl mx-auto text-center">
         <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
           <Construction className="size-6" />

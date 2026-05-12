@@ -79,7 +79,7 @@ export default async function DashboardPage() {
     <>
       <AppTopbar title={t("topbar.dashboard")} />
 
-      <main className="flex-1 p-4 md:p-10 space-y-8 md:space-y-10">
+      <main id="main-content" className="flex-1 p-4 md:p-10 space-y-8 md:space-y-10">
         {/* Hero greeting + export */}
         <section className="flex items-end justify-between gap-4 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-500">
           <div>

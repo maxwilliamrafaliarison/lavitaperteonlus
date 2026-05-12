@@ -1,8 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { Inter, Playfair_Display, Geist_Mono } from "next/font/google";
+
+import { auth } from "@/auth";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { getT, isLang, type Lang } from "@/lib/i18n";
 import "./globals.css";
 
 const inter = Inter({
@@ -57,18 +61,56 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+/**
+ * Résout la langue active pour SSR :
+ * 1. session.user.lang si authentifié (source de vérité)
+ * 2. cookie `lvpt_lang` (choix client persisté)
+ * 3. fallback "fr"
+ *
+ * Garantit que <html lang="…"> reflète la vraie langue affichée
+ * (RGAA 8.3 — indication de langue).
+ */
+async function resolveLang(): Promise<Lang> {
+  try {
+    const session = await auth();
+    if (session?.user?.lang && isLang(session.user.lang)) {
+      return session.user.lang;
+    }
+  } catch {
+    // pas de session, on ignore
+  }
+  try {
+    const c = await cookies();
+    const raw = c.get("lvpt_lang")?.value;
+    if (isLang(raw)) return raw;
+  } catch {
+    // ignore
+  }
+  return "fr";
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const lang = await resolveLang();
+  const t = getT(lang);
+
   return (
     <html
-      lang="fr"
+      lang={lang}
       suppressHydrationWarning
       className={`${inter.variable} ${playfair.variable} ${geistMono.variable} h-full`}
     >
       <body className="min-h-full font-sans antialiased">
+        {/* Lien d'évitement clavier — invisible sauf au focus (RGAA 12.7) */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-2xl focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+        >
+          {t("a11y.skip_to_content")}
+        </a>
         <SessionProvider>
           <ThemeProvider
             attribute="class"

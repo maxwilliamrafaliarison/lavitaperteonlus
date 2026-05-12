@@ -41,7 +41,7 @@ export default function LogoutPage() {
   }, []);
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main id="main-content" className="flex min-h-screen items-center justify-center p-6">
       <GlassCard intensity="strong" className="p-8 md:p-10 max-w-sm w-full">
         <div className="text-center">
           <div className="inline-flex size-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">

@@ -282,7 +282,11 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
           />
 
           {error && (
-            <div className="rounded-xl border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-primary">
+            <div
+              role="alert"
+              aria-live="polite"
+              className="rounded-xl border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-primary"
+            >
               {error}
             </div>
           )}

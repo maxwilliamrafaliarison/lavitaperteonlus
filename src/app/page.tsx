@@ -40,10 +40,15 @@ export default function LandingPage() {
         />
       </div>
 
-      {/* Voile pour lisibilité — plus dense à gauche (CTA) et droite (texte) */}
+      {/* Voile dense pour garantir contraste 4.5:1 partout (RGAA 3.2) */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-r from-black/75 via-black/40 to-black/70"
+        className="pointer-events-none fixed inset-0 -z-10 bg-black/55"
+      />
+      {/* Gradient horizontal complémentaire (zones texte/CTA) */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-r from-black/40 via-transparent to-black/40"
       />
       {/* Vignette douce */}
       <div
@@ -65,7 +70,7 @@ export default function LandingPage() {
       </header>
 
       {/* Centre — split asymétrique CTA gauche / texte droite */}
-      <main className="relative z-10 flex flex-1 items-center px-6 py-8 md:px-10">
+      <main id="main-content" className="relative z-10 flex flex-1 items-center px-6 py-8 md:px-10">
         <div className="mx-auto grid w-full max-w-7xl gap-12 md:grid-cols-2 md:items-center md:gap-8">
           {/* CTA à gauche */}
           <div className="flex justify-center md:justify-start md:order-1 order-2">

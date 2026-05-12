@@ -372,8 +372,12 @@ export function MaterialForm({
       </Section>
 
       {error && (
-        <div className="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary flex items-start gap-2">
-          <AlertCircle className="size-4 shrink-0 mt-0.5" />
+        <div
+          role="alert"
+          aria-live="polite"
+          className="rounded-2xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary flex items-start gap-2"
+        >
+          <AlertCircle className="size-4 shrink-0 mt-0.5" aria-hidden="true" />
           {error}
         </div>
       )}

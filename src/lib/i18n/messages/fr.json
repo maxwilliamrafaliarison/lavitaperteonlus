@@ -4,6 +4,9 @@
     "subtitle": "ONG-ODV Alfeo Corassori",
     "tagline": "Tableau de bord du parc informatique"
   },
+  "a11y": {
+    "skip_to_content": "Aller au contenu principal"
+  },
   "landing": {
     "hero_eyebrow": "Centre REX Fianarantsoa · Centre MIARAKA",
     "hero_title": "Tableau de bord du parc informatique",

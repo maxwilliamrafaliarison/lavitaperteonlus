@@ -43,7 +43,7 @@ export default async function RoomMaterialsPage({
     <>
       <AppTopbar title={room?.name ?? t("topbar.room_detail")} />
 
-      <main className="flex-1 p-6 md:p-10 space-y-8">
+      <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="flex items-end justify-between gap-4 flex-wrap">
           <div className="max-w-3xl">
             <Link

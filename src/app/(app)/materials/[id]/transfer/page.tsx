@@ -42,7 +42,7 @@ export default async function MaterialTransferPage({
   return (
     <>
       <AppTopbar title={t("topbar.transfer")} />
-      <main className="flex-1 p-6 md:p-10 max-w-4xl mx-auto w-full">
+      <main id="main-content" className="flex-1 p-6 md:p-10 max-w-4xl mx-auto w-full">
         <TransferForm
           material={material}
           sites={sitesRes.data}

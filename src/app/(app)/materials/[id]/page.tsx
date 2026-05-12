@@ -57,7 +57,7 @@ export default async function MaterialDetailPage({
     return (
       <>
         <AppTopbar title={t("topbar.materials_detail")} />
-        <main className="flex-1 p-6 md:p-10">
+        <main id="main-content" className="flex-1 p-6 md:p-10">
           <div className="rounded-3xl glass border p-10 text-center max-w-2xl mx-auto">
             <AlertCircle className="size-10 mx-auto text-primary mb-4" />
             <p className="text-sm text-muted-foreground">
@@ -100,7 +100,7 @@ export default async function MaterialDetailPage({
     <>
       <AppTopbar title={material.designation || material.ref} />
 
-      <main className="flex-1 p-6 md:p-10 space-y-8 max-w-7xl mx-auto w-full">
+      <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8 max-w-7xl mx-auto w-full">
         {/* Back nav */}
         <Link
           href={
