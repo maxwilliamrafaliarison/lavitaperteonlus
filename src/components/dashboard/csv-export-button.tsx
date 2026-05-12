@@ -6,29 +6,24 @@ import { toast } from "sonner";
 import { GlassButton } from "@/components/glass/glass-button";
 import { MATERIAL_TYPE_LABELS, type Material, type Site, type Room } from "@/types";
 import { scoreObsolescence, LEVEL_LABELS } from "@/lib/obsolescence";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface Props {
   materials: Material[];
   sites: Site[];
   rooms: Room[];
-  lang?: "fr" | "it";
+  lang?: Lang;
 }
 
-const CSV_HEADERS = [
-  "Référence",
-  "Type",
-  "Désignation",
-  "Marque",
-  "Modèle",
-  "Site",
-  "Salle",
-  "Affecté à",
-  "OS",
-  "Date d'achat",
-  "Prix (€)",
-  "État",
-  "Score obsolescence",
-  "Niveau",
+const CSV_HEADERS_FR = [
+  "Référence", "Type", "Désignation", "Marque", "Modèle", "Site", "Salle",
+  "Affecté à", "OS", "Date d'achat", "Prix (Ar)", "État",
+  "Score obsolescence", "Niveau",
+];
+const CSV_HEADERS_IT = [
+  "Riferimento", "Tipo", "Designazione", "Marca", "Modello", "Sito", "Sala",
+  "Assegnato a", "OS", "Data acquisto", "Prezzo (Ar)", "Stato",
+  "Punteggio obsolescenza", "Livello",
 ];
 
 function csvEscape(value: unknown): string {
@@ -42,6 +37,7 @@ function csvEscape(value: unknown): string {
 
 export function CsvExportButton({ materials, sites, rooms, lang = "fr" }: Props) {
   const [loading, setLoading] = useState(false);
+  const t = getT(lang);
 
   const handleExport = () => {
     setLoading(true);
@@ -69,8 +65,9 @@ export function CsvExportButton({ materials, sites, rooms, lang = "fr" }: Props)
         ];
       });
 
+      const headers = lang === "it" ? CSV_HEADERS_IT : CSV_HEADERS_FR;
       const csv = [
-        CSV_HEADERS.join(","),
+        headers.join(","),
         ...rows.map((r) => r.map(csvEscape).join(",")),
       ].join("\n");
 
@@ -86,10 +83,10 @@ export function CsvExportButton({ materials, sites, rooms, lang = "fr" }: Props)
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success(`Export CSV · ${materials.length} matériels`);
+      toast.success(t("dashboard.export_toast", { n: materials.length }));
     } catch (err) {
       console.error(err);
-      toast.error("Échec de l'export CSV");
+      toast.error(t("dashboard.export_failed"));
     } finally {
       setLoading(false);
     }
@@ -107,7 +104,7 @@ export function CsvExportButton({ materials, sites, rooms, lang = "fr" }: Props)
       ) : (
         <Download className="size-3.5" />
       )}
-      Export CSV
+      {t("dashboard.export_csv")}
     </GlassButton>
   );
 }

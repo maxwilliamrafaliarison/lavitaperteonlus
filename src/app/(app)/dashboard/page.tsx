@@ -33,6 +33,7 @@ import {
   estimateReplacementBudget,
 } from "@/lib/dashboard-stats";
 import { getT } from "@/lib/i18n";
+import { getFirstName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
               {ROLE_LABELS[role][lang]}
             </p>
             <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-              {t("dashboard.welcome", { name: name?.split(" ")[0] ?? "" })}
+              {t("dashboard.welcome", { name: getFirstName(name) })}
             </h2>
             <p className="mt-2 text-muted-foreground max-w-2xl">
               {t("dashboard.subtitle")}
@@ -148,7 +149,7 @@ export default async function DashboardPage() {
           <div className="lg:col-span-2">
             <ObsolescenceDonut distribution={distribution} lang={lang} />
           </div>
-          <BudgetCard budget={budget} />
+          <BudgetCard budget={budget} lang={lang} />
         </section>
 
         {/* Analytics — Répartition */}
@@ -156,8 +157,8 @@ export default async function DashboardPage() {
           className="grid gap-4 lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
           style={{ animationDelay: "240ms", animationFillMode: "backwards" }}
         >
-          <SiteBreakdown sites={siteStats} />
-          <TypeBreakdown types={typeStats} />
+          <SiteBreakdown sites={siteStats} lang={lang} />
+          <TypeBreakdown types={typeStats} lang={lang} />
         </section>
 
         {/* Âge du parc + Salles à risque */}
@@ -165,8 +166,8 @@ export default async function DashboardPage() {
           className="grid gap-4 lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
           style={{ animationDelay: "320ms", animationFillMode: "backwards" }}
         >
-          <AgeHistogram buckets={ageBuckets} />
-          <RoomHeatmap rooms={roomStats} />
+          <AgeHistogram buckets={ageBuckets} lang={lang} />
+          <RoomHeatmap rooms={roomStats} lang={lang} />
         </section>
 
         {/* Top à remplacer */}

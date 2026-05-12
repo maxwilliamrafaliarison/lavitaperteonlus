@@ -2,19 +2,23 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { Building2 } from "lucide-react";
 import Link from "next/link";
 import { LEVEL_CHART_COLOR, type SiteStats } from "@/lib/dashboard-stats";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface Props {
   sites: SiteStats[];
+  lang?: Lang;
 }
 
-export function SiteBreakdown({ sites }: Props) {
+export function SiteBreakdown({ sites, lang = "fr" }: Props) {
+  const t = getT(lang);
+
   if (sites.length === 0) {
     return (
       <GlassCard className="p-6">
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          Par site
+          {t("dashboard.sites_section")}
         </p>
-        <p className="mt-4 text-sm text-muted-foreground">Aucun site.</p>
+        <p className="mt-4 text-sm text-muted-foreground">{t("dashboard.sites_empty")}</p>
       </GlassCard>
     );
   }
@@ -22,9 +26,9 @@ export function SiteBreakdown({ sites }: Props) {
   return (
     <GlassCard className="p-6">
       <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        Répartition par site
+        {t("dashboard.sites_section")}
       </p>
-      <h3 className="mt-1 font-display text-lg font-semibold">Centres</h3>
+      <h3 className="mt-1 font-display text-lg font-semibold">{t("dashboard.sites_title")}</h3>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         {sites.map((site) => {
@@ -96,13 +100,13 @@ export function SiteBreakdown({ sites }: Props) {
               </div>
 
               <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
-                <span className="tabular-nums font-mono">{site.total} matériels</span>
+                <span className="tabular-nums font-mono">{site.total} {t("dashboard.sites_materials")}</span>
                 <span>·</span>
                 <span className="tabular-nums">
                   <span style={{ color: LEVEL_CHART_COLOR.critical }}>
                     {site.critical}
                   </span>{" "}
-                  critiques
+                  {t("dashboard.sites_critical")}
                 </span>
               </div>
             </Link>

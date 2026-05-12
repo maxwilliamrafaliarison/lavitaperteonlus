@@ -1,13 +1,15 @@
 import { GlassCard } from "@/components/glass/glass-card";
 import { LEVEL_CHART_COLOR, type LevelDistribution } from "@/lib/dashboard-stats";
 import { LEVEL_LABELS } from "@/lib/obsolescence";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface Props {
   distribution: LevelDistribution;
-  lang?: "fr" | "it";
+  lang?: Lang;
 }
 
 export function ObsolescenceDonut({ distribution, lang = "fr" }: Props) {
+  const t = getT(lang);
   const { ok, warning, critical, total } = distribution;
   const size = 220;
   const stroke = 28;
@@ -28,10 +30,10 @@ export function ObsolescenceDonut({ distribution, lang = "fr" }: Props) {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Santé du parc
+            {t("dashboard.health_section")}
           </p>
           <h3 className="mt-1 font-display text-lg font-semibold">
-            Répartition par état
+            {t("dashboard.health_donut_title")}
           </h3>
         </div>
       </div>
@@ -43,7 +45,7 @@ export function ObsolescenceDonut({ distribution, lang = "fr" }: Props) {
             height={size}
             viewBox={`0 0 ${size} ${size}`}
             className="-rotate-90"
-            aria-label={`${total} matériels : ${ok} opérationnels, ${warning} à surveiller, ${critical} à remplacer`}
+            aria-label={`${total} ${t("dashboard.sites_materials")} : ${ok} ${LEVEL_LABELS.ok[lang]}, ${warning} ${LEVEL_LABELS.warning[lang]}, ${critical} ${LEVEL_LABELS.critical[lang]}`}
           >
             {/* fond */}
             <circle
@@ -83,7 +85,7 @@ export function ObsolescenceDonut({ distribution, lang = "fr" }: Props) {
               {total}
             </span>
             <span className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-              matériels
+              {t("dashboard.sites_materials")}
             </span>
           </div>
         </div>

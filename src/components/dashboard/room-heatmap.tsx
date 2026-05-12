@@ -2,10 +2,12 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { DoorOpen } from "lucide-react";
 import Link from "next/link";
 import type { RoomStats } from "@/lib/dashboard-stats";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface Props {
   rooms: RoomStats[];
   limit?: number;
+  lang?: Lang;
 }
 
 function scoreTone(score: number): {
@@ -34,17 +36,18 @@ function scoreTone(score: number): {
   };
 }
 
-export function RoomHeatmap({ rooms, limit = 8 }: Props) {
+export function RoomHeatmap({ rooms, limit = 8, lang = "fr" }: Props) {
+  const t = getT(lang);
   const displayed = rooms.slice(0, limit);
 
   if (displayed.length === 0) {
     return (
       <GlassCard className="p-6">
         <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          Par salle
+          {t("dashboard.rooms_section")}
         </p>
         <p className="mt-4 text-sm text-muted-foreground">
-          Aucune salle avec matériel.
+          {t("dashboard.rooms_empty")}
         </p>
       </GlassCard>
     );
@@ -55,10 +58,10 @@ export function RoomHeatmap({ rooms, limit = 8 }: Props) {
       <div className="flex items-end justify-between">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Zones à risque
+            {t("dashboard.rooms_section")}
           </p>
           <h3 className="mt-1 font-display text-lg font-semibold">
-            Salles les plus fragiles
+            {t("dashboard.rooms_title")}
           </h3>
         </div>
       </div>
@@ -80,7 +83,7 @@ export function RoomHeatmap({ rooms, limit = 8 }: Props) {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{room.roomName}</p>
                 <p className="text-[11px] text-muted-foreground font-mono truncate">
-                  {room.siteCode} · {room.roomCode} · {room.total} matériels
+                  {room.siteCode} · {room.roomCode} · {room.total} {t("dashboard.rooms_materials_short")}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -91,7 +94,7 @@ export function RoomHeatmap({ rooms, limit = 8 }: Props) {
                 </p>
                 {room.critical > 0 && (
                   <p className="text-[10px] text-primary tabular-nums">
-                    {room.critical} crit.
+                    {room.critical} {t("dashboard.types_critical_short")}
                   </p>
                 )}
               </div>
@@ -102,7 +105,7 @@ export function RoomHeatmap({ rooms, limit = 8 }: Props) {
 
       {rooms.length > limit && (
         <p className="mt-4 text-xs text-muted-foreground text-center">
-          +{rooms.length - limit} autres salles
+          {t("dashboard.rooms_others", { n: rooms.length - limit })}
         </p>
       )}
     </GlassCard>

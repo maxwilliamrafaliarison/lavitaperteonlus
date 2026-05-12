@@ -1,9 +1,11 @@
 import { GlassCard } from "@/components/glass/glass-card";
 import { Euro, TrendingUp } from "lucide-react";
 import type { BudgetEstimate } from "@/lib/dashboard-stats";
+import { getT, type Lang } from "@/lib/i18n";
 
 interface Props {
   budget: BudgetEstimate;
+  lang?: Lang;
 }
 
 function fmtAriary(n: number): string {
@@ -11,11 +13,12 @@ function fmtAriary(n: number): string {
   return (
     new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })
       .format(n)
-      .replace(/\u202f/g, " ") + " Ar"
+      .replace(/ /g, " ") + " Ar"
   );
 }
 
-export function BudgetCard({ budget }: Props) {
+export function BudgetCard({ budget, lang = "fr" }: Props) {
+  const t = getT(lang);
   const top3 = budget.byType.slice(0, 3);
 
   return (
@@ -23,10 +26,10 @@ export function BudgetCard({ budget }: Props) {
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            Renouvellement
+            {t("dashboard.budget_section")}
           </p>
           <h3 className="mt-1 font-display text-lg font-semibold">
-            Budget estimé
+            {t("dashboard.budget_title")}
           </h3>
         </div>
         <div className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/15 text-primary">
@@ -41,16 +44,16 @@ export function BudgetCard({ budget }: Props) {
         <p className="mt-1 text-xs text-muted-foreground">
           {budget.totalCritical > 0 ? (
             <>
-              pour remplacer les{" "}
+              {t("dashboard.budget_summary_part_1")}{" "}
               <span className="text-foreground font-medium tabular-nums">
                 {budget.totalCritical}
               </span>{" "}
-              matériels critiques ·{" "}
+              {t("dashboard.budget_summary_part_2")}{" "}
               <span className="tabular-nums">{fmtAriary(budget.avgPerItem)}</span>{" "}
-              par unité (moy.)
+              {t("dashboard.budget_summary_part_3")}
             </>
           ) : (
-            "Aucun matériel à remplacer en priorité"
+            t("dashboard.budget_summary_ok")
           )}
         </p>
       </div>
@@ -59,7 +62,7 @@ export function BudgetCard({ budget }: Props) {
         <div className="mt-5 pt-4 border-t border-glass-border space-y-2.5">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <TrendingUp className="size-3" />
-            Postes principaux
+            {t("dashboard.budget_top_section")}
           </p>
           {top3.map((item) => {
             const pct =
@@ -88,9 +91,7 @@ export function BudgetCard({ budget }: Props) {
       )}
 
       <p className="mt-5 text-[10px] text-muted-foreground/70 leading-relaxed">
-        Estimation indicative basée sur les prix d&apos;achat connus et les prix
-        moyens par type. Les coûts réels peuvent varier selon fournisseur et
-        livraison.
+        {t("dashboard.budget_disclaimer")}
       </p>
     </GlassCard>
   );
