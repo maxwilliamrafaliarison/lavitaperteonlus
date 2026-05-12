@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Accessibility, CheckCircle2, AlertCircle, FileCheck, Mail, Calendar } from "lucide-react";
 
@@ -26,7 +27,23 @@ export default function AccessibilityPage() {
 
   return (
     <div className="relative min-h-screen overflow-hidden">
-      {/* Halo discret */}
+      {/* Image de fond Centre REX */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-20">
+        <Image
+          src="/logo/centre-rex.jpg"
+          alt=""
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+        />
+      </div>
+      {/* Voile flouté doux */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-background/65 backdrop-blur-2xl"
+      />
+      {/* Halos brand */}
       <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 h-[420px] w-[420px] rounded-full bg-primary/12 blur-[140px]" />
         <div className="absolute bottom-0 right-1/4 h-[320px] w-[320px] rounded-full bg-accent/10 blur-[120px]" />
