@@ -25,6 +25,8 @@
     "email_placeholder": "nom.prenom@exemple.com",
     "password": "Mot de passe",
     "password_placeholder": "Mot de passe",
+    "password_show": "Afficher le mot de passe",
+    "password_hide": "Masquer le mot de passe",
     "submit": "Se connecter",
     "submitting": "Connexion…",
     "forgot": "Mot de passe oublié ?",

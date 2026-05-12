@@ -25,6 +25,8 @@
     "email_placeholder": "nome.cognome@esempio.com",
     "password": "Password",
     "password_placeholder": "Password",
+    "password_show": "Mostra password",
+    "password_hide": "Nascondi password",
     "submit": "Accedi",
     "submitting": "Accesso in corso…",
     "forgot": "Password dimenticata?",

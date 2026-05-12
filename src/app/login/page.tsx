@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Lock, Mail, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Lock, Mail, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
@@ -46,6 +46,7 @@ function SubmitButton({ label, submittingLabel }: { label: string; submittingLab
 export default function LoginPage() {
   const router = useRouter();
   const [lang, setLang] = React.useState<Lang>("fr");
+  const [showPassword, setShowPassword] = React.useState(false);
   const t = messages[lang];
 
   // Initialise depuis cookie/localStorage ou langue du navigateur
@@ -146,12 +147,22 @@ export default function LoginPage() {
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     autoComplete="current-password"
                     placeholder={t.login.password_placeholder}
-                    className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
+                    className="w-full h-12 rounded-2xl glass border pl-11 pr-12 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((s) => !s)}
+                    aria-label={showPassword ? t.login.password_hide : t.login.password_show}
+                    aria-pressed={showPassword}
+                    tabIndex={-1}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 inline-flex size-9 items-center justify-center rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
                 </div>
               </div>
 
