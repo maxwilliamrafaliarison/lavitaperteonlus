@@ -134,7 +134,7 @@ export function TransferForm({
               {t("transfer.destination")}
             </p>
             <div className="space-y-3">
-              <FieldLabel htmlFor="toSiteId">{t("material_form.field_site")}</FieldLabel>
+              <FieldLabel htmlFor="toSiteId" required requiredLabel={t("a11y.required_indicator")}>{t("material_form.field_site")}</FieldLabel>
               <GlassSelect
                 id="toSiteId"
                 value={toSiteId}
@@ -148,7 +148,7 @@ export function TransferForm({
                 ))}
               </GlassSelect>
 
-              <FieldLabel htmlFor="toRoomId">{t("material_form.field_room")}</FieldLabel>
+              <FieldLabel htmlFor="toRoomId" required requiredLabel={t("a11y.required_indicator")}>{t("material_form.field_room")}</FieldLabel>
               <GlassSelect
                 id="toRoomId"
                 value={toRoomId}
@@ -249,13 +249,29 @@ function KV({ label, value }: { label: string; value: string }) {
   );
 }
 
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
+function FieldLabel({
+  htmlFor,
+  children,
+  required,
+  requiredLabel,
+}: {
+  htmlFor: string;
+  children: React.ReactNode;
+  required?: boolean;
+  requiredLabel?: string;
+}) {
   return (
     <label
       htmlFor={htmlFor}
       className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5"
     >
       {children}
+      {required && (
+        <>
+          {" "}
+          <span aria-label={requiredLabel} className="text-primary">*</span>
+        </>
+      )}
     </label>
   );
 }

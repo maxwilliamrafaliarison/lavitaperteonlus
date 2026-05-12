@@ -336,7 +336,11 @@ function InviteModal({
       t={t}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label={t("users.field_email")}>
+        <p className="text-[11px] text-muted-foreground">
+          <span aria-hidden="true" className="text-primary">*</span>{" "}
+          {t("a11y.required_legend")}
+        </p>
+        <Field label={t("users.field_email")} required requiredLabel={t("a11y.required_indicator")}>
           <input
             name="email"
             type="email"
@@ -346,7 +350,7 @@ function InviteModal({
           />
         </Field>
 
-        <Field label={t("users.field_name")}>
+        <Field label={t("users.field_name")} required requiredLabel={t("a11y.required_indicator")}>
           <input
             name="name"
             type="text"
@@ -357,7 +361,7 @@ function InviteModal({
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t("users.field_role")}>
+          <Field label={t("users.field_role")} required requiredLabel={t("a11y.required_indicator")}>
             <select
               name="role"
               required
@@ -370,7 +374,7 @@ function InviteModal({
               <option value="logistique">{t("roles.logistique")}</option>
             </select>
           </Field>
-          <Field label={t("users.field_lang")}>
+          <Field label={t("users.field_lang")} required requiredLabel={t("a11y.required_indicator")}>
             <select
               name="lang"
               required
@@ -383,7 +387,7 @@ function InviteModal({
           </Field>
         </div>
 
-        <Field label={t("users.field_password_initial")}>
+        <Field label={t("users.field_password_initial")} required requiredLabel={t("a11y.required_indicator")}>
           <input
             name="password"
             type="text"
@@ -453,7 +457,11 @@ function EditUserModal({
       t={t}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label={t("users.field_name")}>
+        <p className="text-[11px] text-muted-foreground">
+          <span aria-hidden="true" className="text-primary">*</span>{" "}
+          {t("a11y.required_legend")}
+        </p>
+        <Field label={t("users.field_name")} required requiredLabel={t("a11y.required_indicator")}>
           <input
             name="name"
             type="text"
@@ -464,7 +472,7 @@ function EditUserModal({
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={t("users.field_role")}>
+          <Field label={t("users.field_role")} required requiredLabel={t("a11y.required_indicator")}>
             <select
               name="role"
               defaultValue={user.role}
@@ -477,7 +485,7 @@ function EditUserModal({
               <option value="logistique">{t("roles.logistique")}</option>
             </select>
           </Field>
-          <Field label={t("users.field_lang")}>
+          <Field label={t("users.field_lang")} required requiredLabel={t("a11y.required_indicator")}>
             <select
               name="lang"
               defaultValue={user.lang}
@@ -552,7 +560,7 @@ function ResetPasswordModal({
           {t("users.reset_warning")}
         </div>
 
-        <Field label={t("users.field_password_new")}>
+        <Field label={t("users.field_password_new")} required requiredLabel={t("a11y.required_indicator")}>
           <input
             name="password"
             type="text"
@@ -622,11 +630,27 @@ function Modal({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+  required,
+  requiredLabel,
+}: {
+  label: string;
+  children: React.ReactNode;
+  required?: boolean;
+  requiredLabel?: string;
+}) {
   return (
     <label className="block">
       <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
         {label}
+        {required && (
+          <>
+            {" "}
+            <span aria-label={requiredLabel} className="text-primary">*</span>
+          </>
+        )}
       </span>
       {children}
     </label>

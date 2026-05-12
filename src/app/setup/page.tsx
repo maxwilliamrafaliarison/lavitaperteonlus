@@ -137,12 +137,17 @@ export default function SetupPage() {
               <form action={formAction} className="mt-8 space-y-5">
                 {/* langue choisie côté client, lue par le server action pour traduire les erreurs */}
                 <input type="hidden" name="lang" value={lang} />
+                <p className="text-[11px] text-muted-foreground">
+                  <span aria-hidden="true" className="text-primary">*</span>{" "}
+                  {t.a11y.required_legend}
+                </p>
                 <div className="space-y-2">
                   <label
                     htmlFor="email"
                     className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
                   >
-                    {t.setup.email_label}
+                    {t.setup.email_label}{" "}
+                    <span aria-label={t.a11y.required_indicator} className="text-primary not-italic">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -163,7 +168,8 @@ export default function SetupPage() {
                     htmlFor="password"
                     className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
                   >
-                    {t.setup.password_label}
+                    {t.setup.password_label}{" "}
+                    <span aria-label={t.a11y.required_indicator} className="text-primary not-italic">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -198,7 +204,8 @@ export default function SetupPage() {
                     htmlFor="confirm"
                     className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
                   >
-                    {t.setup.confirm_label}
+                    {t.setup.confirm_label}{" "}
+                    <span aria-label={t.a11y.required_indicator} className="text-primary not-italic">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />

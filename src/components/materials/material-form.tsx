@@ -120,10 +120,15 @@ export function MaterialForm({
         {t("common.back")}
       </Link>
 
+      <p className="text-[11px] text-muted-foreground">
+        <span aria-hidden="true" className="text-primary">*</span>{" "}
+        {t("a11y.required_legend")}
+      </p>
+
       {/* Identification */}
       <Section icon={<Package className="size-5" />} title={t("material_form.section_identification")}>
         <Grid>
-          <Field label={t("material_form.field_ref")} required>
+          <Field label={t("material_form.field_ref")} required requiredLabel={t("a11y.required_indicator")}>
             <Input
               name="ref"
               defaultValue={material?.ref ?? ""}
@@ -132,7 +137,7 @@ export function MaterialForm({
               className="font-mono"
             />
           </Field>
-          <Field label={t("material_form.field_type")} required>
+          <Field label={t("material_form.field_type")} required requiredLabel={t("a11y.required_indicator")}>
             <Select name="type" defaultValue={material?.type ?? "autre"} required>
               {TYPES.map((type) => (
                 <option key={type} value={type}>
@@ -142,7 +147,7 @@ export function MaterialForm({
             </Select>
           </Field>
         </Grid>
-        <Field label={t("material_form.field_designation")} required>
+        <Field label={t("material_form.field_designation")} required requiredLabel={t("a11y.required_indicator")}>
           <Input
             name="designation"
             defaultValue={material?.designation ?? ""}
@@ -180,7 +185,7 @@ export function MaterialForm({
       {/* Localisation */}
       <Section icon={<MapPin className="size-5" />} title={t("material_form.section_location")}>
         <Grid>
-          <Field label={t("material_form.field_site")} required>
+          <Field label={t("material_form.field_site")} required requiredLabel={t("a11y.required_indicator")}>
             <Select
               value={siteId}
               onChange={(e) => setSiteId(e.target.value)}
@@ -193,7 +198,7 @@ export function MaterialForm({
               ))}
             </Select>
           </Field>
-          <Field label={t("material_form.field_room")} required>
+          <Field label={t("material_form.field_room")} required requiredLabel={t("a11y.required_indicator")}>
             <Select
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
@@ -439,16 +444,22 @@ function Field({
   label,
   children,
   required,
+  requiredLabel,
 }: {
   label: string;
   children: React.ReactNode;
   required?: boolean;
+  requiredLabel?: string;
 }) {
   return (
     <label className="block">
       <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
         {label}
-        {required && <span className="text-primary ml-1">*</span>}
+        {required && (
+          <span aria-label={requiredLabel} className="text-primary ml-1">
+            *
+          </span>
+        )}
       </span>
       {children}
     </label>

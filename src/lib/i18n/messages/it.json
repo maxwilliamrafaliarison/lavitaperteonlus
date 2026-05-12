@@ -5,7 +5,9 @@
     "tagline": "Dashboard del parco informatico"
   },
   "a11y": {
-    "skip_to_content": "Vai al contenuto principale"
+    "skip_to_content": "Vai al contenuto principale",
+    "required_indicator": "campo obbligatorio",
+    "required_legend": "I campi contrassegnati con un asterisco sono obbligatori"
   },
   "landing": {
     "hero_eyebrow": "Centro REX Fianarantsoa · Centro MIARAKA",

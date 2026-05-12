@@ -254,6 +254,10 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
           <h3 className="font-display text-lg font-semibold">
             {t("settings.password_section")}
           </h3>
+          <p className="text-[11px] text-muted-foreground">
+            <span aria-hidden="true" className="text-primary">*</span>{" "}
+            {t("a11y.required_legend")}
+          </p>
 
           <PwdInput
             label={t("settings.password_current")}
@@ -262,6 +266,8 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
             autoComplete="current-password"
             showLabel={t("settings.password_show")}
             hideLabel={t("settings.password_hide")}
+            required
+            requiredLabel={t("a11y.required_indicator")}
           />
           <PwdInput
             label={t("settings.password_new")}
@@ -271,6 +277,8 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
             hint={t("settings.password_rule")}
             showLabel={t("settings.password_show")}
             hideLabel={t("settings.password_hide")}
+            required
+            requiredLabel={t("a11y.required_indicator")}
           />
           <PwdInput
             label={t("settings.password_confirm")}
@@ -279,6 +287,8 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
             autoComplete="new-password"
             showLabel={t("settings.password_show")}
             hideLabel={t("settings.password_hide")}
+            required
+            requiredLabel={t("a11y.required_indicator")}
           />
 
           {error && (
@@ -316,6 +326,8 @@ function PwdInput({
   hint,
   showLabel,
   hideLabel,
+  required = true,
+  requiredLabel,
 }: {
   label: string;
   value: string;
@@ -324,12 +336,20 @@ function PwdInput({
   hint?: string;
   showLabel: string;
   hideLabel: string;
+  required?: boolean;
+  requiredLabel?: string;
 }) {
   const [shown, setShown] = React.useState(false);
   return (
     <label className="block">
       <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
         {label}
+        {required && (
+          <>
+            {" "}
+            <span aria-label={requiredLabel} className="text-primary">*</span>
+          </>
+        )}
       </span>
       <div className="relative">
         <input

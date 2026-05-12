@@ -5,7 +5,9 @@
     "tagline": "Tableau de bord du parc informatique"
   },
   "a11y": {
-    "skip_to_content": "Aller au contenu principal"
+    "skip_to_content": "Aller au contenu principal",
+    "required_indicator": "champ obligatoire",
+    "required_legend": "Les champs marqués d'un astérisque sont obligatoires"
   },
   "landing": {
     "hero_eyebrow": "Centre REX Fianarantsoa · Centre MIARAKA",
