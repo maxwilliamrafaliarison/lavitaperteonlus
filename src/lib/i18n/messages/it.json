@@ -12,7 +12,7 @@
     "cta_learn": "Scopri di più",
     "features_title": "Progettato per la direzione e le équipe",
     "feature_1_title": "Parco centralizzato",
-    "feature_1_desc": "Ogni sala, ogni computer, ogni stampante — scheda dettagliata e tracciabilità completa.",
+    "feature_1_desc": "Ogni sala, ogni computer, ogni stampante : scheda dettagliata e tracciabilità completa.",
     "feature_2_title": "Decisioni informate",
     "feature_2_desc": "Punteggio di obsolescenza automatico per anticipare le sostituzioni e ottimizzare il budget.",
     "feature_3_title": "Sicurezza rafforzata",
@@ -114,7 +114,7 @@
     "preview_title": "Anteprima del rapporto",
     "generating": "Generazione…",
     "toast_success_title": "Rapporto generato",
-    "toast_success_desc": "{type} — download in corso"
+    "toast_success_desc": "{type} · download in corso"
   },
   "common": {
     "save": "Salva",
@@ -292,7 +292,7 @@
     "field_purchase_date": "Data di acquisto",
     "field_purchase_price": "Prezzo d'acquisto (Ar)",
     "field_bios_date": "Data del BIOS",
-    "field_bios_date_hint": "Data di fabbricazione letta nel BIOS. Utile per donazioni / acquisti usati — fornisce un'età più affidabile della data di acquisto.",
+    "field_bios_date_hint": "Data di fabbricazione letta nel BIOS. Utile per donazioni e acquisti usati : fornisce un'età più affidabile della data di acquisto.",
     "field_amortization": "Ammortamento",
     "field_amortization_placeholder": "Es: 3 anni · in corso",
     "field_os": "Sistema operativo",
@@ -394,7 +394,7 @@
     "reason_placeholder": "Es: Trasloco reparto accoglienza, sostituzione utente…",
     "submit": "Conferma il trasferimento",
     "submitting": "Trasferimento…",
-    "no_change_hint": "Nessun cambiamento rilevato — modifica almeno un campo.",
+    "no_change_hint": "Nessun cambiamento rilevato. Modifica almeno un campo.",
     "success_title": "Trasferimento registrato",
     "success_desc": "Il movimento è stato aggiunto allo storico."
   },
@@ -435,7 +435,7 @@
   "movements": {
     "eyebrow": "Storico",
     "title": "Movimenti del parco",
-    "subtitle": "Timeline dei trasferimenti, creazioni, riparazioni e modifiche — gli ultimi 200 eventi.",
+    "subtitle": "Timeline dei trasferimenti, creazioni, riparazioni e modifiche. Gli ultimi 200 eventi.",
     "filter_all": "Tutto",
     "filter_creation": "Creazioni",
     "filter_sites": "Siti",
@@ -452,7 +452,7 @@
     "filter_restauration": "Ripristini",
     "empty_title": "Nessun movimento",
     "empty_desc_filter": "Nessun movimento con questo filtro.",
-    "empty_desc_none": "Lo storico è vuoto — si popolerà man mano con i trasferimenti e le creazioni.",
+    "empty_desc_none": "Lo storico è vuoto. Si popolerà man mano con i trasferimenti e le creazioni.",
     "empty_helper": "I trasferimenti si creano dalla scheda di un dispositivo (pulsante « Trasferisci »).",
     "today": "Oggi",
     "yesterday": "Ieri",
@@ -478,7 +478,7 @@
     "title": "Cestino",
     "subtitle": "Dispositivi eliminati (soft delete). Ripristina per rimetterli nel parco attivo, o eliminali definitivamente dal Google Sheet.",
     "empty_title": "Cestino vuoto",
-    "empty_desc": "Nessun dispositivo eliminato. Gli elementi spostati nel cestino appariranno qui — potrai ripristinarli o eliminarli definitivamente.",
+    "empty_desc": "Nessun dispositivo eliminato. Gli elementi spostati nel cestino appariranno qui. Potrai ripristinarli o eliminarli definitivamente.",
     "deleted_at": "Eliminato il",
     "item_count_one": "{n} elemento",
     "item_count_many": "{n} elementi",
@@ -529,7 +529,7 @@
   "audit": {
     "eyebrow": "Sicurezza & tracciabilità",
     "title": "Registro audit",
-    "subtitle": "Consultazioni di password, modifiche al parco, accessi — gli ultimi 200 eventi. Riservato all'amministratore.",
+    "subtitle": "Consultazioni di password, modifiche al parco, accessi. Gli ultimi 200 eventi. Riservato all'amministratore.",
     "filter_all": "Tutto",
     "filter_passwords": "Password consultate",
     "filter_logins": "Accessi",
@@ -547,7 +547,7 @@
     "by": "da",
     "empty_title": "Nessun evento",
     "empty_desc_filter": "Nessun evento con questo filtro.",
-    "empty_desc_none": "Il registro è vuoto al momento — si popolerà man mano con l'attività.",
+    "empty_desc_none": "Il registro è vuoto al momento. Si popolerà man mano con l'attività.",
     "pagination_hint": "Visualizzazione delle 200 voci più recenti. La paginazione completa arriverà in una prossima iterazione."
   },
   "sites": {

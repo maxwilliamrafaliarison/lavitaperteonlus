@@ -12,7 +12,7 @@
     "cta_learn": "En savoir plus",
     "features_title": "Conçu pour la direction et les équipes",
     "feature_1_title": "Parc centralisé",
-    "feature_1_desc": "Chaque salle, chaque ordinateur, chaque imprimante — fiche détaillée et traçabilité complète.",
+    "feature_1_desc": "Chaque salle, chaque ordinateur, chaque imprimante : fiche détaillée et traçabilité complète.",
     "feature_2_title": "Décisions éclairées",
     "feature_2_desc": "Score d'obsolescence automatique pour anticiper les remplacements et optimiser le budget.",
     "feature_3_title": "Sécurité renforcée",
@@ -114,7 +114,7 @@
     "preview_title": "Aperçu du rapport",
     "generating": "Génération…",
     "toast_success_title": "Rapport généré",
-    "toast_success_desc": "{type} — téléchargement en cours"
+    "toast_success_desc": "{type} · téléchargement en cours"
   },
   "common": {
     "save": "Enregistrer",
@@ -292,7 +292,7 @@
     "field_purchase_date": "Date d'achat",
     "field_purchase_price": "Prix d'achat (Ar)",
     "field_bios_date": "Date du BIOS",
-    "field_bios_date_hint": "Date de fabrication lue dans le BIOS. Utile pour les dons / achats d'occasion — donne un âge réel plus fiable que la date d'achat.",
+    "field_bios_date_hint": "Date de fabrication lue dans le BIOS. Utile pour les dons et achats d'occasion : donne un âge réel plus fiable que la date d'achat.",
     "field_amortization": "Amortissement",
     "field_amortization_placeholder": "Ex: 3 ans · en cours",
     "field_os": "Système d'exploitation",
@@ -394,7 +394,7 @@
     "reason_placeholder": "Ex: Déménagement service accueil, remplacement utilisateur…",
     "submit": "Confirmer le transfert",
     "submitting": "Transfert…",
-    "no_change_hint": "Aucun changement détecté — modifiez au moins un champ.",
+    "no_change_hint": "Aucun changement détecté. Modifiez au moins un champ.",
     "success_title": "Transfert enregistré",
     "success_desc": "Le mouvement a été ajouté à l'historique."
   },
@@ -435,7 +435,7 @@
   "movements": {
     "eyebrow": "Historique",
     "title": "Mouvements du parc",
-    "subtitle": "Timeline des transferts, créations, réparations et évolutions — les 200 derniers événements.",
+    "subtitle": "Timeline des transferts, créations, réparations et évolutions. Les 200 derniers événements.",
     "filter_all": "Tout",
     "filter_creation": "Créations",
     "filter_sites": "Sites",
@@ -452,7 +452,7 @@
     "filter_restauration": "Restaurations",
     "empty_title": "Aucun mouvement",
     "empty_desc_filter": "Aucun mouvement avec ce filtre.",
-    "empty_desc_none": "L'historique est vide — il se remplira au fur et à mesure des transferts et créations.",
+    "empty_desc_none": "L'historique est vide. Il se remplira au fur et à mesure des transferts et créations.",
     "empty_helper": "Les transferts sont créés depuis la fiche d'un matériel (bouton « Transférer »).",
     "today": "Aujourd'hui",
     "yesterday": "Hier",
@@ -478,7 +478,7 @@
     "title": "Corbeille",
     "subtitle": "Matériels supprimés (soft delete). Restaurez pour les remettre dans le parc actif, ou supprimez-les définitivement du Google Sheet.",
     "empty_title": "Corbeille vide",
-    "empty_desc": "Aucun matériel supprimé. Les éléments mis à la corbeille apparaîtront ici — vous pourrez les restaurer ou les supprimer définitivement.",
+    "empty_desc": "Aucun matériel supprimé. Les éléments mis à la corbeille apparaîtront ici. Vous pourrez les restaurer ou les supprimer définitivement.",
     "deleted_at": "Supprimé le",
     "item_count_one": "{n} élément",
     "item_count_many": "{n} éléments",
@@ -529,7 +529,7 @@
   "audit": {
     "eyebrow": "Sécurité & traçabilité",
     "title": "Journal d'audit",
-    "subtitle": "Consultations de mots de passe, modifications du parc, connexions — les 200 dernières entrées. Réservé à l'administrateur.",
+    "subtitle": "Consultations de mots de passe, modifications du parc, connexions. Les 200 dernières entrées. Réservé à l'administrateur.",
     "filter_all": "Tout",
     "filter_passwords": "MDP consultés",
     "filter_logins": "Connexions",
@@ -547,7 +547,7 @@
     "by": "par",
     "empty_title": "Aucun événement",
     "empty_desc_filter": "Aucun événement avec ce filtre.",
-    "empty_desc_none": "Le journal est vide pour l'instant — il se remplira au fur et à mesure de l'activité.",
+    "empty_desc_none": "Le journal est vide pour l'instant. Il se remplira au fur et à mesure de l'activité.",
     "pagination_hint": "Affichage des 200 entrées les plus récentes. La pagination complète arrivera dans une prochaine itération."
   },
   "sites": {

@@ -25,11 +25,11 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "La Vita Per Te — Parc Informatique",
+    default: "La Vita Per Te · Parc Informatique",
     template: "%s · La Vita Per Te",
   },
   description:
-    "Tableau de bord du parc informatique — Centre REX Fianarantsoa & Centre MIARAKA. ONG-ODV Alfeo Corassori.",
+    "Tableau de bord du parc informatique. Centre REX Fianarantsoa et Centre MIARAKA. ONG-ODV Alfeo Corassori.",
   applicationName: "La Vita Per Te Dashboard",
   authors: [{ name: "La Vita Per Te" }],
   creator: "La Vita Per Te",
