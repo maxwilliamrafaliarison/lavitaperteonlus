@@ -565,6 +565,8 @@
     "password_submit": "Mettre à jour le mot de passe",
     "password_success": "Mot de passe mis à jour",
     "password_mismatch": "Les deux mots de passe ne correspondent pas.",
+    "password_show": "Afficher le mot de passe",
+    "password_hide": "Masquer le mot de passe",
     "lang_success": "Langue mise à jour",
     "lang_relogin_hint": "Déconnectez-vous et reconnectez-vous pour que tout s'affiche dans la nouvelle langue.",
     "account_section": "Mon compte",

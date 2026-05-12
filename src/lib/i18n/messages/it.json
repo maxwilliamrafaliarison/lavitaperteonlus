@@ -565,6 +565,8 @@
     "password_submit": "Aggiorna la password",
     "password_success": "Password aggiornata",
     "password_mismatch": "Le due password non corrispondono.",
+    "password_show": "Mostra password",
+    "password_hide": "Nascondi password",
     "lang_success": "Lingua aggiornata",
     "lang_relogin_hint": "Disconnettiti e riconnettiti affinché tutto venga visualizzato nella nuova lingua.",
     "account_section": "Il mio account",

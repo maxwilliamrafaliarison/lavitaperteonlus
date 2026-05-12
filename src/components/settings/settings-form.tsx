@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { useTheme } from "next-themes";
 import {
   Globe, Moon, Sun, KeyRound, Loader2, Check, Calendar, Mail,
-  Shield,
+  Shield, Eye, EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -222,7 +222,7 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
     e.preventDefault();
     setError(null);
     if (next !== confirm) {
-      setError("Les deux mots de passe ne correspondent pas.");
+      setError(t("settings.password_mismatch"));
       return;
     }
     setLoading(true);
@@ -260,6 +260,8 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
             value={current}
             onChange={setCurrent}
             autoComplete="current-password"
+            showLabel={t("settings.password_show")}
+            hideLabel={t("settings.password_hide")}
           />
           <PwdInput
             label={t("settings.password_new")}
@@ -267,12 +269,16 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
             onChange={setNext}
             autoComplete="new-password"
             hint={t("settings.password_rule")}
+            showLabel={t("settings.password_show")}
+            hideLabel={t("settings.password_hide")}
           />
           <PwdInput
             label={t("settings.password_confirm")}
             value={confirm}
             onChange={setConfirm}
             autoComplete="new-password"
+            showLabel={t("settings.password_show")}
+            hideLabel={t("settings.password_hide")}
           />
 
           {error && (
@@ -304,25 +310,42 @@ function PwdInput({
   onChange,
   autoComplete,
   hint,
+  showLabel,
+  hideLabel,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   autoComplete?: string;
   hint?: string;
+  showLabel: string;
+  hideLabel: string;
 }) {
+  const [shown, setShown] = React.useState(false);
   return (
     <label className="block">
       <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
         {label}
       </span>
-      <input
-        type="password"
-        value={value}
-        autoComplete={autoComplete}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl glass border px-3.5 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
-      />
+      <div className="relative">
+        <input
+          type={shown ? "text" : "password"}
+          value={value}
+          autoComplete={autoComplete}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded-xl glass border pl-3.5 pr-11 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
+        />
+        <button
+          type="button"
+          onClick={() => setShown((s) => !s)}
+          aria-label={shown ? hideLabel : showLabel}
+          aria-pressed={shown}
+          tabIndex={-1}
+          className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+        >
+          {shown ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+        </button>
+      </div>
       {hint && <p className="mt-1 text-[10px] text-muted-foreground">{hint}</p>}
     </label>
   );
