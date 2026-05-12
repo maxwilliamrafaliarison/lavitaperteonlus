@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
+import { useDialogA11y } from "@/lib/hooks/use-dialog-a11y";
 import { getT, type Lang } from "@/lib/i18n";
 import { softDeleteMaterialAction } from "./delete-actions";
 
@@ -21,6 +22,9 @@ export function DeleteMaterialButton({ materialId, materialLabel, lang = "fr" }:
   const t = React.useMemo(() => getT(lang), [lang]);
   const [open, setOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  useDialogA11y(dialogRef, open, () => setOpen(false), { disabled: loading });
 
   async function handleConfirm() {
     setLoading(true);
@@ -61,6 +65,10 @@ export function DeleteMaterialButton({ materialId, materialLabel, lang = "fr" }:
           onClick={() => !loading && setOpen(false)}
         >
           <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
             className={cn(
               "w-full max-w-md rounded-3xl glass-strong border-glass-border",
               "p-6 shadow-2xl animate-in zoom-in-95 duration-200",
@@ -69,7 +77,7 @@ export function DeleteMaterialButton({ materialId, materialLabel, lang = "fr" }:
           >
             <div className="flex items-start justify-between gap-3 mb-4">
               <div className="inline-flex size-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                <AlertTriangle className="size-5" />
+                <AlertTriangle className="size-5" aria-hidden="true" />
               </div>
               <button
                 type="button"
@@ -78,11 +86,11 @@ export function DeleteMaterialButton({ materialId, materialLabel, lang = "fr" }:
                 className="text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={t("common.close")}
               >
-                <X className="size-4" />
+                <X className="size-4" aria-hidden="true" />
               </button>
             </div>
 
-            <h3 className="font-display text-lg font-semibold">
+            <h3 id={titleId} className="font-display text-lg font-semibold">
               {t("delete_material.title")}
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">

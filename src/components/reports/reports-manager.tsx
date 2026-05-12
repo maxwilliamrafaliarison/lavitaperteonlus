@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
+import { useDialogA11y } from "@/lib/hooks/use-dialog-a11y";
 import { getT, type Lang } from "@/lib/i18n";
 import type { Site, Room, AppUser, MaterialType, MaterialState, MovementType } from "@/types";
 import { MATERIAL_TYPE_LABELS } from "@/types";
@@ -247,11 +248,16 @@ function PreviewOverlay({
   const meta = REPORT_CATALOG[preview.type];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm animate-in fade-in">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("reports.preview_title")}
+      className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm animate-in fade-in"
+    >
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 px-4 md:px-6 h-14 border-b border-white/10 bg-background/80 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <Maximize2 className="size-4 text-primary shrink-0" />
+          <Maximize2 className="size-4 text-primary shrink-0" aria-hidden="true" />
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
               {t("reports.preview_title")}
@@ -263,7 +269,7 @@ function PreviewOverlay({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <GlassButton type="button" variant="brand" size="sm" onClick={onDownload}>
-            <Download className="size-3.5" />
+            <Download className="size-3.5" aria-hidden="true" />
             {t("reports.download")}
           </GlassButton>
           <button
@@ -272,7 +278,7 @@ function PreviewOverlay({
             className="inline-flex size-9 items-center justify-center rounded-xl hover:bg-white/10 transition-colors"
             aria-label={t("common.close")}
           >
-            <X className="size-4" />
+            <X className="size-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -317,6 +323,10 @@ function ReportModal({
   busyAction: "download" | "preview" | null;
 }) {
   const meta = REPORT_CATALOG[type];
+  const dialogRef = React.useRef<HTMLFormElement>(null);
+  const titleId = React.useId();
+  useDialogA11y(dialogRef, true, onClose, { disabled: busyAction !== null });
+
   const [siteId, setSiteId] = React.useState<string>("");
   const [roomId, setRoomId] = React.useState<string>("");
   const [materialType, setMaterialType] = React.useState<string>("");
@@ -367,13 +377,17 @@ function ReportModal({
       onClick={() => busyAction === null && onClose()}
     >
       <form
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         onSubmit={handleSubmit}
         className="w-full max-w-lg rounded-3xl glass-strong border-glass-border p-6 shadow-2xl animate-in zoom-in-95 duration-200 my-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <h3 className="font-display text-lg font-semibold">{meta.title[lang]}</h3>
+            <h3 id={titleId} className="font-display text-lg font-semibold">{meta.title[lang]}</h3>
             <p className="mt-1 text-xs text-muted-foreground">{meta.description[lang]}</p>
           </div>
           <button
@@ -383,7 +397,7 @@ function ReportModal({
             className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             aria-label={t("common.close")}
           >
-            <X className="size-4" />
+            <X className="size-4" aria-hidden="true" />
           </button>
         </div>
 

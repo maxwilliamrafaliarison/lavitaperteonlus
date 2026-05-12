@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { cn } from "@/lib/utils";
+import { useDialogA11y } from "@/lib/hooks/use-dialog-a11y";
 import type { AppUser, UserRole } from "@/types";
 import { getT, type Lang, type TFn } from "@/lib/i18n";
 
@@ -603,17 +604,27 @@ function Modal({
   disabled?: boolean;
   t: TFn;
 }) {
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  useDialogA11y(dialogRef, true, onClose, { disabled });
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in overflow-y-auto"
       onClick={() => !disabled && onClose()}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="w-full max-w-lg rounded-3xl glass-strong border-glass-border p-6 shadow-2xl animate-in zoom-in-95 duration-200 my-8"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3 mb-5">
-          <h3 className="font-display text-lg font-semibold">{title}</h3>
+          <h3 id={titleId} className="font-display text-lg font-semibold">
+            {title}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -621,7 +632,7 @@ function Modal({
             className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             aria-label={t("common.close")}
           >
-            <X className="size-4" />
+            <X className="size-4" aria-hidden="true" />
           </button>
         </div>
         {children}

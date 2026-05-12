@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { GlassButton } from "@/components/glass/glass-button";
 import { GlassCard } from "@/components/glass/glass-card";
 import { cn } from "@/lib/utils";
+import { useDialogA11y } from "@/lib/hooks/use-dialog-a11y";
 import { getT, type Lang, type TFn } from "@/lib/i18n";
 import type { MaterialSession } from "@/types";
 
@@ -332,6 +333,9 @@ function SessionFormModal({
   t: TFn;
 }) {
   const [pending, setPending] = React.useState(false);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const titleId = React.useId();
+  useDialogA11y(dialogRef, true, onClose, { disabled: pending });
   const [error, setError] = React.useState<string | undefined>();
   const isEdit = !!session;
 
@@ -360,15 +364,22 @@ function SessionFormModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/60 backdrop-blur-md"
       onClick={onClose}
     >
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md"
+      >
         <GlassCard intensity="strong" className="p-6 md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h3 className="font-display text-xl font-semibold">
+              <h3 id={titleId} className="font-display text-xl font-semibold">
                 {isEdit ? t("sessions.modal_edit_title") : t("sessions.modal_add_title")}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                Le mot de passe sera chiffré AES-256 dans le Sheet.
+                {t("sessions.password_encrypted_note")}
               </p>
             </div>
             <button
@@ -376,7 +387,7 @@ function SessionFormModal({
               className="size-8 inline-flex items-center justify-center rounded-full glass border hover:bg-white/10 transition-colors"
               aria-label={t("common.close")}
             >
-              <X className="size-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           </div>
 
