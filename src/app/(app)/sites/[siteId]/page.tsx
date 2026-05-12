@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowRight, Building2, Cpu, MapPin } from "lucide-react";
+import { ArrowLeft, Building2, Cpu, MapPin } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
@@ -10,6 +10,7 @@ import { getSite, listRooms } from "@/lib/sheets/sites";
 import { listMaterials } from "@/lib/sheets/materials";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 import type { Room, Material, Site } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -74,52 +75,128 @@ export default async function SiteRoomsPage({
             configError={configIssue}
           />
         ) : (
-          <section>
+          <section aria-label={t("sites.site_detail_rooms")}>
             <h3 className="font-display text-lg font-semibold mb-4">
               {t("sites.site_detail_rooms")} ({roomsRes.data.length})
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <ul
+              role="list"
+              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            >
               {roomsRes.data
                 .sort((a, b) => a.code.localeCompare(b.code))
                 .map((room) => {
-                  const count = materialsRes.data.filter((m) => m.roomId === room.id).length;
+                  const count = materialsRes.data.filter(
+                    (m) => m.roomId === room.id,
+                  ).length;
                   return (
-                    <Link
-                      key={room.id}
-                      href={`/sites/${siteId}/rooms/${room.id}`}
-                    >
-                      <GlassCard interactive className="h-full p-5 group">
-                        <div className="flex items-start justify-between">
-                          <div className="min-w-0">
-                            <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono">
-                              {room.code}
-                            </p>
-                            <h4 className="mt-1 font-medium truncate" title={room.name}>
-                              {room.name}
-                            </h4>
-                            {room.service && (
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                {room.service}
-                              </p>
-                            )}
-                          </div>
-                          <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
-                        </div>
-                        <div className="mt-4 inline-flex items-center gap-1.5 text-sm">
-                          <Cpu className="size-3.5 text-primary" />
-                          <span className="font-medium">{count}</span>
-                          <span className="text-muted-foreground">
-                            {t("sites.materials_count")}
-                          </span>
-                        </div>
-                      </GlassCard>
-                    </Link>
+                    <li key={room.id}>
+                      <RoomTile
+                        siteId={siteId}
+                        room={room}
+                        count={count}
+                        countLabel={t("sites.materials_count")}
+                      />
+                    </li>
                   );
                 })}
-            </div>
+            </ul>
           </section>
         )}
       </main>
     </>
+  );
+}
+
+/* ----------------------------------------------------------------------
+   Tuile de salle — style "phosphore" / Apple Liquid Glass
+   - Code de salle en énorme, gradient cyan→primary + halo glow
+   - Nom et service en dessous, bien lisibles
+   - Badge "count matériels" en haut à droite
+   - Taille du code adaptée à la longueur (codes numériques courts vs
+     codes alphanumériques type "labgal", "COU")
+---------------------------------------------------------------------- */
+function RoomTile({
+  siteId,
+  room,
+  count,
+  countLabel,
+}: {
+  siteId: string;
+  room: Room;
+  count: number;
+  countLabel: string;
+}) {
+  const len = room.code.length;
+  const codeSize =
+    len <= 2
+      ? "text-[88px] md:text-[112px]"
+      : len <= 4
+        ? "text-5xl md:text-6xl"
+        : "text-3xl md:text-4xl";
+
+  return (
+    <Link
+      href={`/sites/${siteId}/rooms/${room.id}`}
+      aria-label={`${room.code} · ${room.name} · ${count} ${countLabel}`}
+      className="block h-full"
+    >
+      <GlassCard
+        interactive
+        className="relative h-full overflow-hidden p-5 group min-h-[200px]"
+      >
+        {/* Halo "phosphore" derrière le code */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-2/3 opacity-70 group-hover:opacity-100 transition-opacity duration-500"
+          style={{
+            background:
+              "radial-gradient(ellipse at top, oklch(0.80 0.16 190 / 0.18), transparent 65%)",
+          }}
+        />
+
+        {/* Badge nombre de matériels — haut droite */}
+        <div className="relative z-10 flex justify-end">
+          <div className="inline-flex items-center gap-1.5 rounded-full glass border px-2.5 h-7 text-xs font-medium tabular-nums shadow-sm">
+            <Cpu className="size-3 text-primary" aria-hidden="true" />
+            <span>{count}</span>
+          </div>
+        </div>
+
+        {/* Code en énorme — effet phosphore */}
+        <div className="relative z-10 flex items-center justify-center my-3">
+          <span
+            className={cn(
+              "block font-display font-bold leading-none tracking-tight tabular-nums text-center",
+              "bg-gradient-to-br from-accent via-accent to-primary",
+              "bg-clip-text text-transparent",
+              "group-hover:scale-[1.02] transition-transform duration-300",
+              codeSize,
+            )}
+            style={{
+              filter:
+                "drop-shadow(0 0 24px oklch(0.80 0.16 190 / 0.45)) drop-shadow(0 2px 8px oklch(0.65 0.20 25 / 0.18))",
+            }}
+          >
+            {room.code}
+          </span>
+        </div>
+
+        {/* Nom de la salle + service */}
+        <div className="relative z-10 mt-2 text-center">
+          <h4
+            className="font-semibold text-sm md:text-base leading-tight line-clamp-2"
+            title={room.name}
+          >
+            {room.name}
+          </h4>
+          {room.service && (
+            <p className="mt-1 text-xs text-muted-foreground line-clamp-1">
+              {room.service}
+            </p>
+          )}
+        </div>
+      </GlassCard>
+    </Link>
   );
 }
