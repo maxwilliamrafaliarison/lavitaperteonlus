@@ -28,16 +28,35 @@ export default function LandingPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
-      {/* Halo discret */}
-      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 h-[420px] w-[420px] rounded-full bg-primary/12 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[320px] w-[320px] rounded-full bg-accent/10 blur-[120px]" />
+      {/* Image de fond plein écran */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 -z-20">
+        <Image
+          src="/logo/centre-rex.jpg"
+          alt=""
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+        />
       </div>
+
+      {/* Voile pour lisibilité — plus dense à gauche (CTA) et droite (texte) */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-gradient-to-r from-black/75 via-black/40 to-black/70"
+      />
+      {/* Vignette douce */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.5)_100%)]"
+      />
 
       {/* Header */}
       <header className="relative z-10">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 md:px-10">
-          <BrandLogo />
+          <div className="text-white [&_*]:!text-white [&_span:last-child]:!text-white/70">
+            <BrandLogo />
+          </div>
           <div className="flex items-center gap-2">
             <LanguageSwitcher value={lang} onChange={setLang} persist />
             <ThemeToggle />
@@ -45,45 +64,35 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Centre — tient sur un écran */}
-      <main className="relative z-10 flex flex-1 items-center justify-center px-6 py-8">
-        <div className="flex flex-col items-center text-center">
-          {/* Visuel principal */}
-          <div className="relative size-44 overflow-hidden rounded-3xl border border-glass-border shadow-2xl md:size-56">
-            <Image
-              src="/logo/centre-rex.jpg"
-              alt="Centre REX Fianarantsoa"
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 176px, 224px"
-              priority
-            />
+      {/* Centre — split asymétrique CTA gauche / texte droite */}
+      <main className="relative z-10 flex flex-1 items-center px-6 py-8 md:px-10">
+        <div className="mx-auto grid w-full max-w-7xl gap-12 md:grid-cols-2 md:items-center md:gap-8">
+          {/* CTA à gauche */}
+          <div className="flex justify-center md:justify-start md:order-1 order-2">
+            <Link href="/login">
+              <GlassButton variant="brand" size="lg" shimmer className="h-14 px-8 text-base">
+                {t.landing.cta_login}
+                <ArrowRight className="size-5" />
+              </GlassButton>
+            </Link>
           </div>
 
-          {/* Titre simple */}
-          <h1 className="mt-10 max-w-md font-display text-2xl font-semibold tracking-tight md:text-3xl">
-            {t.landing.hero_title}
-          </h1>
-
-          {/* Description en une ligne */}
-          <p className="mt-2 text-sm text-muted-foreground md:text-base">
-            {t.landing.hero_desc}
-          </p>
-
-          {/* CTA unique */}
-          <Link href="/login" className="mt-8">
-            <GlassButton variant="brand" size="lg" shimmer>
-              {t.landing.cta_login}
-              <ArrowRight className="size-4" />
-            </GlassButton>
-          </Link>
+          {/* Texte à droite (mobile : centré pour équilibre) */}
+          <div className="text-center md:text-right md:order-2 order-1">
+            <h1 className="font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white drop-shadow-lg md:text-6xl lg:text-7xl">
+              {t.landing.hero_title}
+            </h1>
+            <p className="mt-6 text-base text-white/85 drop-shadow md:text-lg lg:text-xl">
+              {t.landing.hero_desc}
+            </p>
+          </div>
         </div>
       </main>
 
       {/* Footer minimal */}
       <footer className="relative z-10">
         <div className="mx-auto flex max-w-7xl items-center justify-center px-6 py-5 md:px-10">
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-[11px] text-white/70">
             © {new Date().getFullYear()} La Vita Per Te · ONG-ODV Alfeo Corassori
           </p>
         </div>
