@@ -41,6 +41,7 @@
     "desc_part_1": "Saisissez l'email d'un compte présent dans l'onglet",
     "desc_part_2": "de votre Google Sheet et définissez son mot de passe.",
     "email_label": "Email du compte",
+    "email_placeholder": "nom.prenom@exemple.com",
     "password_label": "Nouveau mot de passe",
     "password_placeholder": "8 caractères minimum",
     "password_rule": "Minimum 8 caractères, avec au moins 1 lettre et 1 chiffre.",
@@ -52,7 +53,20 @@
     "submitting": "Création en cours…",
     "success_message": "Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.",
     "success_cta": "Aller à la connexion",
-    "footer_note": "Cette page sert uniquement à activer un compte créé dans le Sheet."
+    "footer_note": "Cette page sert uniquement à activer un compte créé dans le Sheet.",
+    "error_required": "Email et mot de passe requis.",
+    "error_mismatch": "Les mots de passe ne correspondent pas.",
+    "error_no_user": "Aucun utilisateur avec cet email dans l'onglet `users` du Sheet. Vérifiez la casse (email en minuscules).",
+    "error_already_set": "Ce compte a déjà un mot de passe défini. Utilisez la page de connexion ou demandez à l'admin une réinitialisation.",
+    "error_sheet_config": "Connexion au Google Sheet impossible. Vérifiez les variables GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL et GOOGLE_PRIVATE_KEY côté Vercel.",
+    "error_sheet_read": "Erreur lecture Sheet : {detail}",
+    "error_sheet_write": "Erreur écriture Sheet : {detail}",
+    "error_unexpected": "Erreur inattendue : {detail}"
+  },
+  "password_validation": {
+    "too_short": "8 caractères minimum requis.",
+    "no_letter": "Au moins 1 lettre requise.",
+    "no_digit": "Au moins 1 chiffre requis."
   },
   "roles": {
     "admin": "Administrateur",
@@ -571,6 +585,11 @@
     "password_mismatch": "Les deux mots de passe ne correspondent pas.",
     "password_show": "Afficher le mot de passe",
     "password_hide": "Masquer le mot de passe",
+    "error_unauthenticated": "Non authentifié.",
+    "error_user_not_found": "Utilisateur introuvable.",
+    "error_current_wrong": "Mot de passe actuel incorrect.",
+    "error_same_password": "Le nouveau mot de passe doit être différent de l'ancien.",
+    "error_invalid_lang": "Langue invalide.",
     "lang_success": "Langue mise à jour",
     "lang_relogin_hint": "Déconnectez-vous et reconnectez-vous pour que tout s'affiche dans la nouvelle langue.",
     "account_section": "Mon compte",

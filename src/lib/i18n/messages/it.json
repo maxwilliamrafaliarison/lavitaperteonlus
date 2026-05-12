@@ -41,6 +41,7 @@
     "desc_part_1": "Inserisci l'email di un account presente nel foglio",
     "desc_part_2": "del tuo Google Sheet e definisci la password.",
     "email_label": "Email dell'account",
+    "email_placeholder": "nome.cognome@esempio.com",
     "password_label": "Nuova password",
     "password_placeholder": "Almeno 8 caratteri",
     "password_rule": "Minimo 8 caratteri, con almeno 1 lettera e 1 numero.",
@@ -52,7 +53,20 @@
     "submitting": "Creazione in corso…",
     "success_message": "Password impostata con successo. Ora puoi accedere.",
     "success_cta": "Vai all'accesso",
-    "footer_note": "Questa pagina serve solo ad attivare un account creato nel Sheet."
+    "footer_note": "Questa pagina serve solo ad attivare un account creato nel Sheet.",
+    "error_required": "Email e password obbligatorie.",
+    "error_mismatch": "Le password non corrispondono.",
+    "error_no_user": "Nessun utente con questa email nella scheda `users` del Sheet. Verifica il maiuscolo/minuscolo (email in minuscolo).",
+    "error_already_set": "Questo account ha già una password impostata. Usa la pagina di accesso o chiedi una reimpostazione all'admin.",
+    "error_sheet_config": "Connessione al Google Sheet impossibile. Verifica le variabili GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_PRIVATE_KEY su Vercel.",
+    "error_sheet_read": "Errore lettura Sheet : {detail}",
+    "error_sheet_write": "Errore scrittura Sheet : {detail}",
+    "error_unexpected": "Errore inatteso : {detail}"
+  },
+  "password_validation": {
+    "too_short": "Almeno 8 caratteri richiesti.",
+    "no_letter": "Almeno 1 lettera richiesta.",
+    "no_digit": "Almeno 1 numero richiesto."
   },
   "roles": {
     "admin": "Amministratore",
@@ -571,6 +585,11 @@
     "password_mismatch": "Le due password non corrispondono.",
     "password_show": "Mostra password",
     "password_hide": "Nascondi password",
+    "error_unauthenticated": "Non autenticato.",
+    "error_user_not_found": "Utente non trovato.",
+    "error_current_wrong": "Password attuale errata.",
+    "error_same_password": "La nuova password deve essere diversa dalla precedente.",
+    "error_invalid_lang": "Lingua non valida.",
     "lang_success": "Lingua aggiornata",
     "lang_relogin_hint": "Disconnettiti e riconnettiti affinché tutto venga visualizzato nella nuova lingua.",
     "account_section": "Il mio account",

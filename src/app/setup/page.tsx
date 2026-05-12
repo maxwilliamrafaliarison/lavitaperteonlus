@@ -135,6 +135,8 @@ export default function SetupPage() {
               </div>
             ) : (
               <form action={formAction} className="mt-8 space-y-5">
+                {/* langue choisie côté client, lue par le server action pour traduire les erreurs */}
+                <input type="hidden" name="lang" value={lang} />
                 <div className="space-y-2">
                   <label
                     htmlFor="email"
@@ -150,7 +152,7 @@ export default function SetupPage() {
                       type="email"
                       required
                       autoComplete="email"
-                      placeholder="informatique.lavitaperte@gmail.com"
+                      placeholder={t.setup.email_placeholder}
                       className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                     />
                   </div>

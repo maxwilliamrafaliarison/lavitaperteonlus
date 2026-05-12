@@ -2,6 +2,7 @@
 
 import { listUsers, updateUser, getUserByEmail } from "@/lib/sheets/users";
 import { hashPassword, validatePassword } from "@/lib/auth/password";
+import { getT, isLang, type Lang } from "@/lib/i18n";
 
 export type SetupState = {
   ok: boolean;
@@ -13,21 +14,26 @@ export async function setupAdminAction(
   _prev: SetupState | undefined,
   formData: FormData,
 ): Promise<SetupState> {
+  // Récupère la langue choisie côté client (input caché). Fallback FR.
+  const rawLang = String(formData.get("lang") ?? "fr");
+  const lang: Lang = isLang(rawLang) ? rawLang : "fr";
+  const t = getT(lang);
+
   try {
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
     const confirm = String(formData.get("confirm") ?? "");
 
     if (!email || !password) {
-      return { ok: false, error: "Email et mot de passe requis." };
+      return { ok: false, error: t("setup.error_required") };
     }
     if (password !== confirm) {
-      return { ok: false, error: "Les mots de passe ne correspondent pas." };
+      return { ok: false, error: t("setup.error_mismatch") };
     }
 
     const validation = validatePassword(password);
     if (!validation.ok) {
-      return { ok: false, error: validation.error };
+      return { ok: false, error: t(`password_validation.${validation.code}`) };
     }
 
     // L'utilisateur doit exister dans le Sheet et avoir un MDP non défini
@@ -35,31 +41,18 @@ export async function setupAdminAction(
     try {
       user = await getUserByEmail(email);
     } catch (e) {
-      // Erreur de config Google Sheets (env vars manquantes/invalides)
       const msg = String(e);
       if (msg.includes("Google Sheets non configuré") || msg.includes("DECODER")) {
-        return {
-          ok: false,
-          error:
-            "Connexion au Google Sheet impossible. Vérifiez les variables GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL et GOOGLE_PRIVATE_KEY côté Vercel.",
-        };
+        return { ok: false, error: t("setup.error_sheet_config") };
       }
-      return { ok: false, error: `Erreur lecture Sheet : ${msg}` };
+      return { ok: false, error: t("setup.error_sheet_read", { detail: msg }) };
     }
 
     if (!user) {
-      return {
-        ok: false,
-        error:
-          "Aucun utilisateur avec cet email dans l'onglet `users` du Sheet. Vérifiez la casse (email en minuscules).",
-      };
+      return { ok: false, error: t("setup.error_no_user") };
     }
     if (user.passwordHash && user.passwordHash !== "TO_SET_IN_PHASE_2") {
-      return {
-        ok: false,
-        error:
-          "Ce compte a déjà un mot de passe défini. Utilisez la page de connexion ou demandez à l'admin une réinitialisation.",
-      };
+      return { ok: false, error: t("setup.error_already_set") };
     }
 
     const hash = await hashPassword(password);
@@ -67,21 +60,14 @@ export async function setupAdminAction(
     try {
       await updateUser(user.id, { passwordHash: hash, active: true });
     } catch (e) {
-      return { ok: false, error: `Erreur écriture Sheet : ${String(e)}` };
+      return { ok: false, error: t("setup.error_sheet_write", { detail: String(e) }) };
     }
 
-    return {
-      ok: true,
-      message:
-        "Mot de passe défini avec succès. Vous pouvez maintenant vous connecter.",
-    };
+    return { ok: true, message: t("setup.success_message") };
   } catch (e) {
     // Filet de sécurité — tout autre crash devient un message lisible
     console.error("[setup] unexpected error", e);
-    return {
-      ok: false,
-      error: `Erreur inattendue : ${String(e)}`,
-    };
+    return { ok: false, error: t("setup.error_unexpected", { detail: String(e) }) };
   }
 }
 
