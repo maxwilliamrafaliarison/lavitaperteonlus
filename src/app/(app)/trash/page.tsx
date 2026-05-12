@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
+
+export const metadata: Metadata = { title: "Corbeille" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { TrashManager } from "@/components/trash/trash-manager";
 import { listMaterials } from "@/lib/sheets/materials";

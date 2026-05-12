@@ -58,7 +58,7 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
         </Link>
       </div>
 
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 space-y-1" aria-label={t("nav.aria_label")}>
         {items.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -67,6 +67,7 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 h-10 text-sm font-medium transition-all",
                 active
@@ -74,7 +75,7 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5",
               )}
             >
-              <Icon className={cn("size-4", active && "text-primary")} />
+              <Icon className={cn("size-4", active && "text-primary")} aria-hidden="true" />
               {t(item.labelKey)}
             </Link>
           );

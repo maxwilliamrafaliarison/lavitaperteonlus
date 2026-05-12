@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Building2, Cpu, ArrowRight, MapPin } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
+
+export const metadata: Metadata = { title: "Sites et salles" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { auth } from "@/auth";
 import { listSites, listRooms } from "@/lib/sheets/sites";

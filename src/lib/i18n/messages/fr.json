@@ -78,6 +78,7 @@
     "logistique": "Responsable logistique"
   },
   "nav": {
+    "aria_label": "Navigation principale",
     "dashboard": "Tableau de bord",
     "sites": "Sites & salles",
     "materials": "Parc matériel",

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -36,6 +37,8 @@ import { getT } from "@/lib/i18n";
 import { getFirstName } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Tableau de bord" };
 
 export default async function DashboardPage() {
   const session = await auth();

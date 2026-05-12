@@ -74,12 +74,13 @@ export function MaterialFilters({
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
       <div className="relative flex-1 min-w-0 max-w-xl">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" aria-hidden="true" />
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("common.search_placeholder")}
+          aria-label={t("common.search_placeholder")}
           className="w-full h-11 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
         />
       </div>

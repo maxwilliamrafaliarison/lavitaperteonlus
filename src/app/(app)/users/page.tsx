@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Users as UsersIcon } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
+
+export const metadata: Metadata = { title: "Utilisateurs" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { UsersManager } from "@/components/users/users-manager";
 import { listUsers } from "@/lib/sheets/users";

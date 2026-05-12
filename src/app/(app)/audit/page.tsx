@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import {
   Eye, LogIn, LogOut, Pencil, Trash2, RotateCcw, UserPlus, Filter,
 } from "lucide-react";
+
+export const metadata: Metadata = { title: "Journal d'audit" };
 
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";

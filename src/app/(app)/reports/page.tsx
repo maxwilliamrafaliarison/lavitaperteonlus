@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { FileBarChart2 } from "lucide-react";
 
 import { auth } from "@/auth";
 import { AppTopbar } from "@/components/layout/app-topbar";
+
+export const metadata: Metadata = { title: "Rapports" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { ReportsManager } from "@/components/reports/reports-manager";
 import { listSites, listRooms } from "@/lib/sheets/sites";

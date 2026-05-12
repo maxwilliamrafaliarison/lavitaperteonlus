@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
+
+export const metadata: Metadata = { title: "Parc matériel" };
 import { GlassButton } from "@/components/glass/glass-button";
 import { MaterialCard } from "@/components/materials/material-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";

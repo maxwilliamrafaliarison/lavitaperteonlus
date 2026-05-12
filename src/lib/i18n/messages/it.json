@@ -78,6 +78,7 @@
     "logistique": "Responsabile logistica"
   },
   "nav": {
+    "aria_label": "Navigazione principale",
     "dashboard": "Dashboard",
     "sites": "Siti & sale",
     "materials": "Inventario",

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { History, Filter, ArrowRightLeft } from "lucide-react";
 
 import { AppTopbar } from "@/components/layout/app-topbar";
+
+export const metadata: Metadata = { title: "Mouvements" };
 import { GlassCard } from "@/components/glass/glass-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { MovementCard } from "@/components/movements/movement-card";
