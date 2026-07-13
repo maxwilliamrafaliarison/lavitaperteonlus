@@ -22,7 +22,7 @@ export async function GET() {
     ok: boolean;
     timestamp: string;
     node: string;
-    env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean };
+    env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean; pharmacieSheetId: boolean };
     sheets: { reachable: boolean; userCount?: number; error?: string };
     latencyMs?: number;
   } = {
@@ -35,6 +35,9 @@ export async function GET() {
       privateKey: Boolean(process.env.GOOGLE_PRIVATE_KEY),
       authSecret: Boolean(process.env.AUTH_SECRET),
       encryptionSecret: Boolean(process.env.ENCRYPTION_SECRET),
+      // Pharmacie : optionnelle pour le statut ok (app séparée),
+      // mais reportée ici pour le diagnostic
+      pharmacieSheetId: Boolean(process.env.PHARMACIE_SHEET_ID),
     },
     sheets: { reachable: false },
   };
@@ -54,8 +57,10 @@ export async function GET() {
     log.error("health check sheets failure", e instanceof Error ? e : undefined);
   }
 
-  // L'health est dégradé si une env var manque
-  if (Object.values(result.env).some((v) => !v)) {
+  // L'health est dégradé si une env var du cœur manque
+  // (pharmacieSheetId est diagnostique : app optionnelle)
+  const { pharmacieSheetId: _pharma, ...coreEnv } = result.env;
+  if (Object.values(coreEnv).some((v) => !v)) {
     result.ok = false;
   }
 
