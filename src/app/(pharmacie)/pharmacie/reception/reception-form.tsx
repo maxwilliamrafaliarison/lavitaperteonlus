@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Search, Loader2, PackagePlus, CheckCircle2 } from "lucide-react";
+import { Search, Loader2, PackagePlus, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { GlassCard } from "@/components/glass/glass-card";
@@ -237,11 +238,21 @@ export function ReceptionForm({
         </form>
       )}
 
-      {!selection && query.trim().length < 2 && (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground px-2">
-          <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
-          {t("pharmacie.reception_hint")}
-        </p>
+      {!selection && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-2">
+          {query.trim().length < 2 && (
+            <p className="text-sm text-muted-foreground">
+              {t("pharmacie.reception_hint")}
+            </p>
+          )}
+          <Link
+            href="/pharmacie/produits/nouveau"
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline underline-offset-2"
+          >
+            <Plus className="size-3.5" aria-hidden="true" />
+            {t("pharmacie.produit_cta")}
+          </Link>
+        </div>
       )}
     </div>
   );
