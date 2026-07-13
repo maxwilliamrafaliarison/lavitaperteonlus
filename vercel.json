@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/pharmacie/rapport-quotidien",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}
