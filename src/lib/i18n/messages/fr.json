@@ -169,7 +169,21 @@
     "vente_error_produit": "Produit introuvable.",
     "vente_error_statut": "{p} n'est pas vendable (statut).",
     "vente_error_stock": "Stock insuffisant pour {p} ({stock} restant).",
-    "vente_error_write": "Écriture impossible : {detail}"
+    "vente_error_write": "Écriture impossible : {detail}",
+    "reception_cta": "Réception",
+    "reception_title": "Réception de stock",
+    "reception_subtitle": "Enregistrez une entrée : nouveau lot, péremption, quantité. Le stock augmente immédiatement.",
+    "reception_quantite": "Quantité reçue",
+    "reception_lot": "Numéro de lot",
+    "reception_expiration": "Date de péremption",
+    "reception_prix": "Prix d'achat unitaire",
+    "reception_note": "Note",
+    "reception_note_placeholder": "Fournisseur, bon de livraison…",
+    "reception_valider": "Enregistrer la réception",
+    "reception_success": "Réception enregistrée",
+    "reception_hint": "Cherchez le produit à réceptionner. La création de nouveaux produits arrive dans la prochaine itération.",
+    "reception_error_forbidden": "Votre rôle ne permet pas de gérer le stock.",
+    "reception_error_invalid": "Formulaire invalide."
   },
   "nav": {
     "aria_label": "Navigation principale",

@@ -7,6 +7,7 @@ import {
   Banknote,
   Trash2,
   ShoppingCart,
+  PackagePlus,
 } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -75,14 +76,24 @@ export default async function PharmaciePage() {
             {t("pharmacie.subtitle", { n: actifs.length })}
           </p>
         </div>
-        {can(session.user.role, "pharmacie:vendre") && (
-          <Link href="/pharmacie/vente">
-            <GlassButton variant="brand" size="md" shimmer>
-              <ShoppingCart className="size-4" aria-hidden="true" />
-              {t("pharmacie.vente_cta")}
-            </GlassButton>
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {can(session.user.role, "pharmacie:stock") && (
+            <Link href="/pharmacie/reception">
+              <GlassButton variant="glass" size="md">
+                <PackagePlus className="size-4" aria-hidden="true" />
+                {t("pharmacie.reception_cta")}
+              </GlassButton>
+            </Link>
+          )}
+          {can(session.user.role, "pharmacie:vendre") && (
+            <Link href="/pharmacie/vente">
+              <GlassButton variant="brand" size="md" shimmer>
+                <ShoppingCart className="size-4" aria-hidden="true" />
+                {t("pharmacie.vente_cta")}
+              </GlassButton>
+            </Link>
+          )}
+        </div>
       </div>
 
       {produits.length === 0 ? (

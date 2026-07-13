@@ -169,7 +169,21 @@
     "vente_error_produit": "Prodotto non trovato.",
     "vente_error_statut": "{p} non è vendibile (stato).",
     "vente_error_stock": "Stock insufficiente per {p} ({stock} rimanenti).",
-    "vente_error_write": "Scrittura impossibile : {detail}"
+    "vente_error_write": "Scrittura impossibile : {detail}",
+    "reception_cta": "Ricezione",
+    "reception_title": "Ricezione di stock",
+    "reception_subtitle": "Registra un carico : nuovo lotto, scadenza, quantità. Lo stock aumenta subito.",
+    "reception_quantite": "Quantità ricevuta",
+    "reception_lot": "Numero di lotto",
+    "reception_expiration": "Data di scadenza",
+    "reception_prix": "Prezzo d'acquisto unitario",
+    "reception_note": "Nota",
+    "reception_note_placeholder": "Fornitore, bolla di consegna…",
+    "reception_valider": "Registra la ricezione",
+    "reception_success": "Ricezione registrata",
+    "reception_hint": "Cerca il prodotto da ricevere. La creazione di nuovi prodotti arriva nella prossima iterazione.",
+    "reception_error_forbidden": "Il tuo ruolo non permette di gestire lo stock.",
+    "reception_error_invalid": "Modulo non valido."
   },
   "nav": {
     "aria_label": "Navigazione principale",
