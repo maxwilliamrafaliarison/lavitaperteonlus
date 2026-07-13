@@ -90,6 +90,21 @@ export async function appendRows(
   });
 }
 
+/**
+ * Enregistre une vente complète : entête + lignes + mouvements négatifs.
+ * Trois appends séquentiels ; les mouvements en DERNIER pour que le
+ * stock ne décrémente qu'une fois la vente réellement tracée.
+ */
+export async function enregistrerVente(input: {
+  venteRow: unknown[];
+  lignesRows: unknown[][];
+  mouvementsRows: unknown[][];
+}): Promise<void> {
+  await appendRows(PHARMA_SHEETS.ventes, [input.venteRow]);
+  await appendRows(PHARMA_SHEETS.lignesVente, input.lignesRows);
+  await appendRows(PHARMA_SHEETS.mouvements, input.mouvementsRows);
+}
+
 // ------------------------------------------------------------------
 // Lectures typées
 // ------------------------------------------------------------------

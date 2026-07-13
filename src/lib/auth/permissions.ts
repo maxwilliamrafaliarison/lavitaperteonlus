@@ -32,6 +32,10 @@ export const PERMISSIONS = {
   "app:logistique": ["admin", "informaticien", "direction", "logistique"],
   "app:pharmacie": ["admin", "direction", "pharmacien"],
   "app:patients": ["admin", "direction"],
+
+  // Pharmacie — écriture (la direction reste en lecture seule)
+  "pharmacie:vendre": ["admin", "pharmacien"],
+  "pharmacie:stock": ["admin", "pharmacien"],
 } as const satisfies Record<string, UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

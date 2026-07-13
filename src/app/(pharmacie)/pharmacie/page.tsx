@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   Pill,
   AlertTriangle,
   CalendarClock,
   Banknote,
   Trash2,
+  ShoppingCart,
 } from "lucide-react";
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { GlassCard } from "@/components/glass/glass-card";
+import { GlassButton } from "@/components/glass/glass-button";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
+import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
 import { STATUT_LABELS, type ProduitAvecStock } from "@/lib/pharmacie/types";
 import { safe, isConfigError } from "@/lib/sheets/safe";
@@ -59,16 +63,26 @@ export default async function PharmaciePage() {
 
   return (
     <main id="main-content" className="mx-auto max-w-7xl flex-1 p-4 md:p-10 space-y-8">
-      <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          {t("pharmacie.eyebrow")}
-        </p>
-        <h1 className="mt-1 font-display text-3xl md:text-4xl font-semibold tracking-tight">
-          {t("pharmacie.title")}
-        </h1>
-        <p className="mt-2 text-muted-foreground text-sm md:text-base">
-          {t("pharmacie.subtitle", { n: actifs.length })}
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+            {t("pharmacie.eyebrow")}
+          </p>
+          <h1 className="mt-1 font-display text-3xl md:text-4xl font-semibold tracking-tight">
+            {t("pharmacie.title")}
+          </h1>
+          <p className="mt-2 text-muted-foreground text-sm md:text-base">
+            {t("pharmacie.subtitle", { n: actifs.length })}
+          </p>
+        </div>
+        {can(session.user.role, "pharmacie:vendre") && (
+          <Link href="/pharmacie/vente">
+            <GlassButton variant="brand" size="md" shimmer>
+              <ShoppingCart className="size-4" aria-hidden="true" />
+              {t("pharmacie.vente_cta")}
+            </GlassButton>
+          </Link>
+        )}
       </div>
 
       {produits.length === 0 ? (
