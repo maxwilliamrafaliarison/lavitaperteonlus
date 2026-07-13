@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Menu, X,
   LayoutDashboard, Building2, Cpu, ArrowLeftRight, FileBarChart2,
-  Users, Trash2, ScrollText, Settings,
+  Users, Trash2, ScrollText, Settings, LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -104,6 +104,16 @@ export function MobileNav({ role, lang = "fr" }: { role: UserRole; lang?: Lang }
             <X className="size-5" />
           </button>
         </div>
+
+        {/* Retour au portail multi-applications */}
+        <Link
+          href="/apps"
+          onClick={() => setOpen(false)}
+          className="flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all border border-glass-border glass"
+        >
+          <LayoutGrid className="size-4" aria-hidden="true" />
+          {t("hub.back_to_hub")}
+        </Link>
 
         <nav className="flex-1 space-y-1" aria-label={t("nav.aria_label")}>
           {items.map((item) => {

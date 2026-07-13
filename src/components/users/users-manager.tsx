@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   UserPlus, MoreVertical, Pencil, KeyRound, UserCheck, UserX,
-  Loader2, X, Shield, Wrench, Briefcase, Package,
+  Loader2, X, Shield, Wrench, Briefcase, Package, Pill,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -42,6 +42,10 @@ const ROLE_META: Record<UserRole, { icon: LucideIcon; tone: string }> = {
   logistique: {
     icon: Package,
     tone: "bg-[oklch(0.82_0.16_85_/_0.15)] text-[oklch(0.82_0.16_85)] border-[oklch(0.82_0.16_85_/_0.3)]",
+  },
+  pharmacien: {
+    icon: Pill,
+    tone: "bg-[oklch(0.75_0.18_150_/_0.15)] text-[oklch(0.75_0.18_150)] border-[oklch(0.75_0.18_150_/_0.3)]",
   },
 };
 
@@ -373,6 +377,7 @@ function InviteModal({
               <option value="informaticien">{t("roles.informaticien")}</option>
               <option value="direction">{t("roles.direction")}</option>
               <option value="logistique">{t("roles.logistique")}</option>
+              <option value="pharmacien">{t("roles.pharmacien")}</option>
             </select>
           </Field>
           <Field label={t("users.field_lang")} required requiredLabel={t("a11y.required_indicator")}>
@@ -484,6 +489,7 @@ function EditUserModal({
               <option value="informaticien">{t("roles.informaticien")}</option>
               <option value="direction">{t("roles.direction")}</option>
               <option value="logistique">{t("roles.logistique")}</option>
+              <option value="pharmacien">{t("roles.pharmacien")}</option>
             </select>
           </Field>
           <Field label={t("users.field_lang")} required requiredLabel={t("a11y.required_indicator")}>

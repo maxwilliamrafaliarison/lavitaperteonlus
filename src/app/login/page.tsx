@@ -64,7 +64,7 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     if (state?.ok) {
-      router.push("/dashboard");
+      router.push("/apps");
       router.refresh();
     }
   }, [state, router]);

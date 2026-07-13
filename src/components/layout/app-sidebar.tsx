@@ -13,6 +13,7 @@ import {
   Trash2,
   ScrollText,
   Settings,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,10 +54,19 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
   return (
     <aside className="hidden lg:flex w-64 shrink-0 flex-col gap-6 px-5 py-6 border-r border-glass-border bg-sidebar/40 backdrop-blur-2xl">
       <div className="px-2">
-        <Link href="/dashboard">
+        <Link href="/apps">
           <BrandLogo size={36} />
         </Link>
       </div>
+
+      {/* Retour au portail multi-applications */}
+      <Link
+        href="/apps"
+        className="flex items-center gap-3 rounded-xl px-3 h-10 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all border border-glass-border glass"
+      >
+        <LayoutGrid className="size-4" aria-hidden="true" />
+        {t("hub.back_to_hub")}
+      </Link>
 
       <nav className="flex-1 space-y-1" aria-label={t("nav.aria_label")}>
         {items.map((item) => {

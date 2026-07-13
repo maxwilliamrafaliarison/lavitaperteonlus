@@ -23,7 +23,13 @@ declare module "next-auth" {
   }
 }
 
-const PUBLIC_PATHS = new Set(["/", "/login", "/setup", "/logout"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/login",
+  "/setup",
+  "/logout",
+  "/accessibilite",
+]);
 
 export const authConfig: NextAuthConfig = {
   trustHost: true,

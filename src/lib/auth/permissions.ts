@@ -27,6 +27,11 @@ export const PERMISSIONS = {
 
   // Settings
   "settings:update": ["admin"],
+
+  // Applications du portail (springboard)
+  "app:logistique": ["admin", "informaticien", "direction", "logistique"],
+  "app:pharmacie": ["admin", "direction", "pharmacien"],
+  "app:patients": ["admin", "direction"],
 } as const satisfies Record<string, UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

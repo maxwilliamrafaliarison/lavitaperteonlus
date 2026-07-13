@@ -101,7 +101,24 @@
     "admin": "Administrateur",
     "informaticien": "Informaticien",
     "direction": "Direction",
-    "logistique": "Responsable logistique"
+    "logistique": "Responsable logistique",
+    "pharmacien": "Pharmacien"
+  },
+  "hub": {
+    "welcome": "Bonjour, {name}",
+    "subtitle": "Choisissez une application",
+    "open": "Ouvrir",
+    "coming_soon": "Bientôt disponible",
+    "external": "Site externe",
+    "app_logistique": "Logistique",
+    "app_logistique_desc": "Parc informatique : inventaire, mouvements, rapports",
+    "app_pharmacie": "Pharmacie",
+    "app_pharmacie_desc": "Stock de médicaments, ventes et péremptions",
+    "app_patients": "Patients",
+    "app_patients_desc": "Base de données patients du centre médical",
+    "app_site": "Site lavitaperte.org",
+    "app_site_desc": "Le site public de l'association",
+    "back_to_hub": "Toutes les applications"
   },
   "nav": {
     "aria_label": "Navigation principale",

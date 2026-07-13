@@ -26,7 +26,7 @@ function genUserId(): string {
   return `usr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const ALLOWED_ROLES: UserRole[] = ["admin", "informaticien", "direction", "logistique"];
+const ALLOWED_ROLES: UserRole[] = ["admin", "informaticien", "direction", "logistique", "pharmacien"];
 const ALLOWED_LANGS = ["fr", "it"] as const;
 
 /* ============================================================

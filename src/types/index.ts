@@ -11,6 +11,7 @@ export const UserRole = z.enum([
   "informaticien",
   "direction",
   "logistique",
+  "pharmacien",
 ]);
 export type UserRole = z.infer<typeof UserRole>;
 
@@ -19,6 +20,7 @@ export const ROLE_LABELS: Record<UserRole, { fr: string; it: string }> = {
   informaticien: { fr: "Informaticien", it: "Informatico" },
   direction: { fr: "Direction", it: "Direzione" },
   logistique: { fr: "Responsable logistique", it: "Responsabile logistica" },
+  pharmacien: { fr: "Pharmacien", it: "Farmacista" },
 };
 
 // --- Utilisateurs de l'application ------------------------------------------

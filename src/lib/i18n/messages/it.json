@@ -101,7 +101,24 @@
     "admin": "Amministratore",
     "informaticien": "Informatico",
     "direction": "Direzione",
-    "logistique": "Responsabile logistica"
+    "logistique": "Responsabile logistica",
+    "pharmacien": "Farmacista"
+  },
+  "hub": {
+    "welcome": "Ciao, {name}",
+    "subtitle": "Scegli un'applicazione",
+    "open": "Apri",
+    "coming_soon": "Presto disponibile",
+    "external": "Sito esterno",
+    "app_logistique": "Logistica",
+    "app_logistique_desc": "Parco informatico : inventario, movimenti, rapporti",
+    "app_pharmacie": "Farmacia",
+    "app_pharmacie_desc": "Stock di farmaci, vendite e scadenze",
+    "app_patients": "Pazienti",
+    "app_patients_desc": "Base dati pazienti del centro medico",
+    "app_site": "Sito lavitaperte.org",
+    "app_site_desc": "Il sito pubblico dell'associazione",
+    "back_to_hub": "Tutte le applicazioni"
   },
   "nav": {
     "aria_label": "Navigazione principale",
