@@ -221,6 +221,61 @@ export async function listVentes(): Promise<VenteResume[]> {
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }
 
+// ------------------------------------------------------------------
+// Fiche produit
+// ------------------------------------------------------------------
+
+/**
+ * Met à jour les champs éditables d'un produit (cellules ciblées de
+ * sa ligne). Le stock n'en fait jamais partie : il reste dérivé des
+ * mouvements. Un seul éditeur par fiche en pratique → risque de
+ * concurrence négligeable.
+ */
+export async function updateProduitFields(
+  produitId: string,
+  fields: {
+    prix_achat?: number;
+    prix_vente?: number;
+    stock_min?: number;
+    fournisseur?: string;
+    emplacement?: string;
+    statut?: string;
+  },
+): Promise<boolean> {
+  const res = await getClient().spreadsheets.values.get({
+    spreadsheetId: getEnv().spreadsheetId,
+    range: `${PHARMA_SHEETS.produits}!A:A`,
+  });
+  const col = (res.data.values ?? []).flat();
+  const rowIndex = col.findIndex((v) => v === produitId);
+  if (rowIndex < 0) return false;
+  const row = rowIndex + 1;
+
+  // Colonnes : I prix_achat · J prix_vente · L stock_min ·
+  //            M fournisseur · N emplacement · O statut
+  const COLS: Record<string, string> = {
+    prix_achat: "I",
+    prix_vente: "J",
+    stock_min: "L",
+    fournisseur: "M",
+    emplacement: "N",
+    statut: "O",
+  };
+  const data = Object.entries(fields)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => ({
+      range: `${PHARMA_SHEETS.produits}!${COLS[k]}${row}`,
+      values: [[v]],
+    }));
+  if (data.length === 0) return true;
+
+  await getClient().spreadsheets.values.batchUpdate({
+    spreadsheetId: getEnv().spreadsheetId,
+    requestBody: { valueInputOption: "RAW", data },
+  });
+  return true;
+}
+
 /**
  * Passe une vente au statut « annulee » (cellule G de sa ligne) —
  * seule écriture ciblée du module, un annulateur unique par vente

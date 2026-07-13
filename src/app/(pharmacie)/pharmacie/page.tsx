@@ -210,11 +210,18 @@ export default async function PharmaciePage() {
                         return (
                           <tr key={p.id} className="hover:bg-white/3 transition-colors">
                             <td className="px-4 py-3">
-                              <p className="font-medium leading-tight">{p.designation}</p>
-                              <p className="text-[11px] text-muted-foreground font-mono">
-                                {p.id}
-                                {p.dosage ? ` · ${p.dosage}` : ""}
-                              </p>
+                              <Link
+                                href={`/pharmacie/produits/${p.id}`}
+                                className="group/link block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+                              >
+                                <p className="font-medium leading-tight group-hover/link:text-primary transition-colors">
+                                  {p.designation}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground font-mono">
+                                  {p.id}
+                                  {p.dosage ? ` · ${p.dosage}` : ""}
+                                </p>
+                              </Link>
                             </td>
                             <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
                               {p.classe || "—"}
