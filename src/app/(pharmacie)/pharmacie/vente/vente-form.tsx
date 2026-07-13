@@ -10,7 +10,8 @@ import {
   Loader2,
   ShoppingCart,
   CheckCircle2,
-  Printer,
+  Receipt,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -165,10 +166,36 @@ export function VenteForm({
           </p>
         </div>
 
-        <div className="mt-6 flex justify-center gap-2 print:hidden">
-          <GlassButton type="button" variant="glass" size="sm" onClick={() => window.print()}>
-            <Printer className="size-3.5" aria-hidden="true" />
-            {t("pharmacie.vente_print")}
+        <div className="mt-6 flex flex-wrap justify-center gap-2 print:hidden">
+          <GlassButton
+            type="button"
+            variant="glass"
+            size="sm"
+            onClick={() =>
+              window.open(
+                `/api/pharmacie/ventes/${done.venteId}/ticket`,
+                "_blank",
+                "noopener",
+              )
+            }
+          >
+            <Receipt className="size-3.5" aria-hidden="true" />
+            {t("pharmacie.vente_ticket")}
+          </GlassButton>
+          <GlassButton
+            type="button"
+            variant="glass"
+            size="sm"
+            onClick={() =>
+              window.open(
+                `/api/pharmacie/ventes/${done.venteId}/facture`,
+                "_blank",
+                "noopener",
+              )
+            }
+          >
+            <FileText className="size-3.5" aria-hidden="true" />
+            {t("pharmacie.vente_facture")}
           </GlassButton>
           <GlassButton
             type="button"

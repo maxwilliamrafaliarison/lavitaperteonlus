@@ -183,7 +183,9 @@
     "reception_success": "Réception enregistrée",
     "reception_hint": "Cherchez le produit à réceptionner. La création de nouveaux produits arrive dans la prochaine itération.",
     "reception_error_forbidden": "Votre rôle ne permet pas de gérer le stock.",
-    "reception_error_invalid": "Formulaire invalide."
+    "reception_error_invalid": "Formulaire invalide.",
+    "vente_ticket": "Ticket de caisse",
+    "vente_facture": "Facture"
   },
   "nav": {
     "aria_label": "Navigation principale",

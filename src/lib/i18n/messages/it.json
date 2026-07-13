@@ -183,7 +183,9 @@
     "reception_success": "Ricezione registrata",
     "reception_hint": "Cerca il prodotto da ricevere. La creazione di nuovi prodotti arriva nella prossima iterazione.",
     "reception_error_forbidden": "Il tuo ruolo non permette di gestire lo stock.",
-    "reception_error_invalid": "Modulo non valido."
+    "reception_error_invalid": "Modulo non valido.",
+    "vente_ticket": "Scontrino",
+    "vente_facture": "Fattura"
   },
   "nav": {
     "aria_label": "Navigazione principale",

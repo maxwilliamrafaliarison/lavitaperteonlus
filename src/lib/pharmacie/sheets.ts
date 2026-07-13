@@ -106,6 +106,77 @@ export async function enregistrerVente(input: {
 }
 
 // ------------------------------------------------------------------
+// Vente complète (pour ticket / facture)
+// ------------------------------------------------------------------
+
+export interface VenteComplete {
+  id: string;
+  timestamp: string;
+  clientNom: string;
+  typeVente: string;
+  total: number;
+  operateurEmail: string;
+  statut: string;
+  lignes: Array<{
+    designation: string;
+    dosage: string;
+    quantite: number;
+    prixUnitaire: number;
+    sousTotal: number;
+  }>;
+}
+
+export async function getVenteComplete(
+  venteId: string,
+): Promise<VenteComplete | null> {
+  const [ventes, lignes, produits] = await Promise.all([
+    readTab<Record<string, unknown>>(PHARMA_SHEETS.ventes),
+    readTab<Record<string, unknown>>(PHARMA_SHEETS.lignesVente),
+    listProduits(),
+  ]);
+
+  const vente = ventes.find((v) => v.id === venteId);
+  if (!vente) return null;
+
+  const parId = new Map(produits.map((p) => [p.id, p]));
+  const venteLignes = lignes
+    .filter((l) => l.vente_id === venteId)
+    .map((l) => {
+      const produit = parId.get(String(l.produit_id ?? ""));
+      return {
+        designation: produit?.designation ?? String(l.produit_id ?? "?"),
+        dosage: produit?.dosage ?? "",
+        quantite: Number(l.quantite ?? 0),
+        prixUnitaire: Number(l.prix_unitaire ?? 0),
+        sousTotal: Number(l.sous_total ?? 0),
+      };
+    });
+
+  return {
+    id: String(vente.id),
+    timestamp: String(vente.timestamp ?? ""),
+    clientNom: String(vente.client_nom ?? ""),
+    typeVente: String(vente.type_vente ?? "cash"),
+    total: Number(vente.total ?? 0),
+    operateurEmail: String(vente.operateur_email ?? ""),
+    statut: String(vente.statut ?? "active"),
+    lignes: venteLignes,
+  };
+}
+
+/** Paramètres clé/valeur de l'onglet parametres. */
+export async function listParametres(): Promise<Map<string, string>> {
+  const rows = await readTab<{ cle: unknown; valeur: unknown }>(
+    PHARMA_SHEETS.parametres,
+  );
+  return new Map(
+    rows
+      .filter((r) => r.cle)
+      .map((r) => [String(r.cle), String(r.valeur ?? "")]),
+  );
+}
+
+// ------------------------------------------------------------------
 // Lectures typées
 // ------------------------------------------------------------------
 
