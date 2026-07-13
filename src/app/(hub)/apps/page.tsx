@@ -40,7 +40,7 @@ export default async function HubPage() {
       icon: "pill",
       tone: "success",
       visible: can(role, "app:pharmacie"),
-      status: "soon",
+      status: "live",
     },
     {
       key: "patients",

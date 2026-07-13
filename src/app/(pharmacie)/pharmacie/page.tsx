@@ -1,0 +1,336 @@
+import type { Metadata } from "next";
+import {
+  Pill,
+  AlertTriangle,
+  CalendarClock,
+  Banknote,
+  Trash2,
+} from "lucide-react";
+
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { GlassCard } from "@/components/glass/glass-card";
+import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
+import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
+import { STATUT_LABELS, type ProduitAvecStock } from "@/lib/pharmacie/types";
+import { safe, isConfigError } from "@/lib/sheets/safe";
+import { getT } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Pharmacie" };
+
+function fmtAr(n: number): string {
+  return (
+    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n) +
+    " Ar"
+  );
+}
+
+export default async function PharmaciePage() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  const lang = session.user.lang;
+  const t = getT(lang);
+
+  const res = await safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []);
+  const produits = res.data;
+  const configIssue = isConfigError(res.error);
+
+  const actifs = produits.filter((p) => p.statut === "actif");
+  const aDetruire = produits.filter((p) => p.statut === "a_detruire");
+  const perimes = actifs.filter(
+    (p) => p.joursAvantPeremption !== null && p.joursAvantPeremption < 0,
+  );
+  const bientotPerimes = actifs.filter(
+    (p) =>
+      p.joursAvantPeremption !== null &&
+      p.joursAvantPeremption >= 0 &&
+      p.joursAvantPeremption <= 90,
+  );
+  const sousStockMin = actifs.filter(
+    (p) => p.stock_min > 0 && p.stock <= p.stock_min,
+  );
+  const valeurStock = actifs.reduce(
+    (sum, p) => sum + p.stock * (p.prix_vente || 0),
+    0,
+  );
+
+  return (
+    <main id="main-content" className="mx-auto max-w-7xl flex-1 p-4 md:p-10 space-y-8">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          {t("pharmacie.eyebrow")}
+        </p>
+        <h1 className="mt-1 font-display text-3xl md:text-4xl font-semibold tracking-tight">
+          {t("pharmacie.title")}
+        </h1>
+        <p className="mt-2 text-muted-foreground text-sm md:text-base">
+          {t("pharmacie.subtitle", { n: actifs.length })}
+        </p>
+      </div>
+
+      {produits.length === 0 ? (
+        <SheetEmptyState
+          title={t("pharmacie.empty_title")}
+          description={t("pharmacie.empty_desc")}
+          configError={configIssue}
+        />
+      ) : (
+        <>
+          {/* KPIs */}
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Kpi
+              icon={<Pill className="size-5" />}
+              label={t("pharmacie.kpi_produits")}
+              value={String(actifs.length)}
+              hint={t("pharmacie.kpi_produits_hint", { n: aDetruire.length })}
+              tone="success"
+            />
+            <Kpi
+              icon={<Banknote className="size-5" />}
+              label={t("pharmacie.kpi_valeur")}
+              value={fmtAr(valeurStock)}
+              hint={t("pharmacie.kpi_valeur_hint")}
+              tone="cyan"
+            />
+            <Kpi
+              icon={<CalendarClock className="size-5" />}
+              label={t("pharmacie.kpi_peremption")}
+              value={String(bientotPerimes.length)}
+              hint={t("pharmacie.kpi_peremption_hint")}
+              tone={bientotPerimes.length > 0 ? "warning" : "success"}
+            />
+            <Kpi
+              icon={<AlertTriangle className="size-5" />}
+              label={t("pharmacie.kpi_alertes")}
+              value={String(perimes.length + sousStockMin.length)}
+              hint={t("pharmacie.kpi_alertes_hint", {
+                perimes: perimes.length,
+                stock: sousStockMin.length,
+              })}
+              tone={perimes.length + sousStockMin.length > 0 ? "primary" : "success"}
+            />
+          </section>
+
+          {/* À détruire */}
+          {aDetruire.length > 0 && (
+            <section aria-label={t("pharmacie.destroy_title")}>
+              <GlassCard className="p-5 border-primary/30">
+                <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+                  <Trash2 className="size-4 text-primary" aria-hidden="true" />
+                  {t("pharmacie.destroy_title")} ({aDetruire.length})
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("pharmacie.destroy_desc")}
+                </p>
+                <ul role="list" className="mt-3 flex flex-wrap gap-2">
+                  {aDetruire.map((p) => (
+                    <li
+                      key={p.id}
+                      className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs"
+                    >
+                      {p.designation}
+                      {p.prochainePeremption && (
+                        <span className="text-muted-foreground">
+                          {" "}· {p.prochainePeremption}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </GlassCard>
+            </section>
+          )}
+
+          {/* Liste produits */}
+          <section aria-label={t("pharmacie.list_title")}>
+            <h2 className="font-display text-lg font-semibold mb-4">
+              {t("pharmacie.list_title")}
+            </h2>
+            <GlassCard className="overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">{t("pharmacie.list_title")}</caption>
+                  <thead>
+                    <tr className="border-b border-glass-border text-left">
+                      <Th>{t("pharmacie.col_designation")}</Th>
+                      <Th className="hidden md:table-cell">{t("pharmacie.col_classe")}</Th>
+                      <Th className="text-right">{t("pharmacie.col_stock")}</Th>
+                      <Th className="text-right hidden sm:table-cell">{t("pharmacie.col_prix")}</Th>
+                      <Th className="hidden lg:table-cell">{t("pharmacie.col_peremption")}</Th>
+                      <Th>{t("pharmacie.col_statut")}</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-glass-border">
+                    {actifs
+                      .slice()
+                      .sort((a, b) => a.designation.localeCompare(b.designation))
+                      .map((p) => {
+                        const perime =
+                          p.joursAvantPeremption !== null && p.joursAvantPeremption < 0;
+                        const bientot =
+                          p.joursAvantPeremption !== null &&
+                          p.joursAvantPeremption >= 0 &&
+                          p.joursAvantPeremption <= 90;
+                        const lowStock = p.stock_min > 0 && p.stock <= p.stock_min;
+                        return (
+                          <tr key={p.id} className="hover:bg-white/3 transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="font-medium leading-tight">{p.designation}</p>
+                              <p className="text-[11px] text-muted-foreground font-mono">
+                                {p.id}
+                                {p.dosage ? ` · ${p.dosage}` : ""}
+                              </p>
+                            </td>
+                            <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
+                              {p.classe || "—"}
+                            </td>
+                            <td
+                              className={cn(
+                                "px-4 py-3 text-right font-mono tabular-nums",
+                                lowStock && "text-[oklch(0.82_0.16_85)] font-semibold",
+                              )}
+                            >
+                              {p.stock}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono tabular-nums hidden sm:table-cell">
+                              {p.prix_vente ? fmtAr(p.prix_vente) : "—"}
+                            </td>
+                            <td className="px-4 py-3 hidden lg:table-cell">
+                              {p.prochainePeremption ? (
+                                <span
+                                  className={cn(
+                                    "text-xs font-mono",
+                                    perime && "text-primary font-semibold",
+                                    bientot && "text-[oklch(0.82_0.16_85)]",
+                                  )}
+                                >
+                                  {p.prochainePeremption}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex flex-wrap gap-1">
+                                {perime && (
+                                  <Badge tone="primary">{t("pharmacie.badge_perime")}</Badge>
+                                )}
+                                {!perime && bientot && (
+                                  <Badge tone="warning">
+                                    {t("pharmacie.badge_bientot", {
+                                      j: p.joursAvantPeremption ?? 0,
+                                    })}
+                                  </Badge>
+                                )}
+                                {lowStock && (
+                                  <Badge tone="warning">{t("pharmacie.badge_stock_bas")}</Badge>
+                                )}
+                                {!perime && !bientot && !lowStock && (
+                                  <Badge tone="success">
+                                    {STATUT_LABELS[p.statut][lang]}
+                                  </Badge>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </GlassCard>
+          </section>
+
+          <p className="text-center text-xs text-muted-foreground">
+            {t("pharmacie.phase2_note")}
+          </p>
+        </>
+      )}
+    </main>
+  );
+}
+
+function Th({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <th
+      scope="col"
+      className={cn(
+        "px-4 py-3 text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium",
+        className,
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Badge({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: "primary" | "warning" | "success";
+}) {
+  const cls =
+    tone === "primary"
+      ? "bg-primary/12 text-primary border-primary/30"
+      : tone === "warning"
+        ? "bg-[oklch(0.82_0.16_85_/_0.12)] text-[oklch(0.82_0.16_85)] border-[oklch(0.82_0.16_85_/_0.3)]"
+        : "bg-[oklch(0.75_0.18_150_/_0.12)] text-[oklch(0.75_0.18_150)] border-[oklch(0.75_0.18_150_/_0.3)]";
+  return (
+    <span
+      className={cn(
+        "inline-block rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap",
+        cls,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Kpi({
+  icon,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  tone: "primary" | "cyan" | "success" | "warning";
+}) {
+  const toneCls =
+    tone === "primary"
+      ? "bg-primary/15 text-primary"
+      : tone === "cyan"
+        ? "bg-accent/15 text-accent"
+        : tone === "success"
+          ? "bg-[oklch(0.75_0.18_150_/_0.15)] text-[oklch(0.75_0.18_150)]"
+          : "bg-[oklch(0.82_0.16_85_/_0.15)] text-[oklch(0.82_0.16_85)]";
+  return (
+    <GlassCard className="p-6">
+      <div className={cn("inline-flex size-10 items-center justify-center rounded-xl", toneCls)}>
+        {icon}
+      </div>
+      <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 font-display text-2xl md:text-3xl font-semibold tabular-nums truncate">
+        {value}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+    </GlassCard>
+  );
+}
