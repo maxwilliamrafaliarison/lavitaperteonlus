@@ -50,7 +50,7 @@ export default async function HubPage() {
       icon: "heart-pulse",
       tone: "cyan",
       visible: can(role, "app:patients"),
-      status: "soon",
+      status: "live",
     },
     {
       key: "site",
