@@ -185,7 +185,22 @@
     "reception_error_forbidden": "Il tuo ruolo non permette di gestire lo stock.",
     "reception_error_invalid": "Modulo non valido.",
     "vente_ticket": "Scontrino",
-    "vente_facture": "Fattura"
+    "vente_facture": "Fattura",
+    "ventes_cta": "Storico",
+    "ventes_title": "Storico delle vendite",
+    "ventes_subtitle": "{n} vendite registrate, dalla più recente alla più vecchia.",
+    "ventes_empty_title": "Nessuna vendita",
+    "ventes_empty_desc": "Le vendite registrate al banco appariranno qui con scontrini e fatture.",
+    "ventes_col_num": "N° di vendita",
+    "ventes_col_date": "Data",
+    "ventes_col_articles": "Articoli",
+    "ventes_col_caissier": "Cassiere",
+    "annul_cta": "Annulla",
+    "annul_confirm": "Confermi ?",
+    "annul_badge": "Annullata",
+    "annul_success": "Vendita annullata, stock aggiornato",
+    "annul_error_introuvable": "Vendita non trovata.",
+    "annul_error_deja": "Questa vendita è già annullata."
   },
   "nav": {
     "aria_label": "Navigazione principale",

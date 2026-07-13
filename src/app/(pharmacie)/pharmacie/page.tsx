@@ -8,6 +8,7 @@ import {
   Trash2,
   ShoppingCart,
   PackagePlus,
+  History,
 } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -77,6 +78,12 @@ export default async function PharmaciePage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/pharmacie/ventes">
+            <GlassButton variant="glass" size="md">
+              <History className="size-4" aria-hidden="true" />
+              {t("pharmacie.ventes_cta")}
+            </GlassButton>
+          </Link>
           {can(session.user.role, "pharmacie:stock") && (
             <Link href="/pharmacie/reception">
               <GlassButton variant="glass" size="md">

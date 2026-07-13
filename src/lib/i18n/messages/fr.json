@@ -185,7 +185,22 @@
     "reception_error_forbidden": "Votre rôle ne permet pas de gérer le stock.",
     "reception_error_invalid": "Formulaire invalide.",
     "vente_ticket": "Ticket de caisse",
-    "vente_facture": "Facture"
+    "vente_facture": "Facture",
+    "ventes_cta": "Historique",
+    "ventes_title": "Historique des ventes",
+    "ventes_subtitle": "{n} ventes enregistrées, de la plus récente à la plus ancienne.",
+    "ventes_empty_title": "Aucune vente",
+    "ventes_empty_desc": "Les ventes enregistrées au comptoir apparaîtront ici avec leurs tickets et factures.",
+    "ventes_col_num": "N° de vente",
+    "ventes_col_date": "Date",
+    "ventes_col_articles": "Articles",
+    "ventes_col_caissier": "Caissier",
+    "annul_cta": "Annuler",
+    "annul_confirm": "Confirmer ?",
+    "annul_badge": "Annulée",
+    "annul_success": "Vente annulée, stock remis à jour",
+    "annul_error_introuvable": "Vente introuvable.",
+    "annul_error_deja": "Cette vente est déjà annulée."
   },
   "nav": {
     "aria_label": "Navigation principale",

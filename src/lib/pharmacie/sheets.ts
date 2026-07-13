@@ -118,6 +118,8 @@ export interface VenteComplete {
   operateurEmail: string;
   statut: string;
   lignes: Array<{
+    produitId: string;
+    lotId: string;
     designation: string;
     dosage: string;
     quantite: number;
@@ -144,6 +146,8 @@ export async function getVenteComplete(
     .map((l) => {
       const produit = parId.get(String(l.produit_id ?? ""));
       return {
+        produitId: String(l.produit_id ?? ""),
+        lotId: String(l.lot_id ?? ""),
         designation: produit?.designation ?? String(l.produit_id ?? "?"),
         dosage: produit?.dosage ?? "",
         quantite: Number(l.quantite ?? 0),
@@ -174,6 +178,70 @@ export async function listParametres(): Promise<Map<string, string>> {
       .filter((r) => r.cle)
       .map((r) => [String(r.cle), String(r.valeur ?? "")]),
   );
+}
+
+// ------------------------------------------------------------------
+// Historique des ventes
+// ------------------------------------------------------------------
+
+export interface VenteResume {
+  id: string;
+  timestamp: string;
+  clientNom: string;
+  total: number;
+  operateurEmail: string;
+  statut: string;
+  nbArticles: number;
+}
+
+export async function listVentes(): Promise<VenteResume[]> {
+  const [ventes, lignes] = await Promise.all([
+    readTab<Record<string, unknown>>(PHARMA_SHEETS.ventes),
+    readTab<Record<string, unknown>>(PHARMA_SHEETS.lignesVente),
+  ]);
+  const articlesParVente = new Map<string, number>();
+  for (const l of lignes) {
+    const vid = String(l.vente_id ?? "");
+    articlesParVente.set(
+      vid,
+      (articlesParVente.get(vid) ?? 0) + Number(l.quantite ?? 0),
+    );
+  }
+  return ventes
+    .filter((v) => v.id)
+    .map((v) => ({
+      id: String(v.id),
+      timestamp: String(v.timestamp ?? ""),
+      clientNom: String(v.client_nom ?? ""),
+      total: Number(v.total ?? 0),
+      operateurEmail: String(v.operateur_email ?? ""),
+      statut: String(v.statut ?? "active"),
+      nbArticles: articlesParVente.get(String(v.id)) ?? 0,
+    }))
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+/**
+ * Passe une vente au statut « annulee » (cellule G de sa ligne) —
+ * seule écriture ciblée du module, un annulateur unique par vente
+ * rend le risque de concurrence négligeable. La remise en stock se
+ * fait par mouvements compensatoires (append) côté action.
+ */
+export async function marquerVenteAnnulee(venteId: string): Promise<boolean> {
+  const res = await getClient().spreadsheets.values.get({
+    spreadsheetId: getEnv().spreadsheetId,
+    range: `${PHARMA_SHEETS.ventes}!A:A`,
+  });
+  const col = (res.data.values ?? []).flat();
+  const rowIndex = col.findIndex((v) => v === venteId);
+  if (rowIndex < 0) return false;
+  await getClient().spreadsheets.values.update({
+    spreadsheetId: getEnv().spreadsheetId,
+    range: `${PHARMA_SHEETS.ventes}!G${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [["annulee"]] },
+  });
+  return true;
 }
 
 // ------------------------------------------------------------------
