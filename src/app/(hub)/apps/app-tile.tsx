@@ -4,12 +4,9 @@ import {
   Pill,
   HeartPulse,
   Globe,
-  ArrowUpRight,
-  Clock,
   type LucideIcon,
 } from "lucide-react";
 
-import { GlassCard } from "@/components/glass/glass-card";
 import { cn } from "@/lib/utils";
 
 export interface HubApp {
@@ -30,43 +27,31 @@ const ICONS: Record<HubApp["icon"], LucideIcon> = {
   globe: Globe,
 };
 
-const TONES: Record<HubApp["tone"], { bg: string; text: string; glow: string }> = {
-  primary: {
-    bg: "bg-primary/15",
-    text: "text-primary",
-    glow: "oklch(0.65 0.20 25 / 0.30)",
-  },
+const TONES: Record<HubApp["tone"], { icon: string; glow: string }> = {
+  primary: { icon: "text-primary", glow: "oklch(0.65 0.20 25 / 0.25)" },
   success: {
-    bg: "bg-[oklch(0.75_0.18_150_/_0.15)]",
-    text: "text-[oklch(0.75_0.18_150)]",
-    glow: "oklch(0.75 0.18 150 / 0.30)",
+    icon: "text-[oklch(0.75_0.18_150)]",
+    glow: "oklch(0.75 0.18 150 / 0.25)",
   },
-  cyan: {
-    bg: "bg-accent/15",
-    text: "text-accent",
-    glow: "oklch(0.80 0.16 190 / 0.30)",
-  },
+  cyan: { icon: "text-accent", glow: "oklch(0.80 0.16 190 / 0.25)" },
   warning: {
-    bg: "bg-[oklch(0.82_0.16_85_/_0.15)]",
-    text: "text-[oklch(0.82_0.16_85)]",
-    glow: "oklch(0.82 0.16 85 / 0.30)",
+    icon: "text-[oklch(0.82_0.16_85)]",
+    glow: "oklch(0.82 0.16 85 / 0.25)",
   },
 };
 
 /**
- * Tuile d'application façon springboard iOS : grande icône glass au
- * centre, nom en dessous, badge d'état. Toute la tuile est cliquable.
+ * Tuile springboard iOS : icône squircle glass + nom en dessous.
+ * Rien d'autre — même gabarit pour toutes, alignement garanti.
  */
 export function AppTile({
   app,
-  openLabel,
   soonLabel,
-  externalLabel,
 }: {
   app: HubApp;
-  openLabel: string;
   soonLabel: string;
-  externalLabel: string;
+  openLabel?: string;
+  externalLabel?: string;
 }) {
   const Icon = ICONS[app.icon];
   const tone = TONES[app.tone];
@@ -74,62 +59,54 @@ export function AppTile({
   const isExternal = app.status === "external";
 
   const inner = (
-    <GlassCard
-      interactive={!disabled}
-      className={cn(
-        "group relative flex h-full flex-col items-center p-6 text-center transition-opacity",
-        disabled && "opacity-60",
-      )}
-    >
-      {/* Badge état — haut droite */}
-      {app.status !== "live" && (
-        <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full glass border px-2 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-          {isExternal ? (
-            <ArrowUpRight className="size-2.5" aria-hidden="true" />
-          ) : (
-            <Clock className="size-2.5" aria-hidden="true" />
-          )}
-          {isExternal ? externalLabel : soonLabel}
-        </span>
-      )}
-
-      {/* Icône app — style iOS, gros carré arrondi avec glow */}
-      <div
+    <span className="flex w-24 flex-col items-center gap-3 md:w-28">
+      {/* Icône squircle façon iOS */}
+      <span
         className={cn(
-          "mt-4 inline-flex size-20 items-center justify-center rounded-[22px] border border-glass-border shadow-lg transition-transform duration-300",
-          tone.bg,
-          tone.text,
-          !disabled && "group-hover:scale-105",
+          "relative inline-flex size-20 items-center justify-center md:size-24",
+          "rounded-[24px] md:rounded-[28px] glass-strong border border-glass-border",
+          "shadow-xl transition-all duration-300",
+          !disabled &&
+            "group-hover:scale-105 group-hover:border-white/25 group-active:scale-95",
+          disabled && "opacity-45 saturate-50",
+          tone.icon,
         )}
-        style={{ boxShadow: `0 8px 32px ${tone.glow}` }}
+        style={disabled ? undefined : { boxShadow: `0 10px 40px ${tone.glow}` }}
       >
-        <Icon className="size-9" aria-hidden="true" />
-      </div>
+        {/* Reflet supérieur, signature liquid glass */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-2 top-1 h-1/3 rounded-full bg-gradient-to-b from-white/25 to-transparent blur-[2px]"
+        />
+        <Icon className="size-9 md:size-10" aria-hidden="true" strokeWidth={1.6} />
+      </span>
 
-      <h2 className="mt-5 font-display text-base font-semibold leading-tight">
-        {app.title}
-      </h2>
-      <p className="mt-1.5 flex-1 text-xs leading-relaxed text-muted-foreground">
-        {app.description}
-      </p>
-
-      {!disabled && (
+      {/* Nom, une ligne, même hauteur pour toutes les tuiles */}
+      <span className="flex h-9 flex-col items-center justify-start">
         <span
           className={cn(
-            "mt-4 inline-flex items-center gap-1 text-xs font-medium",
-            tone.text,
+            "text-[13px] font-medium leading-tight text-center",
+            disabled ? "text-muted-foreground" : "text-foreground",
           )}
         >
-          {openLabel}
-          <ArrowUpRight className="size-3 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" aria-hidden="true" />
+          {app.title}
         </span>
-      )}
-    </GlassCard>
+        {disabled && (
+          <span className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/70">
+            {soonLabel}
+          </span>
+        )}
+      </span>
+    </span>
   );
 
   if (disabled) {
     return (
-      <div aria-disabled="true" className="h-full cursor-not-allowed">
+      <div
+        aria-disabled="true"
+        aria-label={`${app.title} (${soonLabel})`}
+        className="flex cursor-default justify-center"
+      >
         {inner}
       </div>
     );
@@ -141,8 +118,8 @@ export function AppTile({
         href={app.href}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${app.title} (${externalLabel})`}
-        className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-3xl"
+        aria-label={app.title}
+        className="group flex justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         {inner}
       </a>
@@ -153,7 +130,7 @@ export function AppTile({
     <Link
       href={app.href}
       aria-label={app.title}
-      className="block h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-3xl"
+      className="group flex justify-center rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {inner}
     </Link>

@@ -117,16 +117,11 @@ export default async function HubPage() {
 
         <ul
           role="list"
-          className="mx-auto mt-12 grid w-full max-w-4xl gap-5 sm:grid-cols-2 lg:grid-cols-4"
+          className="mx-auto mt-14 grid grid-cols-2 place-items-center gap-x-8 gap-y-10 sm:flex sm:flex-wrap sm:justify-center sm:gap-x-12"
         >
           {visibleApps.map((app) => (
             <li key={app.key}>
-              <AppTile
-                app={app}
-                openLabel={t("hub.open")}
-                soonLabel={t("hub.coming_soon")}
-                externalLabel={t("hub.external")}
-              />
+              <AppTile app={app} soonLabel={t("hub.coming_soon")} />
             </li>
           ))}
         </ul>

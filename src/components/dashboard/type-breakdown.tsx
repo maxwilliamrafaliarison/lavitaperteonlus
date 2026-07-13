@@ -41,14 +41,18 @@ export function TypeBreakdown({ types, limit = 7, lang = "fr" }: Props) {
                   <span className="text-sm flex-1 truncate group-hover:text-primary transition-colors">
                     {tp.label}
                   </span>
-                  <span className="text-xs text-muted-foreground tabular-nums font-mono">
+                  {/* Colonnes fixes : total puis badge crit., pour que les
+                      chiffres restent alignés verticalement ligne à ligne */}
+                  <span className="w-9 text-right text-xs text-muted-foreground tabular-nums font-mono shrink-0">
                     {tp.total}
                   </span>
-                  {tp.critical > 0 && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/15 text-primary tabular-nums">
-                      {tp.critical} {t("dashboard.types_critical_short")}
-                    </span>
-                  )}
+                  <span className="w-14 text-right shrink-0">
+                    {tp.critical > 0 && (
+                      <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/15 text-primary tabular-nums">
+                        {tp.critical} {t("dashboard.types_critical_short")}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5 ml-10">
                   <div
