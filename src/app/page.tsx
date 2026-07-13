@@ -27,7 +27,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden">
+    <div className="relative isolate flex min-h-screen flex-col overflow-hidden">
       {/* Image de fond plein écran */}
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-20">
         <Image

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
-import { Inter, Playfair_Display, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 
 import { auth } from "@/auth";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -9,21 +9,36 @@ import { Toaster } from "@/components/ui/sonner";
 import { getT, isLang, type Lang } from "@/lib/i18n";
 import "./globals.css";
 
-const inter = Inter({
+/* Polices auto-hébergées (variable fonts, latin + latin-ext pour FR/IT).
+   Téléchargées depuis Google Fonts puis servies par nous : aucun appel
+   réseau au build ni au runtime — indispensable avec une connexion
+   intermittente et évite le hang next/font/google sous Node 25. */
+const inter = localFont({
+  src: [
+    { path: "../fonts/inter-latin.woff2", style: "normal" },
+    { path: "../fonts/inter-latin-ext.woff2", style: "normal" },
+  ],
   variable: "--font-inter",
-  subsets: ["latin"],
   display: "swap",
 });
 
-const playfair = Playfair_Display({
+const playfair = localFont({
+  src: [
+    { path: "../fonts/playfair-latin.woff2", style: "normal" },
+    { path: "../fonts/playfair-latin-ext.woff2", style: "normal" },
+    { path: "../fonts/playfair-latin-italic.woff2", style: "italic" },
+    { path: "../fonts/playfair-latin-ext-italic.woff2", style: "italic" },
+  ],
   variable: "--font-playfair",
-  subsets: ["latin"],
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: [
+    { path: "../fonts/geist-mono-latin.woff2", style: "normal" },
+    { path: "../fonts/geist-mono-latin-ext.woff2", style: "normal" },
+  ],
   variable: "--font-geist-mono",
-  subsets: ["latin"],
   display: "swap",
 });
 

@@ -70,7 +70,7 @@ export default function LoginPage() {
   }, [state, router]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative isolate min-h-screen overflow-hidden">
       {/* Image de fond (cohérence avec landing) */}
       <div aria-hidden className="pointer-events-none fixed inset-0 -z-20">
         <Image
