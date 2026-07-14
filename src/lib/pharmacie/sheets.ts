@@ -6,12 +6,25 @@ import {
   Mouvement,
   type ProduitAvecStock,
 } from "./types";
+import { sbSelect, sbInsert, sbUpdate } from "@/lib/supabase-server";
 
 /* ============================================================
-   PHARMACIE — Accès Google Sheets
-   Spreadsheet séparé de la Logistique (PHARMACIE_SHEET_ID) pour
-   isoler quotas API et permissions.
+   PHARMACIE — Accès données, à deux backends
+   - "sheets"   : Google Sheets (historique, défaut)
+   - "supabase" : Postgres unique du centre (schéma `pharmacie`)
+   Sélection par PHARMACIE_BACKEND (défaut "sheets"). La bascule est
+   réversible en une variable d'environnement, sans redéploiement du
+   code. Le nom du fichier est conservé pour ne pas casser les imports.
+
+   Architecture append-only inchangée : le stock reste la somme des
+   mouvements (jamais une valeur stockée).
    ============================================================ */
+
+function backend(): "sheets" | "supabase" {
+  return process.env.PHARMACIE_BACKEND === "supabase" ? "supabase" : "sheets";
+}
+
+const SCHEMA = "pharmacie";
 
 export const PHARMA_SHEETS = {
   produits: "produits",
@@ -24,41 +37,57 @@ export const PHARMA_SHEETS = {
 } as const;
 export type PharmaSheetName = (typeof PHARMA_SHEETS)[keyof typeof PHARMA_SHEETS];
 
+/** Ordre des colonnes par table (les appelants passent des tableaux positionnels). */
+const COLUMN_ORDER: Record<PharmaSheetName, string[]> = {
+  produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt"],
+  lots: ["id", "produit_id", "numero_lot", "date_expiration", "date_reception"],
+  mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note"],
+  ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut"],
+  lignes_vente: ["id", "vente_id", "produit_id", "lot_id", "quantite", "prix_unitaire", "sous_total"],
+  fournisseurs: ["id", "nom", "telephone", "email", "adresse"],
+  parametres: ["cle", "valeur"],
+};
+
+const NUMERIC_COLS: Record<PharmaSheetName, Set<string>> = {
+  produits: new Set(["prix_achat", "prix_vente", "prix_unitaire", "stock_min"]),
+  mouvements: new Set(["quantite", "prix_unitaire"]),
+  ventes: new Set(["total"]),
+  lignes_vente: new Set(["quantite", "prix_unitaire", "sous_total"]),
+  lots: new Set(),
+  fournisseurs: new Set(),
+  parametres: new Set(),
+};
+
+// ==================================================================
+// Backend GOOGLE SHEETS
+// ==================================================================
+
 let _client: sheets_v4.Sheets | null = null;
 
-function getEnv() {
+function sheetsEnv() {
   const spreadsheetId = process.env.PHARMACIE_SHEET_ID;
   const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GOOGLE_PRIVATE_KEY;
   if (!spreadsheetId || !clientEmail || !rawKey) {
-    throw new Error(
-      "Pharmacie non configurée. Définissez PHARMACIE_SHEET_ID (+ credentials service account).",
-    );
+    throw new Error("Pharmacie (Sheets) non configurée : PHARMACIE_SHEET_ID + credentials.");
   }
-  return {
-    spreadsheetId,
-    clientEmail,
-    privateKey: rawKey.replace(/\\n/g, "\n"),
-  };
+  return { spreadsheetId, clientEmail, privateKey: rawKey.replace(/\\n/g, "\n") };
 }
 
-function getClient(): sheets_v4.Sheets {
+function sheetsClient(): sheets_v4.Sheets {
   if (_client) return _client;
-  const { clientEmail, privateKey } = getEnv();
+  const { clientEmail, privateKey } = sheetsEnv();
   const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
+    email: clientEmail, key: privateKey,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
   _client = google.sheets({ version: "v4", auth });
   return _client;
 }
 
-async function readTab<T extends Record<string, unknown>>(
-  tab: PharmaSheetName,
-): Promise<T[]> {
-  const res = await getClient().spreadsheets.values.get({
-    spreadsheetId: getEnv().spreadsheetId,
+async function readTabSheets<T extends Record<string, unknown>>(tab: PharmaSheetName): Promise<T[]> {
+  const res = await sheetsClient().spreadsheets.values.get({
+    spreadsheetId: sheetsEnv().spreadsheetId,
     range: `${tab}!A1:ZZ`,
     valueRenderOption: "UNFORMATTED_VALUE",
     dateTimeRenderOption: "FORMATTED_STRING",
@@ -70,30 +99,131 @@ async function readTab<T extends Record<string, unknown>>(
     .filter((row) => row.some((c) => c !== null && c !== ""))
     .map((row) => {
       const obj: Record<string, unknown> = {};
-      headers.forEach((h, i) => {
-        obj[h] = row[i] ?? "";
-      });
+      headers.forEach((h, i) => { obj[h] = row[i] ?? ""; });
       return obj as T;
     });
 }
 
-/** Ajoute des lignes en fin d'onglet (append-only, sans conflit). */
-export async function appendRows(
-  tab: PharmaSheetName,
-  values: unknown[][],
-): Promise<void> {
-  await getClient().spreadsheets.values.append({
-    spreadsheetId: getEnv().spreadsheetId,
+async function appendRowsSheets(tab: PharmaSheetName, values: unknown[][]): Promise<void> {
+  await sheetsClient().spreadsheets.values.append({
+    spreadsheetId: sheetsEnv().spreadsheetId,
     range: `${tab}!A1`,
     valueInputOption: "RAW",
     requestBody: { values },
   });
 }
 
+async function updateProduitFieldsSheets(
+  produitId: string,
+  fields: Record<string, unknown>,
+): Promise<boolean> {
+  const res = await sheetsClient().spreadsheets.values.get({
+    spreadsheetId: sheetsEnv().spreadsheetId,
+    range: `${PHARMA_SHEETS.produits}!A:A`,
+  });
+  const col = (res.data.values ?? []).flat();
+  const rowIndex = col.findIndex((v) => v === produitId);
+  if (rowIndex < 0) return false;
+  const row = rowIndex + 1;
+  const COLS: Record<string, string> = {
+    prix_achat: "I", prix_vente: "J", stock_min: "L",
+    fournisseur: "M", emplacement: "N", statut: "O",
+  };
+  const data = Object.entries(fields)
+    .filter(([, v]) => v !== undefined)
+    .map(([k, v]) => ({ range: `${PHARMA_SHEETS.produits}!${COLS[k]}${row}`, values: [[v]] }));
+  if (data.length === 0) return true;
+  await sheetsClient().spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetsEnv().spreadsheetId,
+    requestBody: { valueInputOption: "RAW", data },
+  });
+  return true;
+}
+
+async function marquerVenteAnnuleeSheets(venteId: string): Promise<boolean> {
+  const res = await sheetsClient().spreadsheets.values.get({
+    spreadsheetId: sheetsEnv().spreadsheetId,
+    range: `${PHARMA_SHEETS.ventes}!A:A`,
+  });
+  const col = (res.data.values ?? []).flat();
+  const rowIndex = col.findIndex((v) => v === venteId);
+  if (rowIndex < 0) return false;
+  await sheetsClient().spreadsheets.values.update({
+    spreadsheetId: sheetsEnv().spreadsheetId,
+    range: `${PHARMA_SHEETS.ventes}!G${rowIndex + 1}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [["annulee"]] },
+  });
+  return true;
+}
+
+// ==================================================================
+// Backend SUPABASE (schéma pharmacie)
+// ==================================================================
+
+async function readTabSupabase<T extends Record<string, unknown>>(tab: PharmaSheetName): Promise<T[]> {
+  const all: T[] = [];
+  const page = 1000;
+  for (let offset = 0; ; offset += page) {
+    const { rows } = await sbSelect<T>(SCHEMA, tab, { select: "*", limit: page, offset });
+    all.push(...rows);
+    if (rows.length < page) break;
+  }
+  return all;
+}
+
+async function appendRowsSupabase(tab: PharmaSheetName, values: unknown[][]): Promise<void> {
+  const order = COLUMN_ORDER[tab];
+  const nums = NUMERIC_COLS[tab];
+  const rows = values.map((arr) => {
+    const obj: Record<string, unknown> = {};
+    order.forEach((colName, i) => {
+      let v = arr[i];
+      if (v === "" || v === undefined) v = null;
+      if (v !== null && nums.has(colName)) {
+        const n = Number(v);
+        v = Number.isFinite(n) ? n : null;
+      }
+      obj[colName] = v;
+    });
+    return obj;
+  });
+  await sbInsert(SCHEMA, tab, rows);
+}
+
+async function updateProduitFieldsSupabase(
+  produitId: string,
+  fields: Record<string, unknown>,
+): Promise<boolean> {
+  const patch: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) if (v !== undefined) patch[k] = v;
+  if (Object.keys(patch).length === 0) return true;
+  const n = await sbUpdate(SCHEMA, PHARMA_SHEETS.produits, { id: `eq.${produitId}` }, patch);
+  return n > 0;
+}
+
+async function marquerVenteAnnuleeSupabase(venteId: string): Promise<boolean> {
+  const n = await sbUpdate(SCHEMA, PHARMA_SHEETS.ventes, { id: `eq.${venteId}` }, { statut: "annulee" });
+  return n > 0;
+}
+
+// ==================================================================
+// Primitives dispatchées selon le backend
+// ==================================================================
+
+async function readTab<T extends Record<string, unknown>>(tab: PharmaSheetName): Promise<T[]> {
+  return backend() === "supabase" ? readTabSupabase<T>(tab) : readTabSheets<T>(tab);
+}
+
+/** Insère des lignes (append-only). Format positionnel (ordre COLUMN_ORDER). */
+export async function appendRows(tab: PharmaSheetName, values: unknown[][]): Promise<void> {
+  return backend() === "supabase" ? appendRowsSupabase(tab, values) : appendRowsSheets(tab, values);
+}
+
 /**
  * Enregistre une vente complète : entête + lignes + mouvements négatifs.
- * Trois appends séquentiels ; les mouvements en DERNIER pour que le
- * stock ne décrémente qu'une fois la vente réellement tracée.
+ * Les mouvements en DERNIER pour que le stock ne décrémente qu'une fois
+ * la vente réellement tracée.
  */
 export async function enregistrerVente(input: {
   venteRow: unknown[];
@@ -168,7 +298,7 @@ export async function getVenteComplete(
   };
 }
 
-/** Paramètres clé/valeur de l'onglet parametres. */
+/** Paramètres clé/valeur de la table parametres. */
 export async function listParametres(): Promise<Map<string, string>> {
   const rows = await readTab<{ cle: unknown; valeur: unknown }>(
     PHARMA_SHEETS.parametres,
@@ -226,10 +356,8 @@ export async function listVentes(): Promise<VenteResume[]> {
 // ------------------------------------------------------------------
 
 /**
- * Met à jour les champs éditables d'un produit (cellules ciblées de
- * sa ligne). Le stock n'en fait jamais partie : il reste dérivé des
- * mouvements. Un seul éditeur par fiche en pratique → risque de
- * concurrence négligeable.
+ * Met à jour les champs éditables d'un produit. Le stock n'en fait
+ * jamais partie : il reste dérivé des mouvements.
  */
 export async function updateProduitFields(
   produitId: string,
@@ -242,61 +370,19 @@ export async function updateProduitFields(
     statut?: string;
   },
 ): Promise<boolean> {
-  const res = await getClient().spreadsheets.values.get({
-    spreadsheetId: getEnv().spreadsheetId,
-    range: `${PHARMA_SHEETS.produits}!A:A`,
-  });
-  const col = (res.data.values ?? []).flat();
-  const rowIndex = col.findIndex((v) => v === produitId);
-  if (rowIndex < 0) return false;
-  const row = rowIndex + 1;
-
-  // Colonnes : I prix_achat · J prix_vente · L stock_min ·
-  //            M fournisseur · N emplacement · O statut
-  const COLS: Record<string, string> = {
-    prix_achat: "I",
-    prix_vente: "J",
-    stock_min: "L",
-    fournisseur: "M",
-    emplacement: "N",
-    statut: "O",
-  };
-  const data = Object.entries(fields)
-    .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => ({
-      range: `${PHARMA_SHEETS.produits}!${COLS[k]}${row}`,
-      values: [[v]],
-    }));
-  if (data.length === 0) return true;
-
-  await getClient().spreadsheets.values.batchUpdate({
-    spreadsheetId: getEnv().spreadsheetId,
-    requestBody: { valueInputOption: "RAW", data },
-  });
-  return true;
+  return backend() === "supabase"
+    ? updateProduitFieldsSupabase(produitId, fields)
+    : updateProduitFieldsSheets(produitId, fields);
 }
 
 /**
- * Passe une vente au statut « annulee » (cellule G de sa ligne) —
- * seule écriture ciblée du module, un annulateur unique par vente
- * rend le risque de concurrence négligeable. La remise en stock se
- * fait par mouvements compensatoires (append) côté action.
+ * Passe une vente au statut « annulee ». La remise en stock se fait par
+ * mouvements compensatoires (append) côté action.
  */
 export async function marquerVenteAnnulee(venteId: string): Promise<boolean> {
-  const res = await getClient().spreadsheets.values.get({
-    spreadsheetId: getEnv().spreadsheetId,
-    range: `${PHARMA_SHEETS.ventes}!A:A`,
-  });
-  const col = (res.data.values ?? []).flat();
-  const rowIndex = col.findIndex((v) => v === venteId);
-  if (rowIndex < 0) return false;
-  await getClient().spreadsheets.values.update({
-    spreadsheetId: getEnv().spreadsheetId,
-    range: `${PHARMA_SHEETS.ventes}!G${rowIndex + 1}`,
-    valueInputOption: "RAW",
-    requestBody: { values: [["annulee"]] },
-  });
-  return true;
+  return backend() === "supabase"
+    ? marquerVenteAnnuleeSupabase(venteId)
+    : marquerVenteAnnuleeSheets(venteId);
 }
 
 // ------------------------------------------------------------------
