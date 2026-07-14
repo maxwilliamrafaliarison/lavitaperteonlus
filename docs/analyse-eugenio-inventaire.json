@@ -1,0 +1,1779 @@
+{
+ "db-core": {
+  "features": [
+   {
+    "nom": "Catalogue produits (table produits) avec double stock GROS/VENTE",
+    "description": "Table centrale des médicaments. Chaque produit porte son identité pharmaceutique (designation, code, lot, dci, classe_therapeutique, forme, dosage, conditionnement), ses prix (prix_achat, prix_vente), DEUX compteurs de stock (quantite = dépôt GROS, quantite_detail = rayon VENTE), un seuil stock_min, un emplacement, un fournisseur (texte dénormalisé + fournisseur_id FK), un statut, et 4 colonnes de fractionnement (peut_fractionner, unite_detail, facteur_conversion, prix_vente_detail).",
+    "regles_metier": [
+     "statut TEXT NOT NULL DEFAULT 'ACTIF' — valeurs observées : 'ACTIF' / 'INACTIF'.",
+     "quantite (stock GROS) et quantite_detail (stock VENTE) sont REAL NOT NULL DEFAULT 0.",
+     "CONVENTION D'UNITÉ CRITIQUE : pour un produit fractionnable (peut_fractionner=1), quantite et quantite_detail sont stockées en UNITÉS DE BASE (comprimés, gélules…), PAS en boîtes. Pour un produit non fractionnable, elles sont en boîtes/unités de vente.",
+     "stock_min reste TOUJOURS exprimé en boîtes (seuil visible utilisateur), même pour les produits fractionnables — commentaire explicite dans MIGRATION_V4 : 'stock_min intentionally kept in boites (user-facing threshold)'.",
+     "fournisseur est gardé en double : colonne texte 'fournisseur' (historique Excel) + 'fournisseur_id' FK vers fournisseurs(id), résolue par jointure sur le nom.",
+     "created_at / updated_at TEXT DEFAULT datetime('now') — dates stockées en TEXT ISO.",
+     "Champ 'lot' et 'date_expiration' au niveau produit = héritage pré-lots (V9) ; depuis la V9 la vérité par lot vit dans la table lots."
+    ],
+    "calculs": "Affichage en boîtes reconstruit côté requêtes : quantite_boites et gros_boites (exposés dans AlerteProduit) = quantité en unités de base ÷ facteur_conversion pour les fractionnables.",
+    "cas_limites": [
+     "Produit fractionnable sans facteur_conversion (NULL) : traité comme non fractionnable dans les migrations (clause WHERE facteur_conversion IS NOT NULL AND > 0/1).",
+     "fournisseur texte présent mais absent de la table fournisseurs : fournisseur_id reste NULL jusqu'à résolution."
+    ],
+    "details_ui": "L'interface produit expose la mise à jour de prix isolée (produits:updatePrix) séparée de la mise à jour générale (produits:update qui exige un paramètre 'operateur' pour tracer chaque changement de champ dans modifications_produit)."
+   },
+   {
+    "nom": "Fractionnement — classification automatique (classifyFractionnement)",
+    "description": "Détermine automatiquement, à partir des textes FORME + CONDITIONNEMENT (+ DESIGNATION), si un produit peut être vendu à l'unité, quelle est l'unité de détail, et combien d'unités contient une boîte (facteur_conversion). Retourne { peut_fractionner: 0|1, unite_detail: string|null, facteur_conversion: number|null }. Seuls les conditionnements DISCRETS comptables sont fractionnables ; les contenants continus (sirop, pommade, crème, flacon de solution seule) restent vendus à la boîte uniquement.",
+    "regles_metier": [
+     "Si conditionnement est NULL → non fractionnable (retour NONE).",
+     "CAS SPÉCIAL codé en dur : designation.trim().toUpperCase() === 'REVITALOSE' → { peut_fractionner:1, unite_detail:'dose', facteur_conversion:10 } (conditionnement ambigu 'BOITE DE 10DOSE DE 2 AMPOULES', résolu manuellement avec l'équipe pharmacie : 1 unité vendable = 1 dose de 2 ampoules).",
+     "Formes discrètes reconnues (clé exacte en MAJUSCULES → libellé unité) : COMPRIME→'comprimé', COMPRIME PELLICULE→'comprimé', COMPRIME EFFERVESCENT→'comprimé', GELLULE→'gélule' (typo gérée), GELULE→'gélule', SACHET→'sachet', AMPOULE BUVABLE→'ampoule', SUPPOSITOIRE→'suppositoire', CAPSULE VAGINAL→'capsule'.",
+     "Extraction du facteur (extractFactor, sur conditionnement.toUpperCase().trim()) — 3 regex dans cet ordre : (1) /^(\\d+)\\s*PLAQUETTES?\\s*DE\\s*(\\d+)/ → produit des deux nombres (ex. '3 PLAQUETTE DE 28' → 84) ; (2) /^BT\\s*(\\d+)\\s*\\/\\s*(\\d+)/ → produit (ex. 'BT 3/ 21 COMPRIMES' → 63) ; (3) /(?:BO[IT]TE|BOTE|TUBE)\\s*DE\\s*(\\d+)/ → nombre simple (tolère les typos 'BOTE', 'BOTTE' ; ex. 'BOITE DE 30' → 30).",
+     "Le facteur doit être STRICTEMENT > 1 pour activer le fractionnement (une 'boîte de 1' reste non fractionnable).",
+     "FORME = 'SOLUTION INJECTABLE' : fractionnable seulement si le conditionnement donne un facteur > 1 ; unité = 'flacon' si /FLACON/i matche le conditionnement, sinon 'ampoule'.",
+     "FORME absente/vide mais conditionnement comptable (facteur > 1) : unité déduite de la désignation — commence par 'COMPRESSE' → 'compresse', par 'SERINGUE' → 'seringue', sinon 'unité' générique.",
+     "Toute forme non listée (sirop, pommade, crème…) → non fractionnable."
+    ],
+    "calculs": "prix_vente_detail = Math.round(prix_vente / facteur_conversion) — arrondi à l'entier (Ariary), calculé au seed et re-calculé en migration V10 seulement si prix_vente > 0.",
+    "cas_limites": [
+     "Conditionnement composé '3 PLAQUETTE DE 28' prioritaire sur la regex simple (ordre des regex).",
+     "Facteur = 1 ou 0 → NONE.",
+     "Produit avec forme discrète mais conditionnement non parsable → NONE (vente boîte seule).",
+     "Le prix détail arrondi × facteur ≠ prix boîte (écart d'arrondi accepté : vendre à l'unité peut rapporter plus ou moins que la boîte entière)."
+    ],
+    "details_ui": "Les libellés d'unité sont en français avec accents ('comprimé', 'gélule') et servent directement à l'affichage du mode de vente au détail."
+   },
+   {
+    "nom": "Vente en mode 'boite' vs 'detail' (lignes_vente)",
+    "description": "Chaque ligne de vente enregistre le mode de vente choisi et découple la quantité facturée de la quantité à déduire du stock. Colonnes : vente_id FK, produit_id FK, produit_designation (snapshot texte), produit_lot, mode_vente TEXT DEFAULT 'boite', quantite, prix_unitaire, sous_total, qte_stock_deduire.",
+    "regles_metier": [
+     "mode_vente ∈ {'boite','detail'} (type LigneVenteInput du preload).",
+     "quantite = quantité dans l'unité du mode choisi (nombre de boîtes OU nombre d'unités de détail).",
+     "prix_unitaire = prix_vente (mode boite) ou prix_vente_detail (mode detail) au moment de la vente — snapshot, insensible aux changements de prix ultérieurs.",
+     "qte_stock_deduire = quantité convertie en UNITÉS DE BASE à retrancher du stock : pour un produit fractionnable, mode boite → quantite × facteur_conversion ; mode detail → quantite ; produit non fractionnable → quantite telle quelle. Ce champ est calculé côté renderer et stocké tel quel (source de vérité de la déduction).",
+     "produit_designation et produit_lot sont dénormalisés dans la ligne (l'historique de vente survit à la modification/suppression du produit)."
+    ],
+    "calculs": "sous_total = quantite × prix_unitaire (fourni par le renderer, stocké). total de la vente = somme des sous_totaux, stocké dans ventes.total.",
+    "cas_limites": [
+     "La séparation quantite / qte_stock_deduire permet de vendre 2 boîtes + 5 comprimés du même produit sur deux lignes distinctes sans ambiguïté d'unité."
+    ],
+    "details_ui": "Le sélecteur boîte/détail par ligne n'apparaît que si peut_fractionner=1 (les métadonnées unite_detail et prix_vente_detail sont exposées au renderer via l'interface Produit du preload)."
+   },
+   {
+    "nom": "Ventes — en-tête, prise en charge, annulation et retour",
+    "description": "Table ventes : date_vente et heure séparées (TEXT), type_vente DEFAULT 'cash', identité client (client_nom, client_id texte libre), service, entite_payeur, medecin_presc, operateur_id FK, total, vente_origin_id (auto-FK vers ventes.id), statut DEFAULT 'validee', notes. API : ventes:create, getRecent(limit), getLignes, annuler(venteId, motif, operateur), retourner(venteId, motif, operateur).",
+    "regles_metier": [
+     "type_vente ∈ {'cash','prise_en_charge'} (type VenteInput). La prise en charge porte entite_payeur (organisme payeur), service et medecin_presc — pensé pour un contexte hospitalier/ONG.",
+     "vente_origin_id relie un RETOUR à la vente d'origine (le retour est une vente liée, pas une suppression).",
+     "Annulation et retour exigent tous deux un MOTIF et un OPÉRATEUR (traçabilité obligatoire) ; l'événement est journalisé dans la table annulations (type_operation, operation_id, reference, motif, operateur, created_at).",
+     "statut de vente : 'validee' par défaut ; l'annulation change le statut plutôt que de supprimer la ligne (les FK et le journal l'imposent)."
+    ],
+    "calculs": "total REAL DEFAULT 0, fourni par le renderer = somme des lignes.",
+    "cas_limites": [
+     "Distinction annuler (erreur de saisie, même journée) vs retourner (le client rapporte : nouvelle opération liée par vente_origin_id) — deux endpoints distincts.",
+     "Compteurs dashboard séparés ventesCash / ventesPecCount : la prise en charge n'entre pas dans la caisse cash."
+    ],
+    "details_ui": "date_vente et heure sont deux champs séparés (affichage/tri par jour puis heure). Écran 'recettes caisse' filtrable par période, opérateur et type_vente."
+   },
+   {
+    "nom": "Achats fournisseurs (achats + lignes_achat) avec TVA et marge snapshot",
+    "description": "Enregistrement des factures d'achat : reference TEXT NOT NULL UNIQUE (générée), fournisseur_id FK + fournisseur_nom dénormalisé, date_facture, num_facture, type_achat DEFAULT 'normal', totaux HT/TVA/TTC, operateur_id, statut DEFAULT 'valide', notes. Lignes : produit_id, produit_designation snapshot, lot, date_expiration, qte_achat, prix_achat_ht, tva_pct, montant_tva, total_ht, total_ttc, prix_vente_snap, marge_valeur.",
+    "regles_metier": [
+     "Chaque ligne d'achat porte SON lot et SA date_expiration → c'est l'achat qui crée les lots (table lots, colonne achat_id).",
+     "prix_vente_snap = prix de vente du produit AU MOMENT de l'achat et marge_valeur = marge calculée à cet instant — la rentabilité historique reste exacte même si les prix changent ensuite.",
+     "Annulation d'achat (achats:annuler) exige motif + opérateur, journalisée dans annulations.",
+     "reference UNIQUE empêche la double saisie de la même facture."
+    ],
+    "calculs": "Par ligne : montant_tva = total_ht × tva_pct/100 ; total_ttc = total_ht + montant_tva ; marge_valeur ≈ (prix_vente_snap − prix_achat_ht) × qte_achat. En-tête : total_ht/total_tva/total_ttc = sommes des lignes (fournis par le renderer).",
+    "cas_limites": [
+     "fournisseur_id nullable + fournisseur_nom texte : un achat reste saisissable pour un fournisseur non référencé.",
+     "TVA à 0 par défaut (contexte Madagascar : médicaments souvent exonérés)."
+    ],
+    "details_ui": "Recherche d'achats par plage de dates et fournisseur (achats:search {date_from, date_to, fournisseur_id}). Création de fournisseur à la volée (fournisseurs:create avec juste un nom, UNIQUE sur nom)."
+   },
+   {
+    "nom": "Transferts de stock GROS ↔ VENTE",
+    "description": "Mouvement interne entre le dépôt (GROS, colonne quantite) et le rayon de vente (VENTE, colonne quantite_detail). Table transferts : reference UNIQUE, date_transfert, source DEFAULT 'GROS', destination DEFAULT 'VENTE', operateur_id. Table lignes_transfert : produit_id, produit_designation snapshot, lot, date_expiration, qte_transfert, qte_gros_avant, qte_detail_avant.",
+    "regles_metier": [
+     "Direction bidirectionnelle via l'input : 'GROS_TO_DETAIL' (réassort du rayon) ou 'DETAIL_TO_GROS' (retour au dépôt).",
+     "qte_gros_avant et qte_detail_avant enregistrent l'état AVANT mouvement sur chaque ligne → audit trail permettant de rejouer/vérifier tout transfert.",
+     "Les quantités de transfert sont dans la même unité que le stock (unités de base pour les fractionnables).",
+     "reference UNIQUE générée par transfert."
+    ],
+    "calculs": "GROS_TO_DETAIL : quantite -= qte_transfert ; quantite_detail += qte_transfert (et inversement).",
+    "cas_limites": [
+     "Modèle deux-emplacements sans table d'emplacements : suffisant pour une pharmacie à un seul point de vente + un dépôt."
+    ],
+    "details_ui": "Historique consultable (transferts:getRecent, transferts:getLignes)."
+   },
+   {
+    "nom": "Gestion par lots (batches) avec déduction FEFO",
+    "description": "Depuis la migration V9, le stock est ventilé par lot : table lots (produit_id, lot, date_expiration, qte_gros, qte_detail, prix_achat du lot, achat_id nullable, created_at) + journal mouvement_lots (lot_id, type_operation, operation_id, champ, delta, created_at). Les colonnes agrégées de produits restent maintenues en parallèle.",
+    "regles_metier": [
+     "À la vente, la déduction consomme les lots en FEFO (First-Expired-First-Out) — explicitement mentionné dans seed.ts : 'FEFO deduction on sale finds stock to consume'.",
+     "Chaque lot connaît SON prix_achat → base d'une valorisation du stock au coût réel par lot.",
+     "mouvement_lots trace chaque delta avec le champ touché ('qte_gros' ou 'qte_detail'), le type d'opération et l'id de l'opération source → reconstruction complète de l'historique d'un lot.",
+     "Backfill V9 : le stock agrégé existant de chaque produit (quantite>0 OR quantite_detail>0) devient un unique 'lot legacy' reprenant lot/date_expiration/prix_achat du produit, achat_id NULL.",
+     "Le seed crée de même 1 lot initial par produit avec qte_gros=quantite, qte_detail=0, achat_id NULL, pour que le FEFO trouve toujours du stock à consommer."
+    ],
+    "calculs": "Invariant : SUM(lots.qte_gros) = produits.quantite et SUM(lots.qte_detail) = produits.quantite_detail par produit.",
+    "cas_limites": [
+     "Lots sans date_expiration (NULL) : doivent être ordonnés en dernier dans le FEFO.",
+     "Lot legacy sans achat_id : reste traçable comme stock d'origine inconnue."
+    ],
+    "details_ui": "Consultation des lots par produit (lots:parProduit) ; l'ajustement de stock cible un lot précis (lotId) et permet de corriger son numéro de lot et sa date d'expiration."
+   },
+   {
+    "nom": "Ajustements de stock (inventaire) avec journal",
+    "description": "Correction manuelle du stock (casse, péremption, écart d'inventaire) via produits:ajusterStock(produitId, lotId|null, nouvelleQte, motif, operateur, nouveauLot?, nouvelleExpiration?). Journal ajustements_stock : produit_id, qte_avant, qte_apres, delta, motif NOT NULL, operateur, created_at.",
+    "regles_metier": [
+     "Le motif est OBLIGATOIRE (NOT NULL) — pas d'ajustement anonyme.",
+     "On saisit la NOUVELLE quantité (pas le delta) ; delta = qte_apres − qte_avant est calculé et stocké.",
+     "L'ajustement peut cibler un lot précis (lotId) et en profiter pour corriger le numéro de lot et la date d'expiration du lot.",
+     "L'historique complet des mouvements d'un produit est consultable (produits:mouvements) et un état du stock à une date donnée existe (stock:historique(date) — reconstruction rétroactive)."
+    ],
+    "calculs": "delta = qte_apres − qte_avant.",
+    "cas_limites": [
+     "lotId null = ajustement au niveau produit (agrégat)."
+    ],
+    "details_ui": "L'opérateur est passé en texte libre (nom), pas en FK — simplicité au détriment de l'intégrité référentielle."
+   },
+   {
+    "nom": "Journalisation des annulations et des modifications de produit",
+    "description": "Deux tables d'audit (migration V8) : annulations (type_operation, operation_id, reference, motif NOT NULL, operateur NOT NULL, created_at) pour ventes/achats annulés ou retournés ; modifications_produit (produit_id, champ, valeur_avant, valeur_apres, operateur NOT NULL, created_at) qui trace CHAMP PAR CHAMP chaque modification de fiche produit.",
+    "regles_metier": [
+     "modifications_produit stocke une ligne PAR champ modifié avec l'ancienne et la nouvelle valeur en texte — d'où le paramètre 'operateur' obligatoire sur produits:update.",
+     "annulations est polymorphe : type_operation distingue vente/achat/retour, operation_id pointe l'enregistrement concerné."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [],
+    "details_ui": "Rien n'est jamais supprimé physiquement : annulation = changement de statut + entrée de journal."
+   },
+   {
+    "nom": "Authentification et gestion des utilisateurs",
+    "description": "Table users (V5) : username UNIQUE, password_hash, nom, prenom, role DEFAULT 'operateur', actif DEFAULT 1, created_at, last_login. API complète : auth:login, users:list/create/update/resetPassword/setActif/delete/changePassword. Coexiste avec l'ancienne table operateurs (utilisée comme FK des ventes/achats/transferts ; 'Admin Système' login 'admin' inséré au schéma initial).",
+    "regles_metier": [
+     "Hash : PBKDF2-SHA256, 10 000 itérations, clé 64 octets, sel aléatoire de 16 octets hex ; stockage au format 'salt:hash' (hex).",
+     "Vérification par crypto.timingSafeEqual (anti timing-attack) ; toute exception → false.",
+     "Compte par défaut créé en migration V5 : username 'admin', mot de passe 'admin', nom 'Administrateur', role 'admin'.",
+     "Rôles : 'admin' | 'operateur' (type AuthUser).",
+     "Désactivation (setActif) distincte de la suppression ; changePassword exige l'ancien mot de passe, resetPassword (admin) non."
+    ],
+    "calculs": "hashPassword: pbkdf2Sync(password, salt, 10000, 64, 'sha256').",
+    "cas_limites": [
+     "stored mal formé (pas de ':') → verifyPassword retourne false sans lever.",
+     "Buffers de longueurs différentes dans timingSafeEqual → catch → false."
+    ],
+    "details_ui": "last_login mis à jour à la connexion ; écran d'administration des utilisateurs réservé au rôle admin."
+   },
+   {
+    "nom": "Seed initial depuis Excel (INVENTAIRE GENERALE)",
+    "description": "Au premier démarrage (flag meta.seeded='0'), importe le classeur Excel de la pharmacie. Cherche le fichier dans 5 emplacements ordonnés : resources/pharmacie_seed.xlsx (appPath), pharmacie_seed.xlsx (process.resourcesPath), '_Base de Données Pharmacie.xlsx' (appPath), puis les deux mêmes relatifs à __dirname/../../. Lit la feuille nommée exactement 'INVENTAIRE GENERALE' avec XLSX.readFile(cellDates:true).",
+    "regles_metier": [
+     "Les en-têtes de colonnes sont trimés (Excel ajoute parfois des espaces).",
+     "Une ligne n'est importée QUE si DESIGNATION non vide après trim.",
+     "Mapping exact des colonnes : DESIGNATION, CODE, LOT, DCI, 'CLASSE THERAPEUTIQUE', FORME, DOSAGE, CONDITIONNEMENT, \"DATE D'EXPIRATON\" (typo du classeur, sans I, respectée), PRIX_ACHAT, PRIX_VENTE, 'QUANTITE ACTUELLE', 'STOCK MIN', EMPLACEMENT, FOURNISSEUR, STATUT.",
+     "Conversion date : Date JS → ISO tronqué à 10 chars ; string → slice(0,10) ; NOMBRE (série Excel) → new Date((val − 25569) × 86400000).toISOString().slice(0,10).",
+     "Nombres : Number(x) || 0 (tout non-numérique devient 0).",
+     "STATUT : 'INACTIF' exact → INACTIF, tout le reste → ACTIF.",
+     "Le classifieur de fractionnement est appliqué à CHAQUE ligne au seed ; prix_vente_detail = Math.round(prix_vente / facteur) si fractionnable.",
+     "Fournisseurs : dédupliqués via Set sur le texte trimé, insérés INSERT OR IGNORE, puis produits.fournisseur_id résolu par UPDATE corrélé sur le nom.",
+     "Un lot initial est créé pour chaque produit avec quantite > 0 : qte_gros=quantite, qte_detail=0, achat_id NULL (miroir du backfill V9).",
+     "Tout est fait dans UNE transaction ; markSeeded() (meta.seeded='1') n'est appelé qu'après succès."
+    ],
+    "calculs": "Voir conversion de date série Excel (offset 25569 jours = 1970-01-01 en jours Excel) ; prix détail arrondi.",
+    "cas_limites": [
+     "Aucun fichier trouvé → warning console et démarrage à vide (pas d'erreur bloquante).",
+     "Feuille absente → error console et abandon du seed.",
+     "Auto-réparation : au boot, si meta.seeded='1' mais COUNT(produits)=0 (corruption pendant l'écriture), le flag est remis à '0' pour re-seeder au prochain appel."
+    ],
+    "details_ui": "Log final : '[seed] N produits, M fournisseurs insérés'."
+   },
+   {
+    "nom": "Persistance sql.js avec écriture atomique",
+    "description": "La base SQLite tourne en WASM (sql.js) entièrement en mémoire ; le fichier userData/pharmacie.db est réécrit intégralement à chaque sauvegarde. saveDatabase() : db.export() → écrit dans 'pharmacie.db.<pid>.tmp' → fs.renameSync vers le fichier final (rename atomique : un kill en pleine écriture ne corrompt jamais la base, et deux process ne partagent jamais le même tmp grâce au PID).",
+    "regles_metier": [
+     "PRAGMA journal_mode=DELETE forcé (dans SCHEMA_SQL et vérifié au boot) : en WAL, sql.js garde les transactions dans un WAL en mémoire que db.export() ne fusionne pas → écritures silencieusement perdues. Si une base existante est en WAL, elle est convertie et re-sauvée immédiatement.",
+     "PRAGMA foreign_keys=ON.",
+     "dbRun() sauvegarde le fichier ENTIER après CHAQUE statement ; dbTransaction() n'exporte qu'une fois après COMMIT (ROLLBACK sur exception, sans save).",
+     "Chemin WASM : process.resourcesPath si packagé, sinon node_modules/sql.js/dist (2 fallbacks).",
+     "verifyDatabaseFile(path) : ouvre le fichier dans une instance sql.js ISOLÉE et exécute réellement 'SELECT COUNT(*) FROM produits' — un fichier non vide mais illisible est rejeté."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [
+     "Fichier de 0 octet → invalide.",
+     "Base sans table produits → invalide (le SELECT lève)."
+    ],
+    "details_ui": "Aucun (couche technique)."
+   },
+   {
+    "nom": "Migrations versionnées (meta.schema_version 1→12)",
+    "description": "Table meta (key/value) porte schema_version et seeded. runMigrations() applique séquentiellement : V2 fournisseurs+achats (+ ALTER produits.fournisseur_id avec try/catch si colonne existe) ; V3 double stock (ALTER quantite_detail) + transferts ; V4 conversion boîtes→unités de base pour fractionnables (ROUND(qte × facteur)) ; V5 users ; V6 parametres email ; V7 ajustements_stock ; V8 annulations + modifications_produit ; V9 lots + mouvement_lots + backfill ; V10 ré-application du classifieur + conversion de stock (répare V4 qui avait tourné avant que peut_fractionner soit posé, donc n'avait rien fait) ; V11 re-conversion pour les bases où V10 incomplet a tourné ; V12 stock_externe.",
+    "regles_metier": [
+     "Chaque migration : run SQL → INSERT OR REPLACE schema_version → saveDatabase() (checkpoint disque après chaque étape).",
+     "Base neuve : SCHEMA_SQL (version 3 de fait) puis runMigrations() pour monter à 12 — un seul chemin de code final.",
+     "V10 : ne convertit le stock QUE pour les produits passant de peut_fractionner 0→1 (wasAlreadyFrac exclu pour éviter la double conversion post-V4) ; met aussi les lots à jour (ROUND(qte × facteur)).",
+     "V11 : convertit quantite/quantite_detail ET lots pour tous les fractionnables avec facteur > 1 (rattrapage explicite d'une V10 livrée incomplète)."
+    ],
+    "calculs": "Conversions : nouvelle_qte = ROUND(ancienne_qte × facteur_conversion).",
+    "cas_limites": [
+     "ALTER TABLE sur colonne existante encapsulé en try/catch vide (SQLite n'a pas ADD COLUMN IF NOT EXISTS).",
+     "Absence de schema_version → version supposée = 1."
+    ],
+    "details_ui": "Logs console '[db] running migration vN' / 'complete' à chaque étape."
+   },
+   {
+    "nom": "Backup local quotidien avec vérification d'intégrité et rotation",
+    "description": "performBackup() copie pharmacie.db vers userData/backups/pharmacie_YYYY-MM-DD.db, VÉRIFIE la copie (verifyDatabaseFile), puis fait tourner la rétention. autoBackup() est appelé à chaque démarrage : si le fichier du jour n'existe pas encore, il crée le backup (idempotent : 1 backup max par jour).",
+    "regles_metier": [
+     "Nom de fichier : 'pharmacie_' + date ISO (YYYY-MM-DD) + '.db' — le tri lexicographique = tri chronologique.",
+     "Si la copie échoue au contrôle d'intégrité : renommée en '.CORRUPT' (conservée pour autopsie) et Error levée avec message français — 'une sauvegarde corrompue qui existe est pire que pas de sauvegarde' (fausse confiance).",
+     "Rotation : MAX_BACKUPS = 10 ; les fichiers matchant préfixe 'pharmacie_' + suffixe '.db' sont triés et les plus anciens au-delà de 10 sont supprimés.",
+     "getBackupInfo() : dernière date extraite du nom du fichier le plus récent, dossier, compte.",
+     "Échec de l'auto-backup → log d'erreur, l'app démarre quand même (return silencieux)."
+    ],
+    "calculs": "files.slice(0, max(0, files.length − 10)) → suppression des excédents les plus anciens.",
+    "cas_limites": [
+     "DB source absente → Error 'Base de données introuvable'.",
+     "Deux lancements le même jour → aucun second backup (mais l'upload Drive est retenté).",
+     "Les fichiers .CORRUPT ne matchent pas le filtre .db final… si, ils finissent en .db.CORRUPT donc exclus de la rotation et de lastBackup."
+    ],
+    "details_ui": "Backup manuel déclenchable depuis l'UI (backup:now) + affichage info (backup:info : dernière date, dossier, nombre)."
+   },
+   {
+    "nom": "Sauvegarde cloud Google Drive (fire-and-forget)",
+    "description": "Après le backup local, uploadTodayBackupIfConfigured(fichierDuJour, date) tente l'envoi vers Google Drive sans jamais bloquer le démarrage (promesse non attendue, .catch → simple log). Configuration OAuth complète pilotée depuis l'UI : backup:driveSaveCredentials {clientId, clientSecret, folderId}, driveConnect (retourne accountEmail), driveDisconnect, driveStatus {configured, connected, accountEmail, lastUploadDate, folderId}, driveUploadNow. Existe aussi backup:emailNow (envoi du backup par email).",
+    "regles_metier": [
+     "Hors-ligne ou non configuré → no-op silencieux, retente au prochain lancement (le backup du jour est ré-uploadé tant que nécessaire).",
+     "L'utilisateur fournit ses propres credentials OAuth (clientId/clientSecret) et un folderId cible — pas de credentials embarqués dans l'app."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [
+     "Échec d'upload → console.error '[backup] Google Drive sync skipped' sans impact sur l'app."
+    ],
+    "details_ui": "Écran paramètres avec statut de connexion Drive (email du compte, date du dernier upload) et bouton 'uploader maintenant'."
+   },
+   {
+    "nom": "Rapports email programmés",
+    "description": "Table parametres (key/value, V6) + deux schedulers lancés au boot (startScheduler, startBackupEmailScheduler). Config exposée via EmailConfig : recipient, smtpUser, smtpPass, frequency, time, day, reports[]. API : email:getConfig/saveConfig/sendNow/testSend.",
+    "regles_metier": [
+     "Valeurs par défaut (V6) : email_recipient='eugepol96@gmail.com', email_smtp_user='eugepol96@gmail.com', email_smtp_pass='' (vide), email_frequency='daily', email_time='07:00', email_day='1', email_reports='ordre,scadenze,vendite,acquisti'.",
+     "frequency ∈ {'daily','weekly','monthly','never'} ; day sert au réglage hebdo/mensuel ; time au format HH:MM.",
+     "4 rapports sélectionnables, nommés en ITALIEN dans la config : ordre (commandes/stock à commander), scadenze (péremptions), vendite (ventes), acquisti (achats).",
+     "Le mot de passe SMTP est stocké EN CLAIR dans la table parametres.",
+     "testSend accepte une config partielle non sauvegardée (test avant enregistrement)."
+    ],
+    "calculs": "Aucun visible dans ces fichiers (scheduler dans src/main/email/scheduler.ts, non fourni).",
+    "cas_limites": [
+     "frequency='never' désactive l'envoi sans perdre la config."
+    ],
+    "details_ui": "Bouton 'envoyer maintenant' (sendNow) indépendant de la planification."
+   },
+   {
+    "nom": "Stock externe non vendable (chirurgie pédiatrique)",
+    "description": "Table stock_externe (V12) : source DEFAULT 'chirurgie_pediatrique', designation, quantite_texte (TEXTE LIBRE, volontairement non numérique), lot, date_expiration, imported_at. Inventaire consultatif d'un stock appartenant à un autre service, importable depuis un fichier (stockExterne:import via dialog), éditable (upsert), supprimable.",
+    "regles_metier": [
+     "quantite_texte est du texte libre ('2 boîtes + 5', '1 carton') — pas de gestion de stock chiffrée, simple mémo.",
+     "La liste calcule jours_expiration et tente un rapprochement produit_correspondant {id, designation} avec le catalogue de la pharmacie (savoir si un équivalent vendable existe).",
+     "Ce stock n'entre JAMAIS dans les ventes ni la valorisation."
+    ],
+    "calculs": "jours_expiration = date_expiration − aujourd'hui (en jours), null si pas de date.",
+    "cas_limites": [
+     "Import annulable (retour {canceled:true}).",
+     "upsert avec id null = création, id présent = mise à jour."
+    ],
+    "details_ui": "Vue séparée du stock principal, avec badge de correspondance vers le produit interne."
+   },
+   {
+    "nom": "Alertes stock et péremption",
+    "description": "Endpoint stock:alertes retournant AlerteProduit (Produit enrichi) : fournisseur_nom, quantite_boites, gros_boites (conversions en boîtes), alerte_stock, alerte_expiration, alerte_detail, jours_expiration.",
+    "regles_metier": [
+     "alerte_stock ∈ {'rupture','bas', null} : rupture = stock à zéro ; bas = sous stock_min (seuil exprimé en boîtes).",
+     "alerte_expiration ∈ {'expire','proche_30','proche_60','proche_90', null} : périmé, ou périme dans ≤30 / ≤60 / ≤90 jours — trois paliers fixes 30/60/90.",
+     "alerte_detail ∈ {'bas', null} : alerte spécifique sur le stock du rayon VENTE (quantite_detail), distincte de l'alerte globale.",
+     "jours_expiration : nombre de jours restant (négatif/0 si périmé), null sans date."
+    ],
+    "calculs": "quantite_boites = quantite_detail ÷ facteur_conversion et gros_boites = quantite ÷ facteur pour les fractionnables (affichage humain en boîtes).",
+    "cas_limites": [
+     "Produit sans date d'expiration → pas d'alerte péremption.",
+     "Les paliers 30/60/90 alimentent aussi le rapport email 'scadenze'."
+    ],
+    "details_ui": "Codes de sévérité distincts permettant un tri/couleur : rupture > bas ; expire > proche_30 > proche_60 > proche_90."
+   },
+   {
+    "nom": "Dashboard statistiques et outils transverses",
+    "description": "dashboard:stats(date_from, date_to) retourne : ventesCash (montant), ventesCount, ventesPecCount (prises en charge), totalArticlesVendus, achatsTotal, achatsCount, transfertsCount, stockValeur, stockNbProduits, ventesParJour[{date,nb,montant}], achatsParJour, topDrugsVente[{designation,qty,montant,nbVentes}], topDrugsAchat, ventesParForme[{forme,nbVentes,montant}]. S'y ajoutent : recettes:caisse (journal de caisse filtrable date/opérateur/type_vente), global:search (recherche unifiée produits+ventes+achats), stock:situation ({search, show_all}), stock:exportExcel (export des lignes affichées vers un fichier choisi par dialog), report:openHtml (ouvre un rapport HTML généré, pour impression), stock:historique(date) (état du stock à une date passée).",
+    "regles_metier": [
+     "Séparation systématique cash / prise en charge dans les KPI.",
+     "Top médicaments calculés à la fois en quantité, en montant et en nombre de ventes distinctes.",
+     "Ventilation des ventes par FORME galénique (comprimés vs sirops...).",
+     "stockValeur = valorisation du stock (prix × quantités) au moment de la requête."
+    ],
+    "calculs": "Agrégations SQL par jour et par produit sur la plage [date_from, date_to].",
+    "cas_limites": [
+     "exportExcel retourne {canceled:true} si l'utilisateur ferme le dialog."
+    ],
+    "details_ui": "Les rapports imprimables passent par une page HTML générée puis ouverte dans une fenêtre dédiée (report:openHtml) — pas de dépendance à un moteur PDF."
+   },
+   {
+    "nom": "Cycle de vie de l'application Electron",
+    "description": "Séquence de démarrage stricte dans app.whenReady : initDatabase() → seedDatabase() → registerHandlers() (IPC) → startScheduler() → startBackupEmailScheduler() → autoBackup() → createWindow(). Toute exception → dialog.showErrorBox('Erreur au démarrage', message) puis app.quit().",
+    "regles_metier": [
+     "app.setName('pharmacie-app') forcé AVANT tout : garantit un chemin userData identique ('pharmacie-app/') que l'app soit lancée via electron-vite ou electron.exe — sinon la base serait dupliquée.",
+     "Verrou mono-instance : app.requestSingleInstanceLock() ; échec → quit immédiat. Justification en commentaire : sql.js n'a AUCUN verrouillage inter-process, la dernière sauvegarde écraserait silencieusement l'autre. L'événement second-instance restaure/focus la fenêtre existante.",
+     "Fenêtre : 1280×800, min 1024×650, show:false puis affichée sur ready-to-show (anti flash blanc), titre 'Pharmacie Fianarantsoa', menu natif supprimé (setMenu(null)).",
+     "Sécurité : contextIsolation:true, sandbox:false, preload unique ; window.open → deny + ouverture dans le navigateur système (shell.openExternal).",
+     "Dev : si ELECTRON_RENDERER_URL défini → loadURL + DevTools détachés ; sinon loadFile(renderer/index.html).",
+     "window-all-closed → quit sauf macOS ; activate (macOS) → recrée la fenêtre si aucune."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [
+     "La DB est prête et seedée AVANT que la fenêtre n'existe : le renderer ne voit jamais un état intermédiaire."
+    ],
+    "details_ui": "Message d'erreur de démarrage en français, incluant le message de l'exception."
+   },
+   {
+    "nom": "Pont IPC typé (preload / contextBridge)",
+    "description": "Le preload expose window.api, un objet unique regroupant ~50 méthodes en 16 espaces de noms (produits, operateurs, ventes, fournisseurs, achats, stock, stockExterne, dashboard, recettes, transferts, auth, users, email, backup, produitsMouvements, search, report, lots), chacune un simple ipcRenderer.invoke('canal:action', ...args). Toutes les interfaces TypeScript métier (Produit, VenteInput, AchatInput, TransfertInput, AlerteProduit, DashboardStats, EmailConfig, Lot, StockExterneItem...) sont définies et exportées ici, avec export type Api = typeof api pour le typage du renderer.",
+    "regles_metier": [
+     "Convention de nommage des canaux : 'domaine:action' (produits:search, ventes:create, backup:driveConnect...).",
+     "Le renderer n'a AUCUN accès Node : tout passe par ce pont (contextIsolation).",
+     "Les inputs de création (VenteInput, AchatInput, TransfertInput) portent les lignes imbriquées → une seule invocation IPC = une transaction complète côté main."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [],
+    "details_ui": "Le fichier preload sert de contrat d'API unique — la liste de ses méthodes EST la carte fonctionnelle de l'application."
+   }
+  ],
+  "observations": "ARCHITECTURE — sql.js (SQLite compilé en WASM) au lieu d'un binding natif (better-sqlite3) : zéro compilation native, portabilité Windows totale, mais la base vit ENTIÈREMENT en mémoire et le fichier est réécrit intégralement à chaque écriture (dbRun sauvegarde après CHAQUE statement — coûteux si la base grossit ; dbTransaction mutualise en un seul export). Les parades associées sont soignées : écriture atomique tmp(PID)+rename, journal_mode=DELETE forcé (bug WAL/sql.js documenté en commentaire : les commits WAL en mémoire ne sont jamais fusionnés dans db.export(), pertes silencieuses), verrou mono-instance Electron (aucun locking inter-process), vérification d'intégrité réelle des backups (ouverture isolée + vraie requête), auto-réparation du flag seeded si corruption (seeded=1 mais 0 produits). PATTERN NOTABLE : dénormalisation systématique des snapshots dans les lignes (produit_designation, prix_vente_snap, marge_valeur, qte_gros_avant/qte_detail_avant) → l'historique reste exact quelles que soient les modifications ultérieures ; rien n'est supprimé, tout est statut + journal (annulations, modifications_produit champ par champ, ajustements_stock, mouvement_lots). IDÉES À REPRENDRE : (1) la classification AUTOMATIQUE du fractionnement par parsing FORME+CONDITIONNEMENT avec tolérance aux typos (BOTE/BOTTE, GELLULE) et cas spécial documenté (REVITALOSE) ; (2) le stockage du stock en unités de base pour les fractionnables avec stock_min laissé en boîtes ; (3) le champ qte_stock_deduire qui découple quantité facturée et quantité déstockée ; (4) le backup quotidien idempotent + rotation 10 + rename .CORRUPT + upload Drive fire-and-forget avec retry au boot ; (5) les lots FEFO avec prix d'achat par lot et journal de deltas. DETTE / POINTS FAIBLES : historique de migrations chaotique autour de la conversion boîtes→unités (V4 inopérante, V10 incomplète, V11 de rattrapage — 3 migrations pour une seule conversion, risque résiduel de doubles conversions sur des bases exotiques) ; mot de passe SMTP en CLAIR dans la table parametres et credentials OAuth Drive stockés localement ; compte admin/admin par défaut ; deux tables d'identité redondantes (operateurs pour les FK métier, users pour l'auth) non réconciliées ; opérateur passé en texte libre dans les journaux (pas de FK) ; montants en REAL (pas de centimes entiers — acceptable en Ariary sans décimales mais fragile) ; sandbox:false ; aucun index secondaire déclaré (tout scan) ; colonnes lot/date_expiration dupliquées entre produits et lots. DÉPENDANCES : electron, electron-vite, sql.js, xlsx (SheetJS pour seed + import stock externe + export), nodemailer implicite (scheduler email), googleapis implicite (src/main/backup/googleDrive.ts). FICHIERS NON FOURNIS mais essentiels pour la suite de l'analyse : src/main/ipc/handlers.ts (toute la logique transactionnelle ventes/achats/transferts/FEFO), src/main/email/scheduler.ts, src/main/backup/googleDrive.ts. Indices de contexte : titre de fenêtre 'Pharmacie Fianarantsoa' (même ville que le Centre REX), rapports email nommés en italien (ordre, scadenze, vendite, acquisti — Eugenio), email par défaut eugepol96@gmail.com codé dans la migration V6."
+ },
+ "ipc-handlers": {
+  "features": [
+   {
+    "nom": "Moteur de lots FEFO (fonctions utilitaires internes)",
+    "description": "Cœur du système de stock : chaque produit a des lots (table `lots`) avec deux compartiments par lot — `qte_gros` (réserve/gros) et `qte_detail` (rayon vente/détail). Toutes les sorties de stock suivent FEFO (First Expired, First Out). Les agrégats sont dénormalisés sur `produits` pour compatibilité ascendante. Cinq fonctions : pickLotsFEFO, appliquerAllocations, recomputeProduitAggregate, deduireStockFEFO, deplacerStockLotsFEFO, restaurerStock.",
+    "regles_metier": [
+     "pickLotsFEFO(produitId, champ, qteNeeded) : sélectionne les lots avec `champ > 0` triés par `(date_expiration IS NULL), date_expiration ASC, id ASC` — les lots SANS date d'expiration passent en DERNIER, puis péremption la plus proche d'abord, puis id croissant. Allocation gloutonne : take = min(remaining, dispo).",
+     "Tolérances flottantes : la boucle s'arrête quand remaining <= 1e-9 ; si remaining > 1e-6 à la fin → throw 'Stock insuffisant (répartition par lot)'. Les quantités sont des réels (fractionnement possible).",
+     "appliquerAllocations : pour chaque allocation, UPDATE du lot (delta signé ±) ET insertion d'une ligne journal dans `mouvement_lots` (lot_id, type_operation, operation_id, champ 'gros'|'detail', delta signé). C'est ce journal qui permet la restauration exacte lot par lot.",
+     "recomputeProduitAggregate : après toute mutation de lots, recalcule produits.quantite = SUM(qte_gros), produits.quantite_detail = SUM(qte_detail), et copie sur le produit le `lot` et la `date_expiration` du lot 'prioritaire' = le lot avec stock (>0 dans l'un des deux compartiments) dont la péremption est la plus proche. Donc produits.date_expiration = péremption du prochain lot à sortir.",
+     "deduireStockFEFO(produitId, qteTotal, typeOperation, operationId) : déduit d'abord du compartiment DETAIL (fromDetail = min(SUM(qte_detail), qteTotal)), puis le reste du compartiment GROS (fromGros = qteTotal - fromDetail), chacun en FEFO. Reproduit la priorité historique 'rayon d'abord, réserve ensuite'.",
+     "deplacerStockLotsFEFO : déplace une quantité entre les compartiments gros↔detail DU MÊME lot (jamais entre lots différents), en traitant les lots par ordre FEFO — on 'ouvre' d'abord les boîtes qui périment le plus tôt. Ce déplacement n'est PAS journalisé dans mouvement_lots.",
+     "restaurerStock(typeOperation, operationId) : relit toutes les lignes de mouvement_lots pour (type_operation, operation_id) et applique l'inverse exact (`champ = champ - delta`) sur chaque lot touché, puis recalcule les agrégats des produits concernés. Les lignes du journal ne sont PAS supprimées après restauration (protection uniquement par le statut de l'opération, voir annulations)."
+    ],
+    "calculs": "Conversion boîte→unités : baseUnits = quantité × facteur_conversion si (peut_fractionner ET facteur_conversion non nul), sinon facteur = 1. Toutes les quantités des lots sont en unités de base (unités détail pour un produit fractionnable).",
+    "cas_limites": [
+     "Lots sans date d'expiration : consommés en dernier (tri IS NULL en fin).",
+     "Quantités fractionnaires gérées par epsilon 1e-9/1e-6 (évite les erreurs d'arrondi flottant).",
+     "Un lot peut être vidé partiellement sur plusieurs opérations ; le journal garde chaque delta séparément."
+    ]
+   },
+   {
+    "nom": "Recherche et consultation produits (produits:search, produits:getById)",
+    "description": "Recherche rapide dans le catalogue pour l'autocomplétion des écrans de vente/achat.",
+    "regles_metier": [
+     "produits:search(query) : LIKE '%query%' sur designation OU code OU dci, uniquement statut='ACTIF', ORDER BY designation, LIMIT 20.",
+     "produits:getById(id) : SELECT * simple."
+    ],
+    "cas_limites": [
+     "Les caractères jokers SQL (%/_) dans la requête ne sont pas échappés."
+    ],
+    "details_ui": "Limité à 20 résultats — pensé pour un champ de recherche incrémentale."
+   },
+   {
+    "nom": "Création produit (produits:create)",
+    "description": "Ajout d'une fiche produit au catalogue, SANS stock initial (le stock n'entre que par achat ou ajustement de lot).",
+    "regles_metier": [
+     "Champs : designation (obligatoire, trim), code, dci, classe_therapeutique, forme, dosage, conditionnement, prix_achat, prix_vente, stock_min (défaut 0), emplacement, et le bloc fractionnement : peut_fractionner (bool→0/1), unite_detail, facteur_conversion, prix_vente_detail.",
+     "Tous les champs texte sont trim() ; chaîne vide → NULL.",
+     "statut forcé à 'ACTIF' à la création.",
+     "Retourne la ligne créée via last_insert_rowid()."
+    ],
+    "cas_limites": [
+     "Aucune vérification d'unicité de designation/code dans le handler."
+    ]
+   },
+   {
+    "nom": "Modification produit avec audit champ par champ (produits:update, produits:updatePrix)",
+    "description": "Édition complète d'une fiche produit avec journal d'audit par champ modifié, plus un raccourci pour la mise à jour rapide des prix.",
+    "regles_metier": [
+     "produits:update(id, input, operateur) : liste blanche de 17 champs éditables (designation, code, dci, classe_therapeutique, forme, dosage, conditionnement, lot, date_expiration, emplacement, stock_min, prix_achat, prix_vente, peut_fractionner, unite_detail, facteur_conversion, prix_vente_detail).",
+     "Détection de changement : comparaison String(oldVal) vs String(newVal) avec null/undefined → '' ; seuls les champs réellement modifiés sont mis à jour.",
+     "Pour CHAQUE champ modifié : insertion dans `modifications_produit` (produit_id, champ = libellé français lisible ex. 'Seuil min', 'Prix achat', valeur_avant, valeur_apres en texte, operateur). Audit trail complet visible dans l'historique des mouvements.",
+     "peut_fractionner normalisé en 0/1 avant comparaison.",
+     "Le tout dans une transaction ; erreur 'Produit introuvable' si id inexistant.",
+     "produits:updatePrix(id, prix_achat, prix_vente) : UPDATE direct des deux prix + updated_at, SANS audit."
+    ],
+    "cas_limites": [
+     "Les champs `lot` et `date_expiration` sont éditables ici mais sont dénormalisés : ils seront écrasés au prochain recomputeProduitAggregate (mouvement de stock).",
+     "updatePrix ne trace rien dans modifications_produit (incohérence d'audit)."
+    ]
+   },
+   {
+    "nom": "Vente (ventes:create) — cash et prise en charge, double mode boîte/détail",
+    "description": "Enregistrement d'une vente multi-lignes avec déduction de stock FEFO transactionnelle. Deux types : 'cash' (payée) et 'prise_en_charge' (PEC, gratuite pour le patient, payée par une entité tierce). Chaque ligne peut être vendue en mode 'boite' ou 'detail' (unité fractionnée).",
+    "regles_metier": [
+     "Horodatage : date_vente = ISO du jour (toISOString().slice(0,10) — donc date UTC), heure = toTimeString().slice(0,8) (heure LOCALE HH:MM:SS). Incohérence de fuseau assumée.",
+     "Validation stock AVANT insertion, ligne par ligne : totalStock = produits.quantite + produits.quantite_detail (agrégat gros+détail en unités de base) doit être >= ligne.qte_stock_deduire, sinon throw 'Stock insuffisant pour \"X\": disponible N.NN, demandé N.NN' (2 décimales) et rollback complet.",
+     "Si type_vente = 'prise_en_charge' : le total de l'entête est forcé à 0 ET le sous_total de CHAQUE ligne est forcé à 0 (le prix_unitaire reste stocké à titre indicatif). Champs PEC : client_nom, client_id, service, entite_payeur (organisme payeur), medecin_presc (médecin prescripteur).",
+     "Chaque ligne stocke un instantané dénormalisé : produit_designation, produit_lot, mode_vente ('boite'|'detail'), quantite (dans l'unité du mode), prix_unitaire, sous_total, qte_stock_deduire (quantité en unités de base à déduire — calculée côté frontend : quantite×facteur_conversion en mode boîte fractionnable, quantite en mode détail).",
+     "Déduction : deduireStockFEFO(produit_id, qte_stock_deduire, 'vente', venteId) — compartiment DETAIL d'abord puis GROS, lots les plus proches de péremption d'abord, chaque prélèvement journalisé dans mouvement_lots (permet le retour exact).",
+     "Tout est dans UNE transaction SQL : entête + lignes + déductions ; toute erreur annule tout."
+    ],
+    "calculs": "Le serveur ne recalcule PAS total ni sous_total : il fait confiance aux montants envoyés par le frontend (sauf mise à zéro PEC).",
+    "cas_limites": [
+     "La validation utilise l'agrégat produit, mais la déduction réelle par lots peut lever 'Stock insuffisant (répartition par lot)' si les agrégats sont désynchronisés — rollback garanti.",
+     "PEC : montant réel encaissé = 0 partout, donc les rapports de caisse comptent la PEC à 0 (le manque à gagner n'est pas valorisé)."
+    ],
+    "details_ui": "Le mode_vente et qte_stock_deduire par ligne impliquent un panier où chaque article se vend soit à la boîte soit à l'unité (comprimé, ml...) avec prix distincts (prix_vente vs prix_vente_detail)."
+   },
+   {
+    "nom": "Consultation ventes (ventes:getRecent, ventes:getLignes)",
+    "description": "Liste des ventes récentes pour affichage/réimpression de ticket, et détail des lignes.",
+    "regles_metier": [
+     "getRecent(limit=20) : uniquement statut='validee', JOIN operateurs pour le nom, ORDER BY created_at DESC.",
+     "getLignes(venteId) : lignes triées par id (ordre de saisie)."
+    ]
+   },
+   {
+    "nom": "Retour même-jour dit 'reso' (ventes:retourner)",
+    "description": "Retour/annulation d'une vente ouvert à TOUT opérateur, mais uniquement le jour même de la vente. Restauration exacte des lots d'origine.",
+    "regles_metier": [
+     "La vente doit exister avec statut='validee', sinon 'Vente introuvable ou déjà annulée'.",
+     "RÈGLE CLÉ : vente.date_vente doit être égale à la date du jour (ISO UTC). Sinon erreur : 'Le reso n'est possible que le jour même de la vente. Contactez un administrateur pour une correction rétroactive.'",
+     "Restauration du stock via restaurerStock('vente', venteId) : chaque delta du journal mouvement_lots est inversé sur le lot EXACT d'origine (pas de ré-allocation FEFO) — le stock revient précisément là d'où il est sorti.",
+     "statut → 'annulee' ; insertion dans `annulations` (type_operation='reso', operation_id=venteId, reference='VTE-' + id sur 5 chiffres zero-padded, motif, operateur).",
+     "Transaction atomique."
+    ],
+    "cas_limites": [
+     "Le journal mouvement_lots n'est pas purgé après restauration ; la double-restauration est empêchée uniquement par le contrôle de statut."
+    ]
+   },
+   {
+    "nom": "Annulation administrative de vente (ventes:annuler)",
+    "description": "Annulation sans limite de temps pour correction d'erreur de saisie. Réservée à l'admin CÔTÉ UI SEULEMENT (aucun contrôle de rôle dans le handler).",
+    "regles_metier": [
+     "Identique au reso (restauration lot par lot, statut 'annulee', trace dans annulations) mais SANS la contrainte de date, et type_operation='vente' dans annulations (vs 'reso').",
+     "Référence tracée : 'VTE-' + padStart(5,'0')."
+    ],
+    "cas_limites": [
+     "La distinction reso/annulation admin n'existe que par le type dans la table annulations et par le motif — deux canaux IPC distincts pour deux workflows."
+    ]
+   },
+   {
+    "nom": "Fournisseurs (fournisseurs:list, fournisseurs:create)",
+    "description": "Référentiel fournisseurs minimal avec création idempotente.",
+    "regles_metier": [
+     "list : actif=1, ORDER BY nom.",
+     "create(nom) : INSERT OR IGNORE sur le nom (trim) puis SELECT par nom — pattern get-or-create : rappeler avec un nom existant renvoie la fiche existante sans doublon."
+    ]
+   },
+   {
+    "nom": "Achat / réception fournisseur (achats:create)",
+    "description": "Enregistrement d'une facture d'achat multi-lignes avec TVA, création d'UN NOUVEAU LOT par ligne, conversion automatique en unités de base, et mise à jour du prix d'achat du produit.",
+    "regles_metier": [
+     "Référence générée : 'ACH-' + YYYYMMDD + '-' + nombre aléatoire entre 1000 et 9999 (Math.floor(Math.random()*9000)+1000). Pas de contrôle d'unicité ni de séquence.",
+     "Entête : fournisseur_id (nullable) + fournisseur_nom dénormalisé, date_facture, num_facture, type_achat, total_ht, total_tva, total_ttc, operateur_id — tous fournis par le frontend, aucun recalcul serveur.",
+     "Chaque ligne stocke : produit_id, designation snapshot, lot, date_expiration, qte_achat (en boîtes), prix_achat_ht, tva_pct, montant_tva, total_ht, total_ttc, prix_vente_snap (prix de vente au moment de l'achat) et marge_valeur (marge calculée côté frontend) — permet l'analyse de marge historique.",
+     "CRÉATION DE LOT : pour chaque ligne, INSERT dans `lots` avec qte_gros = qte_achat × facteur (facteur = facteur_conversion si peut_fractionner ET facteur_conversion, sinon 1), qte_detail = 0, prix_achat = prix_achat_ht de la ligne, et achat_id = lien vers l'achat (clé de l'annulation ciblée). Tout achat entre donc en compartiment GROS, en unités de base.",
+     "Mise à jour produit : prix_achat ← dernier prix d'achat de la ligne ; fournisseur_id ← COALESCE(nouveau, ancien) (le fournisseur n'est jamais effacé, juste remplacé s'il est fourni).",
+     "recomputeProduitAggregate après chaque ligne ; transaction globale."
+    ],
+    "calculs": "Unités de base du lot = qte_achat × facteur_conversion (produit fractionnable) ; sinon 1:1. La marge et la TVA sont des instantanés fournis par l'UI, non recalculés.",
+    "cas_limites": [
+     "Deux achats du même produit créent deux lots distincts (multi-lots par produit natif).",
+     "La création de lot n'est pas journalisée dans mouvement_lots."
+    ]
+   },
+   {
+    "nom": "Consultation et recherche achats (achats:getRecent, achats:search, achats:getLignes)",
+    "description": "Listes d'achats avec compteur de lignes et filtres.",
+    "regles_metier": [
+     "getRecent(limit=30) : nb_lignes via sous-requête COUNT, ORDER BY created_at DESC.",
+     "search(filters) : filtres optionnels cumulables date_from/date_to (sur date_facture, bornes incluses) et fournisseur_id ; ORDER BY date_facture DESC, created_at DESC, LIMIT 200.",
+     "getLignes(achatId) : lignes par id."
+    ]
+   },
+   {
+    "nom": "Annulation d'achat (achats:annuler)",
+    "description": "Annulation d'un achat (correction d'erreur de saisie), réservée admin côté UI. N'est possible QUE si les lots créés par cet achat sont intacts.",
+    "regles_metier": [
+     "L'achat doit avoir statut='valide' sinon 'Achat introuvable ou déjà annulé'.",
+     "Pour chaque ligne : baseUnits = qte_achat × facteur (même règle de conversion qu'à la création). On cherche LE lot créé par cet achat (WHERE achat_id = achatId AND produit_id = ... LIMIT 1).",
+     "GARDE-FOU : si le lot n'existe pas OU si lot.qte_gros < baseUnits - 1e-6 → throw 'Impossible d'annuler : le lot de \"X\" a déjà été partiellement vendu ou transféré'. Autrement dit toute consommation (vente FEFO ayant tapé ce lot, ou transfert gros→détail) bloque l'annulation — pas d'annulation partielle.",
+     "Sinon : qte_gros du lot -= baseUnits, recompute agrégat, statut achat → 'annule', trace dans `annulations` (type='achat', reference, motif, operateur).",
+     "Transaction atomique — une seule ligne bloquante annule tout."
+    ],
+    "cas_limites": [
+     "Le contrôle porte sur qte_gros uniquement : un transfert vers le détail rend l'annulation impossible (comportement voulu, message explicite).",
+     "Le lot n'est pas supprimé, il est juste vidé (reste en base à 0)."
+    ]
+   },
+   {
+    "nom": "Transfert GROS ↔ VENTE (transferts:create) — réapprovisionnement du rayon",
+    "description": "Déplacement de stock entre la réserve (GROS) et le rayon de vente (VENTE/détail), bidirectionnel, saisi en BOÎTES et converti en unités de base. C'est l'opération 'ouvrir une boîte pour le rayon'. Le total du stock ne change pas.",
+    "regles_metier": [
+     "Référence : 'TRF-' + YYYYMMDD + '-' + aléatoire 1000-9999.",
+     "direction ∈ {'GROS_TO_DETAIL' (défaut), 'DETAIL_TO_GROS'} ; libellés source/destination stockés 'GROS'/'VENTE'.",
+     "qte_transfert est exprimée en BOÎTES ; baseUnits = qte_transfert × facteur_conversion (si fractionnable, sinon ×1).",
+     "Validation GROS→VENTE : produits.quantite (agrégat gros) >= baseUnits, sinon 'Stock GROS insuffisant pour \"X\": disponible ⌊qteGros/facteur⌋ boite(s), demandé N'.",
+     "Validation VENTE→GROS : produits.quantite_detail >= baseUnits, sinon 'Stock VENTE insuffisant pour \"X\": disponible N unité(s) (= ⌊N/facteur⌋ boite(s)), demandé N boite(s)'.",
+     "Toutes les lignes sont validées AVANT toute écriture (validation en deux passes).",
+     "Chaque ligne stocke un instantané avant transfert : qte_gros_avant, qte_detail_avant (traçabilité).",
+     "Mouvement physique : deplacerStockLotsFEFO — le déplacement se fait À L'INTÉRIEUR de chaque lot (qte_gros−q / qte_detail+q du même lot), en commençant par les lots qui expirent le plus tôt : l'app 'suggère' ainsi d'ouvrir les boîtes les plus proches de péremption.",
+     "Aucune écriture dans mouvement_lots (les transferts ne sont pas annulables)."
+    ],
+    "cas_limites": [
+     "Pas de handler d'annulation de transfert — il faut faire le transfert inverse.",
+     "try/catch autour de la transaction qui ne fait que re-throw (code mort)."
+    ]
+   },
+   {
+    "nom": "Consultation transferts (transferts:getRecent, transferts:getLignes)",
+    "description": "Historique des transferts.",
+    "regles_metier": [
+     "getRecent(limit=50) : JOIN operateurs, nb_lignes en sous-requête, ORDER BY created_at DESC.",
+     "getLignes : JOIN produits pour rapporter facteur_conversion, peut_fractionner, unite_detail (affichage boîtes vs unités)."
+    ]
+   },
+   {
+    "nom": "Journal de caisse / recettes (recettes:caisse)",
+    "description": "Liste filtrable des ventes validées avec montant réel par vente, pour le rapport de caisse.",
+    "regles_metier": [
+     "Uniquement statut='validee'. Filtres cumulables optionnels : date_from/date_to (sur date_vente, incluses), operateur_id, type_vente ('cash'/'prise_en_charge').",
+     "Pour chaque vente : nb_lignes = COUNT(lignes) et montant_reel = SUM(sous_total) des lignes (recalculé depuis les lignes, PAS le total d'entête — protection contre les incohérences).",
+     "ORDER BY date_vente DESC, heure DESC, LIMIT 1000."
+    ],
+    "cas_limites": [
+     "Pour les PEC, montant_reel = 0 car les sous-totaux sont mis à zéro à la vente."
+    ]
+   },
+   {
+    "nom": "Situation stock (produits:situation)",
+    "description": "Vue d'inventaire courant filtrable.",
+    "regles_metier": [
+     "statut='ACTIF' obligatoire ; recherche LIKE '%s%' sur designation/code/dci dès 1 caractère.",
+     "Par défaut, masque les produits à stock nul ; show_all=true inclut les ruptures. Condition d'inclusion par défaut : quantite > 0 OR quantite_detail > 0.",
+     "ORDER BY designation."
+    ]
+   },
+   {
+    "nom": "Stock historique / reconstruction à date (stock:historique)",
+    "description": "Reconstitue le stock total (GROS+DÉTAIL, en unités de base) de chaque produit actif à une date passée D, sans table de snapshots, par calcul rétroactif.",
+    "regles_metier": [
+     "FORMULE : stock_à_D = (quantite + quantite_detail actuels) + SUM(lignes_vente.qte_stock_deduire des ventes avec date_vente > D) − SUM(lignes_achat.qte_achat × facteur pour les achats avec date_facture > D).",
+     "Le facteur de conversion est appliqué en SQL : CASE WHEN peut_fractionner=1 AND facteur_conversion IS NOT NULL THEN facteur_conversion ELSE 1 END.",
+     "Les transferts sont volontairement ignorés (mouvements internes, total inchangé).",
+     "Retourne tous les produits ACTIF avec la colonne calculée stock_histo_base."
+    ],
+    "cas_limites": [
+     "LIMITATIONS (non gérées) : les ventes annulées et achats annulés ne sont PAS exclus des sommes (leur stock a pourtant été restauré/retiré) → surestimation/sous-estimation possible ; les ajustements manuels de stock ne sont pas pris en compte dans la reconstruction."
+    ]
+   },
+   {
+    "nom": "Tableau de bord statistique (dashboard:stats)",
+    "description": "Agrégats multi-requêtes sur une période [date_from, date_to] : CA, volumes, séries journalières, tops produits, répartition par forme galénique.",
+    "regles_metier": [
+     "ventesCash = SUM(total) des ventes cash validées ; ventesCount = nb de ventes validées ; ventesPecCount = nb de PEC (comptées, pas valorisées).",
+     "totalArticlesVendus = SUM(lignes_vente.quantite) — dans l'unité de vente (mélange boîtes et unités détail).",
+     "achatsCount / achatsTotal = COUNT / SUM(total_ttc) sur date_facture dans la période — SANS filtre de statut (inclut les achats annulés).",
+     "transfertsCount sur date_transfert.",
+     "Valorisation stock : stockValeur = SUM(quantite × prix_achat) des produits ACTIF — valorise UNIQUEMENT le compartiment GROS au prix d'achat courant (quantite_detail ignorée) ; stockNbProduits = COUNT produits actifs.",
+     "ventesParJour : par date_vente, nb + montant (cash uniquement pour le montant).",
+     "achatsParJour : par date_facture, nb + montant TTC.",
+     "topDrugsVente : TOP 10 par montant DESC (SUM sous_total), avec qty, nbVentes (COUNT DISTINCT vente_id).",
+     "topDrugsAchat : TOP 10 par quantité achetée DESC, avec montant TTC.",
+     "ventesParForme : GROUP BY COALESCE(p.forme,'Autre'), nbVentes = COUNT DISTINCT ventes, montant = SUM(sous_total), ORDER BY montant DESC.",
+     "Tous les résultats null-coalescés à 0 côté JS."
+    ],
+    "cas_limites": [
+     "Les PEC pèsent 0 dans tous les montants (sous_total=0).",
+     "Valeur de stock partielle : le stock détail n'est pas valorisé."
+    ]
+   },
+   {
+    "nom": "Alertes stock (stock:alertes) — rupture, stock bas, péremption, rayon détail vide",
+    "description": "Calcul en mémoire (JS) de 3 familles d'alertes sur tous les produits actifs ; seuls les produits ayant AU MOINS une alerte sont retournés, enrichis du nom du fournisseur pour faciliter la commande.",
+    "regles_metier": [
+     "jours_expiration = CAST(JULIANDAY(date_expiration) − JULIANDAY('now') AS INTEGER), sur la date d'expiration dénormalisée du produit (= celle du lot le plus proche de péremption ayant du stock).",
+     "Conversion en boîtes : quantite_boites = (qGros + qDetail) / facteur_conversion si (peut_fractionner ET fc > 0), sinon total brut. gros_boites = ⌊qGros / fc⌋.",
+     "alerte_stock : 'rupture' si quantite_boites <= 0 ; 'bas' si stock_min > 0 ET quantite_boites <= stock_min. Le seuil s'exprime donc en BOÎTES. Un seuil à 0 désactive l'alerte 'bas'.",
+     "alerte_expiration (si date présente) : 'expire' si jours < 0 ; 'proche_30' si <= 30 j ; 'proche_60' si <= 60 j ; 'proche_90' si <= 90 j (paliers exclusifs, le plus grave gagne).",
+     "alerte_detail = 'bas' si produit fractionnable (pf ET fc>0) ET qGros > 0 ET qDetail < fc × 0.3 — c.-à-d. il reste moins de 30 % d'une boîte au rayon détail alors que la réserve en a : invite à faire un transfert GROS→VENTE. Constante exacte : 0.3."
+    ],
+    "cas_limites": [
+     "Produit sans date d'expiration : pas d'alerte péremption.",
+     "L'alerte détail ne se déclenche pas si la réserve est vide (rien à transférer)."
+    ],
+    "details_ui": "Retourne pour chaque produit : quantite_boites, gros_boites, les 3 alertes et jours_expiration + fournisseur_nom — pensé pour un écran d'alertes actionnable."
+   },
+   {
+    "nom": "Stock externe 'chirurgie pédiatrique' (stockExterne:list/import/upsert/delete)",
+    "description": "Registre de visibilité (non vendable, quantités en TEXTE libre) du stock d'un service tiers, importé depuis Excel, avec rapprochement automatique flou vers le catalogue de la pharmacie.",
+    "regles_metier": [
+     "list : tri FEFO (NULL en dernier, date ASC, designation ASC). Pour chaque ligne, jours_expiration = ⌊(date_exp − maintenant)/86 400 000 ms⌋, et rapprochement produit : normalizeDrugName (MAJUSCULES, suppression des accents via NFD + strip ̀-ͯ, tout caractère non [A-Z0-9 ] → espace, espaces multiples réduits, trim) ; on prend le PREMIER MOT du nom externe et, s'il fait >= 3 caractères, on cherche le premier produit actif dont le nom normalisé CONTIENT ce mot → produit_correspondant {id, designation} ou null.",
+     "import : dialogue fichier Excel (.xlsx/.xls, cellDates:true). Détection automatique de la ligne d'en-tête : scan des 10 premières lignes, la première contenant une cellule ∈ {'designation','désignation','rubrique'} (insensible à la casse) devient l'en-tête — gère les fichiers de mission italiens avec ligne de titre au-dessus ('Besoins mission chirurgical...').",
+     "Alias de colonnes acceptés : désignation ← 'Designation'|'Désignation'|'rubrique' ; quantité ← 'Quantite disponible'|'Quantité disponible'|'Disponibili' ; lot ← 'Lot' ; date ← 'Date expiration (JJ/MM/AAAA)'|'Date expiration'|'Scadenza'. (Mélange français/italien.)",
+     "L'import REMPLACE tout : DELETE FROM stock_externe puis insertion (source='chirurgie_pediatrique'), lignes sans désignation ignorées ; retourne le compteur.",
+     "parseDateCellFR gère : objets Date → ISO ; nombres série Excel → (val − 25569) × 86 400 000 ms ; 'JJ/MM/AAAA' avec séparateurs / - . ; ISO déjà formé ; et PRÉCISION MOIS 'MM/AA' ou 'MM/AAAA' → interprété comme le DERNIER JOUR du mois (année 2 chiffres → 2000+AA) — choix prudent : un lot 'exp 06/25' est utilisable jusqu'au 30/06/2025.",
+     "upsert : insert si id null, sinon update (édition manuelle) ; delete par id."
+    ],
+    "cas_limites": [
+     "Quantité stockée en texte (quantite_texte) : pas de calcul possible, pure visibilité.",
+     "Le rapprochement au premier mot peut produire des faux positifs (préfixes communs)."
+    ],
+    "details_ui": "Idée réutilisable : voir depuis la pharmacie ce que possède un autre service, avec lien visuel vers l'équivalent du catalogue."
+   },
+   {
+    "nom": "Export Excel de la situation stock (stock:exportExcel)",
+    "description": "Export générique de lignes JSON vers un .xlsx via SheetJS, avec dialogue d'enregistrement.",
+    "regles_metier": [
+     "Nom par défaut : situation_stock_YYYY-MM-DD.xlsx.",
+     "Largeur de colonnes auto : wch = max(longueur de l'en-tête, longueur max des valeurs de la colonne) + 2.",
+     "Feuille unique nommée 'Situation Stock'. Les données (colonnes incluses) viennent telles quelles du renderer."
+    ]
+   },
+   {
+    "nom": "Authentification (auth:login)",
+    "description": "Login local par username/password avec hachage vérifié côté main process.",
+    "regles_metier": [
+     "Utilisateur cherché par username avec actif=1 ; mot de passe vérifié via verifyPassword contre password_hash.",
+     "Message d'erreur IDENTIQUE ('Identifiants invalides') que l'utilisateur existe ou non — pas d'énumération d'utilisateurs.",
+     "Succès : last_login = datetime('now'), retour {id, username, nom, prenom, role} — le rôle pilote les droits CÔTÉ UI uniquement."
+    ],
+    "cas_limites": [
+     "Pas de limitation de tentatives ni de verrouillage.",
+     "Aucun contrôle de rôle dans les autres handlers : la sécurité repose sur l'UI."
+    ]
+   },
+   {
+    "nom": "Gestion des utilisateurs (users:list/create/update/resetPassword/setActif/delete/changePassword)",
+    "description": "CRUD complet des comptes avec rôles.",
+    "regles_metier": [
+     "list : sans password_hash, ORDER BY nom.",
+     "create : hachage du mot de passe, champs username/nom/prenom(nullable)/role.",
+     "update : mise à jour sélective nom/prenom/role (chaque champ dans son propre UPDATE si présent).",
+     "resetPassword(id, newPassword) : réinitialisation SANS l'ancien mot de passe (workflow admin).",
+     "changePassword(id, old, new) : vérifie l'ancien mot de passe ('Mot de passe actuel incorrect') avant remplacement (workflow self-service).",
+     "setActif : activation/désactivation (soft) ; delete : SUPPRESSION PHYSIQUE (DELETE) — risque d'orphelins sur les opérations passées de cet utilisateur."
+    ]
+   },
+   {
+    "nom": "Rapports par e-mail planifiés (email:getConfig/saveConfig/sendNow/testSend)",
+    "description": "Configuration d'envoi automatique de rapports par e-mail avec planificateur, envoi immédiat et test.",
+    "regles_metier": [
+     "saveConfig : persiste la config PUIS redémarre le scheduler (restartScheduler) pour appliquer immédiatement le nouveau planning.",
+     "sendNow : envoie le rapport avec la config sauvegardée.",
+     "testSend(cfg) : fusionne la config partielle reçue PAR-DESSUS la config sauvegardée ({...saved, ...cfg}) et envoie — permet de tester des réglages SMTP avant de les enregistrer."
+    ]
+   },
+   {
+    "nom": "Historique des mouvements par produit (produits:mouvements) — grand livre unifié",
+    "description": "Ledger chronologique complet d'un produit : UNION ALL de 7 sources d'événements, trié par date DESC. Fonctionnalité phare pour l'auditabilité.",
+    "regles_metier": [
+     "1) 'achat' : delta = +qte_achat (EN BOÎTES, pas en unités de base), référence achat, fournisseur en détail, lot et péremption, flag annule=1 si l'achat a statut 'annule'.",
+     "2) 'vente' : delta = −qte_stock_deduire (unités de base), référence 'VTE-' || printf('%05d', id), détail = 'PEC — entité' ou 'Cash', flag annule si vente 'annulee'.",
+     "3) 'transfert' : delta = −qte_transfert si source='GROS' sinon +qte_transfert (vue orientée réserve), détail 'GROS → VENTE', lot + péremption.",
+     "4) 'ajustement' : delta signé de ajustements_stock, référence 'Ajustement manuel', motif en détail.",
+     "5) 'retour' : pour chaque annulation de type 'reso' OU 'vente', delta = +qte_stock_deduire de chaque ligne de la vente annulée, référence 'Retour VTE-XXXXX', détail 'motif (opérateur)'.",
+     "6) 'achat_annule' : delta = −qte_achat, référence 'Annulation ACH-...', détail 'motif (opérateur)'.",
+     "7) 'modification' : delta = 0, détail = 'champ : avant → après (opérateur)' — les modifications de fiche apparaissent DANS le même fil que les mouvements de stock.",
+     "Les événements annulés restent visibles (flag annule) plus la contre-écriture — piste d'audit complète sans effacement."
+    ],
+    "cas_limites": [
+     "Incohérence d'unités : delta achat en boîtes vs delta vente en unités de base pour les produits fractionnables (le solde cumulé n'est pas directement sommable).",
+     "Dates de granularités différentes (date pure vs created_at datetime) mélangées dans l'ORDER BY."
+    ]
+   },
+   {
+    "nom": "Ajustement de stock par lot (produits:ajusterStock)",
+    "description": "Correction d'inventaire au niveau du LOT (pas du produit) : fixer une nouvelle quantité GROS absolue sur un lot existant, ou créer un lot manuel.",
+    "regles_metier": [
+     "Mode lot existant (lotId non null) : vérifie que le lot appartient au produit ('Lot introuvable'), lit qte_avant = qte_gros, puis SET qte_gros = nouvelleQte (valeur ABSOLUE, pas un delta).",
+     "Mode nouveau lot (lotId null) : crée un lot avec lot=nouveauLot, date_expiration=nouvelleExpiration, qte_gros=nouvelleQte, qte_detail=0, prix_achat = prix_achat COURANT du produit, achat_id=NULL. qte_avant = 0.",
+     "delta = nouvelleQte − qteAvant ; trace dans ajustements_stock (produit_id, qte_avant, qte_apres, delta, motif suffixé ' — <libellé lot>', operateur). Libellé lot = numéro de lot, ou 'Lot #id', ou 'Nouveau lot'.",
+     "recomputeProduitAggregate ; transaction."
+    ],
+    "cas_limites": [
+     "N'ajuste QUE qte_gros — pas d'ajustement direct du compartiment détail.",
+     "Non journalisé dans mouvement_lots (non réversible automatiquement)."
+    ]
+   },
+   {
+    "nom": "Liste des lots actifs d'un produit (lots:parProduit)",
+    "description": "Retourne les lots ayant du stock pour affichage (choix du lot à ajuster, visualisation FEFO).",
+    "regles_metier": [
+     "Filtre (qte_gros > 0 OR qte_detail > 0) ; tri FEFO : NULL en dernier, date_expiration ASC, id ASC — le premier de la liste est le prochain à sortir."
+    ]
+   },
+   {
+    "nom": "Sauvegardes locales + Google Drive + e-mail (backup:*)",
+    "description": "Triple stratégie de sauvegarde : locale à la demande, upload Google Drive (OAuth), et envoi de la base par e-mail. 8 handlers : now, info, driveStatus, driveSaveCredentials, driveConnect, driveDisconnect, driveUploadNow, emailNow.",
+    "regles_metier": [
+     "backup:now → performBackup() (copie locale) ; backup:info → métadonnées des sauvegardes.",
+     "Drive : saveCredentials stocke clientId/clientSecret/folderId (trim) — l'utilisateur fournit SA propre app OAuth Google et un dossier Drive cible ; connect lance le flux OAuth ; disconnect révoque ; driveUploadNow ENCHAÎNE performBackup() puis upload du fichier produit (toujours une sauvegarde fraîche).",
+     "backup:emailNow : envoie la sauvegarde par e-mail via le scheduler (sendBackupEmailNow)."
+    ],
+    "details_ui": "Adapté aux contextes à connectivité intermittente : trois canaux de secours indépendants."
+   },
+   {
+    "nom": "Recherche globale (global:search)",
+    "description": "Recherche transversale type 'command palette' sur produits, ventes et achats en une requête.",
+    "regles_metier": [
+     "Minimum 2 caractères après trim, sinon retour de listes vides.",
+     "produits : LIKE sur designation/code/dci, LIMIT 8, tri alphabétique (tous statuts inclus).",
+     "ventes : LIKE sur reference/client_nom/entite_payeur, LIMIT 6, plus récentes d'abord (statuts inclus, y compris annulées).",
+     "achats : LIKE sur reference/fournisseur_nom/num_facture, LIMIT 6, par date de facture DESC."
+    ],
+    "details_ui": "Limites asymétriques 8/6/6 pour un panneau de résultats compact multi-sections."
+   },
+   {
+    "nom": "Impression de rapport via navigateur (report:openHtml)",
+    "description": "Astuce d'impression sans dépendance : le renderer génère du HTML complet, le main l'écrit dans un fichier temporaire et l'ouvre dans le navigateur par défaut du système.",
+    "regles_metier": [
+     "Fichier : <temp>/pharmacie_rapport.html (écrasé à chaque appel, un seul rapport à la fois), ouvert via shell.openExternal('file:///...') avec normalisation des backslashes Windows.",
+     "L'utilisateur imprime depuis le navigateur (Ctrl+P) — pas de moteur PDF embarqué."
+    ]
+   },
+   {
+    "nom": "Liste des opérateurs (operateurs:list)",
+    "description": "Référentiel des opérateurs de caisse (distinct des users de connexion).",
+    "regles_metier": [
+     "actif=1, ORDER BY nom. Les ventes/achats/transferts référencent operateur_id — l'opérateur qui a physiquement réalisé l'acte peut différer du compte connecté."
+    ]
+   }
+  ],
+  "observations": "ARCHITECTURE. Application Electron : tout l'accès données vit dans le process main via des handlers ipcMain.handle (56 canaux au total, nommés 'domaine:action'), avec SQLite synchrone (wrappers dbAll/dbGet/dbRun/dbTransaction/dbLastInsertId — signature de type better-sqlite3). Les types TypeScript sont définis dans handlers.ts et « mirrored in preload/renderer ». Aucune couche service : la logique métier est directement dans les handlers, avec 6 fonctions utilitaires partagées pour les lots.\n\nMODÈLE DE STOCK (la meilleure idée à reprendre). Double compartiment PAR LOT : qte_gros (réserve) / qte_detail (rayon), toutes quantités en unités de base (unités détail pour les produits fractionnables, facteur_conversion pour convertir les boîtes). FEFO systématique (tri (date_expiration IS NULL), date ASC, id ASC — lots sans date consommés en dernier). Agrégats dénormalisés sur produits (quantite, quantite_detail, lot, date_expiration du lot prioritaire) recalculés après chaque mutation via recomputeProduitAggregate — le reste de l'app (recherche, alertes, dashboard) lit ces agrégats, seuls les mouvements touchent les lots. Journal mouvement_lots (lot_id, type_operation, operation_id, champ, delta) alimenté UNIQUEMENT par les ventes : il permet restaurerStock de remettre le stock exactement dans les lots d'origine lors d'un retour/annulation (pas de ré-allocation FEFO approximative). Élégant et précis.\n\nWORKFLOW D'ANNULATION à deux niveaux : « reso » (retour même-jour, tout opérateur, contrôle date_vente == aujourd'hui) vs annulation admin (sans limite de temps) — deux canaux IPC distincts, même mécanique, distingués dans la table annulations (types 'reso'/'vente'/'achat'). Annulation d'achat conditionnée à l'intégrité du lot créé (achat_id sur le lot) : refus explicite si le lot a été entamé. Piste d'audit très complète : annulations, ajustements_stock, modifications_produit (diff champ par champ avec libellés français), le tout fusionné dans le ledger produits:mouvements (7 UNION ALL).\n\nDETTE / PIÈGES. (1) Aucune autorisation côté backend : les rôles (admin) ne sont contrôlés que dans l'UI, tout handler est appelable par n'importe quel renderer. (2) Montants de confiance : totaux, sous-totaux, TVA, marges calculés côté frontend et stockés tels quels — pas de recalcul serveur. (3) Références ACH-/TRF- avec suffixe aléatoire 4 chiffres (1000-9999) sans contrôle d'unicité → collision possible. (4) Incohérence de fuseau : date en UTC (toISOString) mais heure locale (toTimeString) ; la règle « retour le jour même » compare des dates UTC. (5) stock:historique ne filtre pas les ventes/achats annulés et ignore les ajustements → reconstruction potentiellement fausse. (6) dashboard : stockValeur ignore le compartiment détail ; les achats annulés ne sont pas exclus des totaux d'achats ; totalArticlesVendus mélange boîtes et unités. (7) produits:mouvements mélange les unités (achats en boîtes, ventes en unités de base) — non sommable pour les fractionnables. (8) restaurerStock ne purge pas le journal (double restauration bloquée seulement par le statut). (9) mouvement_lots n'est pas alimenté par achats/transferts/ajustements — seuls les retours de vente sont automatiquement réversibles. (10) users:delete est un DELETE physique. (11) dbAll utilisé pour des UPDATE/INSERT (au lieu de dbRun) — fonctionne mais sémantiquement bancal. (12) try/catch inutile (re-throw) dans transferts:create. (13) Recherches LIKE sans échappement des jokers %/_.\n\nDÉPENDANCES EXTERNES : xlsx (SheetJS) pour import/export Excel, service e-mail maison (emailService + scheduler, rapports planifiés et backup par mail), module Google Drive OAuth (credentials fournis par l'utilisateur : clientId/clientSecret/folderId), Electron dialog/shell/app. Astuce d'impression : rapport HTML écrit dans le dossier temp et ouvert dans le navigateur système (zéro dépendance PDF).\n\nIDÉES REMARQUABLES À REPRENDRE : le journal per-lot pour retours exacts ; l'alerte « rayon détail bas » (qte_detail < 30 % d'une boîte alors que la réserve en a → suggère un transfert) ; les paliers de péremption 30/60/90 jours ; l'import Excel tolérant (auto-détection de la ligne d'en-tête sur 10 lignes, alias de colonnes FR/IT, dates « MM/AA » interprétées comme fin de mois — choix prudent pour des péremptions) ; le rapprochement flou stock externe → catalogue (normalisation accents + premier mot ≥ 3 lettres) ; prix_vente_snap et marge_valeur figés sur chaque ligne d'achat pour l'analyse de marge historique ; montant_reel recalculé depuis les lignes dans le journal de caisse ; la triple stratégie de backup (local + Drive + e-mail) adaptée à une connectivité intermittente."
+ },
+ "email-backup": {
+  "features": [
+   {
+    "nom": "Planification des rapports email (cron configurable)",
+    "description": "Un scheduler basé sur node-cron (processus main d'Electron) déclenche l'envoi automatique du rapport HTML par email selon une fréquence, une heure et un jour configurables par l'utilisateur. Fichier : src/main/email/scheduler.ts (fonctions buildCronExpr, startScheduler, restartScheduler).",
+    "regles_metier": [
+     "L'heure est stockée au format 'HH:MM' (défaut '07:00'). Elle est découpée sur ':' ; si l'heure est absente, fallback h=7, si les minutes sont absentes, fallback m=0 (parseInt base 10).",
+     "Fréquence 'daily' → expression cron `M H * * *` (tous les jours à H:M).",
+     "Fréquence 'weekly' → `M H * * D` où D = paramètre 'day' interprété comme jour de la semaine (0-6, défaut '1' = lundi).",
+     "Fréquence 'monthly' → `M H D * *` où le MÊME paramètre 'day' est interprété comme jour du mois (1-31). Le sens du champ 'day' change donc selon la fréquence.",
+     "Fréquence 'never' (ou toute valeur non reconnue) → buildCronExpr retourne null → aucune tâche planifiée.",
+     "restartScheduler() stoppe et remplace la tâche cron existante ; il est appelé au démarrage (startScheduler) et doit être rappelé après tout changement de config de planification.",
+     "Au moment du déclenchement, la config est RELUE depuis la base (loadEmailConfig() dans le callback) : un changement de destinataire ou de sections prend effet sans recréer la tâche ; seul un changement de fréquence/heure/jour nécessite restartScheduler.",
+     "Les erreurs d'envoi sont uniquement loguées en console ([scheduler] Failed to send report) — pas de retry, pas de notification UI, pas de rattrapage si l'app était fermée à l'heure prévue."
+    ],
+    "calculs": "buildCronExpr(time, frequency, day) : [h,m] = time.split(':') puis parseInt ; mapping direct vers la syntaxe cron 5 champs. Le fuseau horaire est celui du système (node-cron par défaut).",
+    "cas_limites": [
+     "Heure malformée → fallback 07:00 partiel (h=7 seulement si segment manquant ; 'abc:def' donnerait NaN, non géré).",
+     "App éteinte à l'heure planifiée → rapport perdu (aucun mécanisme de rattrapage).",
+     "frequency='never' désactive proprement l'envoi sans supprimer la config."
+    ],
+    "details_ui": "Le scheduler logge l'expression cron effective au démarrage : '[scheduler] Scheduled report: {frequency} at {time} (cron: {expr})'."
+   },
+   {
+    "nom": "Configuration email persistée en base (clé/valeur)",
+    "description": "La configuration email vit dans la table SQLite `parametres` (colonnes key/value), lue/écrite via loadEmailConfig/saveEmailConfig dans src/main/email/emailService.ts.",
+    "regles_metier": [
+     "Clés exactes : email_recipient (défaut ''), email_smtp_user (''), email_smtp_pass (''), email_frequency (défaut 'daily'), email_time (défaut '07:00'), email_day (défaut '1'), email_reports (défaut 'ordre,scadenze,vendite,acquisti').",
+     "email_reports est une liste CSV ; au chargement : split(',').filter(Boolean) → chaîne vide = aucune section.",
+     "saveEmailConfig accepte un Partial<EmailConfig> : seules les clés définies (!== undefined) sont écrites, via INSERT OR REPLACE — mise à jour partielle sans écraser le reste.",
+     "Types autorisés pour frequency : 'daily' | 'weekly' | 'monthly' | 'never'."
+    ],
+    "calculs": "Aucun. Simple lookup getParam(rows, key, fallback) sur le résultat de SELECT key, value FROM parametres.",
+    "cas_limites": [
+     "Clé absente en base → fallback silencieux (valeurs par défaut ci-dessus).",
+     "value NULL en base → fallback via String(r.value ?? fallback)."
+    ],
+    "details_ui": "Le mot de passe SMTP est stocké EN CLAIR dans la base (voir observations)."
+   },
+   {
+    "nom": "Envoi du rapport par email (SMTP Gmail)",
+    "description": "sendReport(cfg) (emailService.ts) génère les données du rapport, construit le HTML et l'envoie via nodemailer avec le preset Gmail.",
+    "regles_metier": [
+     "Validation bloquante : si !cfg.smtpPass → throw 'Mot de passe SMTP non configuré' ; si !cfg.recipient → throw 'Email destinataire non configuré'.",
+     "Transport : nodemailer.createTransport({ service: 'gmail', auth: { user, pass } }) — Gmail codé en dur, pas de host/port SMTP générique. Nécessite en pratique un 'App Password' Google.",
+     "Expéditeur : `\"Pharmacie du Centre Rex\" <smtpUser>` ; destinataire unique cfg.recipient.",
+     "Sujet : `Rapport Pharmacie — {date}` avec date formatée fr-FR { day:'2-digit', month:'long', year:'numeric' } (ex. « 14 juillet 2026 »).",
+     "Corps : HTML uniquement (pas de version texte, pas de PDF joint)."
+    ],
+    "calculs": "Date du jour via new Date().toLocaleDateString('fr-FR', ...).",
+    "cas_limites": [
+     "smtpUser vide n'est pas validé (seul le mot de passe et le destinataire le sont) — l'envoi échouerait côté Gmail."
+    ],
+    "details_ui": "Nom d'affichage de l'expéditeur fixe : « Pharmacie du Centre Rex »."
+   },
+   {
+    "nom": "Rapport — section « Médicaments à commander » (clé 'ordre')",
+    "description": "Section du rapport HTML listant les produits actifs dont le stock a atteint ou est passé sous le seuil minimum (reportGenerator.ts).",
+    "regles_metier": [
+     "Requête : SELECT designation, code, forme, quantite, stock_min, fournisseur FROM produits WHERE statut = 'ACTIF' AND quantite <= stock_min ORDER BY designation.",
+     "Condition d'inclusion : quantite <= stock_min (inclusif — un produit exactement au seuil apparaît).",
+     "Seuls les produits statut='ACTIF' sont considérés.",
+     "Badge de sévérité sur la quantité : quantite === 0 → badge rouge (.badge-danger, fond #e74c3c) ; sinon (0 < qte <= stock_min) → badge orange (.badge-warn, fond #f39c12).",
+     "La section n'est rendue que si 'ordre' figure dans email_reports."
+    ],
+    "calculs": "Comptage des lignes affiché dans le titre : « 📦 Médicaments à commander (N) ».",
+    "cas_limites": [
+     "Aucun produit → paragraphe italique gris « Aucun élément. »",
+     "code, forme, fournisseur NULL → affichés '—' ; quantite/stock_min NULL → 0."
+    ],
+    "details_ui": "Colonnes : Désignation, Code, Forme, Qté actuelle (badge coloré), Stock min, Fournisseur. Badges : padding 2px 8px, border-radius 10px, font-size 11px, texte blanc."
+   },
+   {
+    "nom": "Rapport — section « Péremptions sous 90 jours » (clé 'scadenze')",
+    "description": "Section listant les produits actifs expirant dans les 90 prochains jours, triés par date d'expiration croissante.",
+    "regles_metier": [
+     "Requête : produits WHERE statut='ACTIF' AND date_expiration IS NOT NULL AND date_expiration <= date('now','+90 days') AND date_expiration >= date('now') ORDER BY date_expiration.",
+     "Fenêtre : [aujourd'hui ; aujourd'hui + 90 jours] — les produits DÉJÀ expirés sont EXCLUS du rapport (borne basse >= date('now')).",
+     "Jours restants : daysLeft = Math.ceil((new Date(date_expiration) - Date.now()) / 86400000).",
+     "Badge : daysLeft <= 30 → rouge (.badge-danger) ; 31 à 90 jours → orange (.badge-warn). Le badge affiche `{date_expiration} ({daysLeft}j)`.",
+     "Section rendue seulement si 'scadenze' est dans email_reports."
+    ],
+    "calculs": "daysLeft en jours entiers arrondis au plafond (86400000 ms/jour) ; un produit expirant aujourd'hui peut afficher (0j).",
+    "cas_limites": [
+     "date_expiration NULL exclue en SQL.",
+     "Liste vide → « Aucun élément. »",
+     "Le calcul suppose date_expiration au format parsable par new Date() (ISO YYYY-MM-DD)."
+    ],
+    "details_ui": "Titre : « ⏰ Médicaments expirant dans 90 jours (N) ». Colonnes : Désignation, Code, Lot, Date expiration (badge), Qté, Fournisseur."
+   },
+   {
+    "nom": "Rapport — section « Récapitulatif ventes 30 jours » (clé 'vendite')",
+    "description": "Agrégat journalier des ventes validées des 30 derniers jours, avec total général en Ariary dans le titre.",
+    "regles_metier": [
+     "Requête : SELECT date(date_vente) as jour, COUNT(*) as nb, SUM(total) as montant FROM ventes WHERE statut='validee' AND date_vente >= date('now','-30 days') GROUP BY jour ORDER BY jour DESC LIMIT 30.",
+     "Seules les ventes statut='validee' comptent (les brouillons/annulées sont exclus).",
+     "Une ligne par jour (jour le plus récent en premier), max 30 lignes.",
+     "Total général = somme des montants journaliers, affiché dans le H2 : « 💊 Récapitulatif ventes (30 derniers jours) — Total: X Ar ».",
+     "Montants formatés toLocaleString('fr-FR') (séparateur d'espace), devise Ariary ('Ar')."
+    ],
+    "calculs": "totalMontant = reduce((s,r) => s + Number(r.montant ?? 0), 0) côté JS sur les agrégats SQL.",
+    "cas_limites": [
+     "Aucune vente → « Aucun élément. » et Total: 0 Ar.",
+     "montant NULL → traité comme 0."
+    ],
+    "details_ui": "Colonnes : Date, Nb ventes, Montant (Ar)."
+   },
+   {
+    "nom": "Rapport — section « Récapitulatif achats 30 jours » (clé 'acquisti')",
+    "description": "Liste des factures d'achat validées des 30 derniers jours avec total TTC général.",
+    "regles_metier": [
+     "Requête : SELECT date_facture, fournisseur_nom, reference, total_ttc FROM achats WHERE statut='valide' AND date_facture >= date('now','-30 days') ORDER BY date_facture DESC LIMIT 30.",
+     "Contrairement aux ventes, PAS d'agrégation par jour : une ligne par facture, max 30.",
+     "Statut requis : 'valide' (sans e final, différent du 'validee' des ventes).",
+     "Titre : « 🛒 Récapitulatif achats (30 derniers jours) — Total: X Ar » ; total = somme des total_ttc, format fr-FR."
+    ],
+    "calculs": "totalAchat = reduce((s,r) => s + Number(r.total_ttc ?? 0), 0).",
+    "cas_limites": [
+     "fournisseur_nom / reference NULL → '—' ; total_ttc NULL → 0.",
+     "Si plus de 30 factures sur la période, les plus anciennes sont tronquées (LIMIT 30) — le total affiché ne couvre alors que les 30 plus récentes."
+    ],
+    "details_ui": "Colonnes : Date, Fournisseur, Référence, Total TTC (Ar)."
+   },
+   {
+    "nom": "Mise en page HTML du rapport email",
+    "description": "buildEmailHtml assemble un document HTML complet autoporté (CSS inline dans <style>) avec en-tête, sections activées et pied de page (reportGenerator.ts).",
+    "regles_metier": [
+     "Les sections sont incluses UNIQUEMENT si leur clé ('ordre', 'scadenze', 'vendite', 'acquisti') figure dans le tableau activeReports (issu de email_reports) ; l'ordre d'affichage est fixe (ordre, scadenze, vendite, acquisti), indépendant de l'ordre du CSV.",
+     "H1 : « Rapport Pharmacie du Centre Rex — {date fr-FR} ». Footer : « Rapport généré automatiquement par le système de gestion Pharmacie du Centre Rex. »",
+     "tableOrEmpty(headers, rows, mapFn) : générateur générique de tableau ; si rows vide → <p class=\"empty\">Aucun élément.</p>."
+    ],
+    "calculs": "Aucun (assemblage de chaînes).",
+    "cas_limites": [
+     "Aucun échappement HTML des valeurs venant de la base (designation, fournisseur…) — une valeur contenant '<' casserait/injecterait du HTML dans l'email."
+    ],
+    "details_ui": "Charte : max-width 800px, Arial, texte #333 ; H1 #1a5276 avec bordure basse 2px ; H2 #2874a6 ; en-têtes de tableau fond #1a5276 texte blanc ; lignes paires zébrées #f4f6f7 ; font tableau 13px ; footer 11px #888 ; badges arrondis rouge #e74c3c / orange #f39c12. Emojis dans les titres de sections (📦 ⏰ 💊 🛒)."
+   },
+   {
+    "nom": "Email de sauvegarde hebdomadaire de la base (gzip)",
+    "description": "Tâche cron indépendante du rapport qui envoie chaque semaine la base de données compressée en pièce jointe, en réutilisant les identifiants Gmail du rapport (scheduler.ts : startBackupEmailScheduler, sendWeeklyBackupEmail, sendBackupEmailNow).",
+    "regles_metier": [
+     "Planification FIXE non configurable : cron '30 6 * * 1' = tous les lundis à 06:30 (choisi pour tourner avant l'ouverture de la pharmacie, cf. commentaire du code).",
+     "Garde d'idempotence au démarrage : startBackupEmailScheduler ne crée la tâche qu'une fois (if (backupEmailTask) return).",
+     "Pré-condition : smtpPass ET recipient non vides, sinon throw 'Email non configuré'.",
+     "Processus : performBackup() (module ../db/backup) produit { path, date } → lecture du fichier → compression zlib.gzipSync → envoi.",
+     "Email : from `\"Pharmacie du Centre Rex\" <smtpUser>`, sujet `Sauvegarde hebdomadaire — {date}`, corps texte français expliquant que le fichier sert à restaurer les données, pièce jointe nommée `pharmacie_{date}.db.gz`.",
+     "sendBackupEmailNow() expose un déclenchement manuel immédiat (même logique)."
+    ],
+    "calculs": "Compression gzip synchrone du fichier .db complet en mémoire (readFileSync + gzipSync).",
+    "cas_limites": [
+     "Échec (offline, config incomplète) → simple console.error, pas de retry ni de rattrapage si l'app était fermée le lundi matin.",
+     "Fichier volumineux : lecture et gzip entièrement en mémoire (pas de streaming)."
+    ],
+    "details_ui": "Corps du mail : « Sauvegarde de la base de données jointe ({date}). Ce fichier peut être utilisé pour restaurer les données en cas de problème. Contactez votre support technique si besoin. »"
+   },
+   {
+    "nom": "Configuration et statut Google Drive",
+    "description": "Persistance des identifiants OAuth et de l'état de connexion Drive dans la même table `parametres`, avec statut consolidé pour l'UI (googleDrive.ts : loadDriveConfig, saveDriveCredentials, getDriveStatus, disconnectGoogleDrive).",
+    "regles_metier": [
+     "Clés exactes : gdrive_client_id, gdrive_client_secret, gdrive_folder_id, gdrive_refresh_token, gdrive_account_email, gdrive_last_upload.",
+     "getDriveStatus : configured = clientId && clientSecret && folderId tous non vides ; connected = refreshToken non vide. Retourne aussi accountEmail, lastUploadDate, folderId pour affichage.",
+     "saveDriveCredentials écrit les 3 credentials (client_id, client_secret, folder_id) ; l'utilisateur doit donc fournir SES propres identifiants OAuth Google Cloud + l'ID du dossier Drive cible.",
+     "disconnectGoogleDrive vide refresh_token, account_email et last_upload mais CONSERVE client_id/secret/folder_id (reconnexion facile)."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [
+     "Distinction UI possible entre « non configuré » (pas de credentials) et « configuré mais non connecté » (pas de refresh token)."
+    ],
+    "details_ui": "L'écran Paramètres peut afficher l'email du compte Google connecté et la date du dernier upload."
+   },
+   {
+    "nom": "Connexion Google Drive — flux OAuth2 Desktop avec serveur loopback",
+    "description": "connectGoogleDrive/runOAuthFlow implémentent le flux OAuth2 'Desktop app' à la main (fetch natif, sans SDK googleapis) : navigateur système + serveur HTTP local temporaire pour capter le code d'autorisation.",
+    "regles_metier": [
+     "Pré-condition : clientId et clientSecret renseignés, sinon retour { success:false, error:'Client ID / Client Secret non renseignés' }.",
+     "Scopes demandés : 'https://www.googleapis.com/auth/drive.file' (l'app ne voit QUE les fichiers qu'elle a créés — scope minimal) + 'userinfo.email'.",
+     "Serveur HTTP éphémère sur 127.0.0.1 avec PORT ALÉATOIRE (listen(0)) ; redirect_uri = http://127.0.0.1:{port}.",
+     "URL d'autorisation (accounts.google.com/o/oauth2/v2/auth) avec response_type=code, access_type=offline et prompt=consent — 'consent' force Google à réémettre un refresh_token à chaque connexion.",
+     "Ouverture via shell.openExternal (navigateur système) car Google bloque les webviews embarquées pour OAuth.",
+     "Timeout global de 180 000 ms (3 min) → reject « Délai d'autorisation dépassé (3 min) — réessayez ».",
+     "Échange code→tokens : POST https://oauth2.googleapis.com/token en x-www-form-urlencoded avec grant_type=authorization_code.",
+     "Si la réponse ne contient pas de refresh_token → erreur explicite guidant l'utilisateur : « révoquez l'accès existant dans votre compte Google (myaccount.google.com/permissions) et réessayez ».",
+     "Après obtention du refresh token : échange immédiat contre un access token puis récupération de l'email du compte (endpoint userinfo v2) stocké dans gdrive_account_email.",
+     "Un drapeau 'settled' garantit qu'une seule résolution/rejet a lieu (timeout vs callback vs erreur)."
+    ],
+    "calculs": "Aucun.",
+    "cas_limites": [
+     "Refus utilisateur ou code manquant dans la redirection → page « Autorisation annulée » + reject avec l'erreur Google.",
+     "fetchAccountEmail non bloquant : en cas d'échec retourne '' (la connexion reste réussie).",
+     "Pages de résultat servies au navigateur en HTML français (« Connexion Google Drive réussie ✓ »)."
+    ],
+    "details_ui": "L'utilisateur voit le consentement Google dans son navigateur habituel puis une page locale de confirmation à fermer manuellement."
+   },
+   {
+    "nom": "Upload quotidien du backup vers Drive au démarrage (idempotent)",
+    "description": "uploadTodayBackupIfConfigured(backupFilePath, backupDate) est appelé à chaque démarrage de l'app : il téléverse le backup du jour vers le dossier Drive configuré, au plus une fois par jour.",
+    "regles_metier": [
+     "No-op silencieux si l'un de clientId/clientSecret/folderId/refreshToken est vide.",
+     "Idempotence par date : si gdrive_last_upload === backupDate → return immédiat (déjà uploadé aujourd'hui).",
+     "Séquence : access token via grant refresh_token → upload multipart → prune (rétention) → écriture de gdrive_last_upload = backupDate (l'horodatage n'est mis à jour QU'après succès complet, donc retry naturel au prochain lancement en cas d'échec).",
+     "Upload : POST https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart, corps multipart/related construit manuellement (Buffer.concat) avec boundary `pharmacie_backup_{Date.now()}` ; partie 1 = métadonnées JSON { name: nomDuFichier, parents: [folderId] }, partie 2 = octets bruts (application/octet-stream). Le nom du fichier Drive = basename du fichier local.",
+     "Stratégie « best-effort au démarrage » (commentaire du code) : hors-ligne ou échec réseau → simple retry au prochain lancement, pas de scheduler dédié."
+    ],
+    "calculs": "Aucun (transfert binaire).",
+    "cas_limites": [
+     "App lancée plusieurs fois le même jour → un seul upload.",
+     "App jamais lancée un jour donné → pas de backup Drive ce jour-là (dépend de l'usage)."
+    ],
+    "details_ui": "Aucune interaction — totalement silencieux."
+   },
+   {
+    "nom": "Rétention des backups Drive (conservation des 10 plus récents)",
+    "description": "pruneDriveBackups supprime les anciens backups du dossier Drive après chaque upload pour borner l'espace utilisé.",
+    "regles_metier": [
+     "Listing : GET drive/v3/files avec q = `'{folderId}' in parents and name contains 'pharmacie_' and trashed = false`, fields=files(id,name), orderBy=name, pageSize=1000.",
+     "Tri client supplémentaire par nom (localeCompare) — la rétention repose sur le fait que les noms de fichiers contiennent une date au format lexicographiquement triable (pharmacie_YYYY-MM-DD…).",
+     "Suppression des fichiers en tête de liste (les plus anciens) : toDelete = files.slice(0, max(0, files.length - keep)) avec keep = 10 codé en dur aux deux points d'appel.",
+     "Suppressions séquentielles (DELETE drive/v3/files/{id}) dans une boucle for...await.",
+     "Si le listing échoue (res non ok) → return silencieux, aucune suppression (fail-safe : on ne supprime jamais sur la base d'une liste incertaine)."
+    ],
+    "calculs": "Nombre à supprimer = files.length - 10 (borné à 0).",
+    "cas_limites": [
+     "Moins de 10 fichiers → aucune suppression.",
+     "Fichiers déjà dans la corbeille exclus (trashed = false).",
+     "Limite pageSize=1000 sans pagination : au-delà de 1000 fichiers la liste serait partielle (improbable avec la rétention)."
+    ],
+    "details_ui": "Invisible pour l'utilisateur."
+   },
+   {
+    "nom": "Upload manuel « tester maintenant » vers Drive",
+    "description": "uploadBackupNow(backupFilePath) — déclencheur manuel depuis l'écran Paramètres qui force un upload immédiat, ignorant l'idempotence quotidienne.",
+    "regles_metier": [
+     "Si configuration incomplète (clientId/clientSecret/folderId/refreshToken) → throw 'Google Drive non connecté' (erreur visible, contrairement au no-op silencieux du démarrage).",
+     "Upload toujours effectué, même si un upload a déjà eu lieu aujourd'hui.",
+     "Après succès : prune à 10 fichiers puis gdrive_last_upload = date du jour au format ISO YYYY-MM-DD (new Date().toISOString().slice(0,10)) — ce qui neutralise l'upload automatique du même jour.",
+     "Retourne { success: true } pour feedback UI."
+    ],
+    "calculs": "Date ISO tronquée à 10 caractères.",
+    "cas_limites": [
+     "Léger décalage possible entre le format de date de performBackup (backupDate) et l'ISO UTC slice(0,10) selon le fuseau — l'idempotence compare des chaînes."
+    ],
+    "details_ui": "Bouton de test dans Paramètres avec retour succès/erreur (message d'erreur en français)."
+   }
+  ],
+  "observations": "ARCHITECTURE : Tout le back-office (scheduling, email, Drive) tourne dans le processus main d'Electron. Toute la configuration (email + Drive) est centralisée dans une unique table SQLite clé/valeur `parametres`, mise à jour par INSERT OR REPLACE — simple, sans migration, et sauvegardée avec la base. Trois canaux de sauvegarde/notification complémentaires : (1) rapport métier HTML planifié configurable, (2) backup .db.gz emailé chaque lundi 06:30 (cron fixe), (3) backup quotidien poussé sur Google Drive au démarrage avec idempotence par date et rétention 10. Nommage mixte italien/français révélateur de l'auteur ('scadenze', 'vendite', 'acquisti' vs 'ordre') — les clés de sections du rapport sont figées dans email_reports.\n\nASTUCES REMARQUABLES : OAuth2 Desktop implémenté à la main avec fetch natif + serveur loopback sur port aléatoire (127.0.0.1, listen(0)) au lieu du SDK googleapis complet (~3 endpoints REST seulement) — gain de poids notable dans un bundle Electron. Scope minimal drive.file (l'app ne voit que ses propres fichiers). prompt=consent pour forcer la réémission du refresh_token, avec message d'erreur pédagogique pointant myaccount.google.com/permissions si absent. Idempotence de l'upload Drive par comparaison de date stockée, mise à jour seulement après succès complet → retry naturel au prochain lancement. Relecture de la config email au moment du tir cron (changements de destinataire pris en compte sans redémarrer la tâche). Prune Drive fail-safe : abandon silencieux si le listing échoue. Rapport avec badges de sévérité à seuils précis (stock=0 rouge / ≤stock_min orange ; expiration ≤30j rouge / 31-90j orange).\n\nDETTE / RISQUES : (1) SÉCURITÉ — mot de passe SMTP, client_secret et refresh_token Google stockés en clair dans la table parametres, laquelle fait partie de la base emailée chaque semaine en .gz : les secrets circulent par email. (2) Aucun échappement HTML des données produits dans le rapport (injection HTML possible via une désignation). (3) Pas de rattrapage des tâches manquées : rapport et backup email dépendent de l'app ouverte à l'heure cron (seul le backup Drive a un retry au démarrage). (4) Gmail codé en dur (service:'gmail'), pas de SMTP générique. (5) Le champ 'day' change de sémantique selon la fréquence (jour de semaine 0-6 vs jour du mois 1-31) — piège UI. (6) Cron backup email non configurable (lundi 06:30 en dur). (7) Rétention Drive fondée sur le tri lexicographique des noms de fichiers (suppose pharmacie_YYYY-MM-DD), keep=10 en dur, pas de pagination au-delà de 1000 fichiers. (8) gzip et lecture du .db entièrement en mémoire (pas de streaming). (9) Ventes agrégées par jour mais achats non agrégés, tous deux LIMIT 30 : le total achats peut être tronqué si >30 factures/30 jours. (10) Les produits déjà expirés sont exclus de la section péremptions (>= date('now')) — choix discutable, aucun rapport ne les liste. (11) parseInt sans garde NaN sur l'heure. DÉPENDANCES EXTERNES : node-cron, nodemailer, zlib/fs/http (Node natifs), electron.shell, fetch natif ; modules internes ../db/database (dbAll) et ../db/backup (performBackup). Fichiers analysés : .../Applicazione farmacia/src/main/email/scheduler.ts, emailService.ts, reportGenerator.ts et .../src/main/backup/googleDrive.ts."
+ },
+ "pages-metier": {
+  "features": [
+   {
+    "nom": "Vente — recherche produit avec autocomplétion",
+    "description": "Champ AutoComplete (antd) qui interroge window.api.produits.search pour trouver un médicament par désignation, code ou DCI. Le résultat affiche 'désignation [lot]' comme valeur et 'désignation — Lot: X dosage' comme libellé.",
+    "regles_metier": [
+     "Recherche déclenchée seulement si la saisie fait >= 2 caractères, sinon la liste d'options est vidée",
+     "Debounce de 250 ms via setTimeout/clearTimeout stocké dans un useRef",
+     "À la sélection d'un produit : mode de vente réinitialisé à 'boite', quantité à 1, et focus automatique sur le champ quantité après 100 ms",
+     "Indicateur Spin pendant la recherche, message 'Aucun résultat' sinon",
+     "Le bouton clear réinitialise produit sélectionné, valeur de recherche et options"
+    ],
+    "cas_limites": [
+     "Saisie < 2 caractères ignorée",
+     "Frappes rapides : le timer précédent est annulé (une seule requête part)"
+    ],
+    "details_ui": "Le lot est affiché entre crochets dans la valeur sélectionnée ; chaque lot d'un même médicament apparaît donc comme une entrée distincte de la recherche (gestion des lots au niveau produit)."
+   },
+   {
+    "nom": "Vente — fractionnement boîte / détail (double stock GROS + VENTE)",
+    "description": "Chaque produit a deux compteurs de stock : `quantite` (stock GROS, exprimé en unités de base) et `quantite_detail` (stock VENTE/détail en unités de base : comprimés, gélules…). Si `peut_fractionner === 1`, l'utilisateur choisit de vendre par boîte ou à l'unité de détail via un Radio.Group.",
+    "regles_metier": [
+     "facteur_conversion = nombre d'unités de base par boîte (fallback 1 si null)",
+     "Prix unitaire = prix_vente (boîte) en mode 'boite', prix_vente_detail (fallback 0) en mode 'detail'",
+     "Quantité à déduire du stock (qte_stock_deduire) = qteVente × facteur_conversion en mode boîte ; = qteVente directement en mode détail (déjà en unités de base)",
+     "Contrôle de stock : (quantite + quantite_detail) >= qte_stock_deduire — le contrôle porte sur le TOTAL des deux stocks, pas sur un seul",
+     "Affichage stock GROS en boîtes = Math.floor(quantite / facteur) si peut_fractionner, sinon quantite brute",
+     "Total boîtes équivalent = (quantite + quantite_detail) / facteur si peut_fractionner",
+     "Alerte '⚠ Stock faible' affichée si totalBoites <= stock_min (seuil par produit)",
+     "Changement de mode boîte/détail réinitialise la quantité à 1"
+    ],
+    "cas_limites": [
+     "prix_vente_detail null → prix 0 affiché (pas de blocage)",
+     "Message stock insuffisant différencié : produit fractionnable → disponible affiché en unités de détail ; sinon en boîtes avec toFixed(2)"
+    ],
+    "details_ui": "Deux badges de stock côte à côte : GROS (n boîtes) et VENTE (n unités, visible seulement si peut_fractionner). Le badge GROS devient rouge/style 'low' si totalBoites <= stock_min. Le bouton radio affiche le prix directement : 'Boîte — 5 000 Ar' / 'Comprimé — 250 Ar'."
+   },
+   {
+    "nom": "Vente — panier",
+    "description": "Table antd listant les lignes ajoutées. Chaque ligne mémorise un instantané complet : produit_id, désignation (+dosage concaténé), lot, mode_vente, quantite, prix_unitaire, sous_total, qte_stock_deduire, et les données produit (prix boîte/détail, facteur, unité détail, stock dispo).",
+    "regles_metier": [
+     "Validation à l'ajout : produit sélectionné obligatoire, quantité > 0, stock suffisant (message d'erreur sinon)",
+     "sous_total = prix_unitaire × quantite (calculé côté client et stocké dans la ligne)",
+     "Clé de ligne = `${produit_id}-${Date.now()}` — le même produit peut être ajouté plusieurs fois (pas de fusion de lignes)",
+     "Après ajout : reset complet de la zone de recherche (produit, quantité=1, mode=boite)",
+     "Total panier = somme des sous_totaux",
+     "Suppression de ligne unitaire uniquement (pas d'édition de quantité en place)"
+    ],
+    "cas_limites": [
+     "Panier vide bloque l'encaissement avec message d'avertissement"
+    ],
+    "calculs": "totalPanier = Σ sous_total ; footer affiche aussi la conversion en FMG : totalPanier × 5 (constante 1 Ar = 5 FMG, monnaie historique malgache encore utilisée oralement)",
+    "details_ui": "Colonnes : Désignation (+lot en petit), Unité (Tag bleu 'Boîte' ou Tag vert avec unite_detail), Qté, Prix (monospace), Sous-total, bouton supprimer. En mode prise en charge, la colonne sous-total affiche 'PEC' en italique gris au lieu du montant. Compteur d'articles avec pluriel dans le titre de section."
+   },
+   {
+    "nom": "Vente — type de vente : cash vs prise en charge (PEC)",
+    "description": "Radio à deux options : 'cash' (paiement comptant) et 'prise_en_charge' (gratuit pour le patient, payé par une entité tierce ; le stock est déduit normalement).",
+    "regles_metier": [
+     "Entités payeuses PEC codées en dur : const ENTITES_PEC = ['Ilena', 'Centre Miaraka']",
+     "En PEC, la sélection de l'entité payeuse est OBLIGATOIRE à l'encaissement (blocage avec message sinon)",
+     "Changer de type remet entitePayeur à null",
+     "Champs client facultatifs communs aux deux types : nom client, n° document d'identité (clientId), médecin prescripteur",
+     "Payload de création : type_vente, client_nom/client_id/medecin_presc (null si vides), entite_payeur, operateur_id, total, lignes, service=null, notes=null",
+     "En PEC le footer affiche 'Montant dû : 0' (AR et FMG) et un badge 'PRISE EN CHARGE — {entité}'"
+    ],
+    "cas_limites": [
+     "PEC sans entité → refus de validation"
+    ],
+    "details_ui": "Sous-texte explicatif sous chaque radio ('Paiement comptant' / 'Gratuit — stock déduit'). Le divider n'apparaît qu'en mode PEC."
+   },
+   {
+    "nom": "Vente — sélection opérateur",
+    "description": "Select en toolbar pour choisir l'opérateur (caissier) qui réalise la vente, chargé via window.api.operateurs.list au montage.",
+    "regles_metier": [
+     "Le Select n'apparaît que si operateurs.length > 1",
+     "Défaut : premier opérateur de la liste (ops[0].id) ; valeur initiale hardcodée 1 avant chargement",
+     "Nom affiché : 'prenom nom' si prénom existe, sinon nom seul"
+    ],
+    "cas_limites": [
+     "Liste vide : operateurId reste 1"
+    ],
+    "details_ui": "Icône UserOutlined en préfixe, largeur 160px, size small."
+   },
+   {
+    "nom": "Vente — encaissement, rendu de monnaie et modal post-vente",
+    "description": "Après window.api.ventes.create réussi, un modal de confirmation s'ouvre avec la référence de vente, le calcul du rendu de monnaie (cash) ou le récapitulatif PEC, et propose l'impression du reçu.",
+    "regles_metier": [
+     "Référence de vente construite côté client : buildReference(venteId) = 'YY/MM/PHA/NNNNN' (année sur 2 chiffres, mois sur 2, id de vente paddé à 5 chiffres, ex: 26/07/PHA/00042)",
+     "Date au format fr-FR JJ/MM/AAAA et heure HH:MM capturées à la validation",
+     "Montant reçu initialisé au total ; InputNumber avec min = total (impossible de saisir moins que le dû), pas de 500 Ar, formatter fr-FR + ' Ar', parser qui strip tout sauf les chiffres",
+     "Monnaie à rendre = montantRecu − total, affichée en vert",
+     "En PEC : pas de section paiement, affichage 'Prise en charge — {entité}' + nom du patient si renseigné",
+     "Deux sorties : 'Imprimer et fermer' (ouvre ReceiptPreviewModal avec montantRecu inclus si cash) ou 'Fermer sans imprimer' ; les deux réinitialisent tout le formulaire (handleNouveau)",
+     "Fermer le modal par la croix réinitialise aussi le formulaire"
+    ],
+    "cas_limites": [
+     "montantRecu ne peut pas être < total (min du InputNumber)",
+     "PrintData.montantRecu = undefined pour les PEC"
+    ],
+    "calculs": "monnaie = montantRecu − totalReal ; FMG = Ar × 5",
+    "details_ui": "Titre du modal différencié : 'Prise en charge validée' vs 'Vente enregistrée' avec icône verte. Référence affichée en monospace centré avec letter-spacing. Le reçu passe par un composant ReceiptPreviewModal séparé (aperçu avant impression)."
+   },
+   {
+    "nom": "Achat — saisie d'une entrée en stock (facture fournisseur)",
+    "description": "Page à onglets ('Nouvelle entrée' / 'Historique'). La saisie combine : entête de facture (fournisseur, date, n° facture, type normal/dons) à droite, saisie produit par produit à gauche (lot, péremption, quantité, prix d'achat HT, TVA), et table des lignes au centre.",
+    "regles_metier": [
+     "Options TVA codées en dur : 0% (Exonéré), 5%, 10%, 20%",
+     "montant_tva = (prix_achat_ht × qte × tva_pct) / 100 ; total_ht = prix_achat_ht × qte ; total_ttc = total_ht + montant_tva",
+     "Marge : marge_valeur = prix_vente (courant du produit) − prix_achat_ht ; marge % = marge_valeur / prix_achat_ht × 100 (0 si prix achat = 0)",
+     "Chaque ligne snapshotte le prix de vente au moment de l'achat (prix_vente_snap) pour figer la marge historique",
+     "Validation d'ajout de ligne : produit sélectionné, quantité > 0, prix achat HT > 0 (les trois avec messages distincts)",
+     "Validation globale : au moins une ligne ET fournisseur non vide (trim) ; bouton désactivé sinon",
+     "Type d'achat : 'normal' ou 'dons' (donations) — même flux, marqué différemment",
+     "À la sélection d'un produit existant, prix d'achat / lot / date d'expiration sont pré-remplis avec les dernières valeurs du produit",
+     "Date de péremption : DatePicker format DD/MM/YYYY, années < 2020 interdites (disabledDate)",
+     "Date de facture par défaut = aujourd'hui (dayjs, format stockage YYYY-MM-DD)",
+     "Référence d'achat générée : fonction buildRef() côté client produit 'ACH-YYYYMMDD-NNNN' (NNNN aléatoire entre 1000 et 9999), mais la référence réellement affichée vient du backend (result.reference)",
+     "Payload create : fournisseur_id (null si libre), fournisseur_nom, date_facture, num_facture (null si vide), type_achat, totaux HT/TVA/TTC globaux, operateur_id (hardcodé 1), lignes"
+    ],
+    "cas_limites": [
+     "Fournisseur saisi mais inexistant : option '+ Ajouter « nom »' dans le dropdown crée le fournisseur à la volée (window.api.fournisseurs.create) via onMouseDown+preventDefault pour ne pas fermer le menu",
+     "Produit introuvable : hint 'nouveau médicament' dans le dropdown + bouton [+] ouvrant ProduitCreateModal ; le produit créé est immédiatement sélectionné (handleProduitCreated)",
+     "N° facture facultatif"
+    ],
+    "calculs": "Totaux globaux = sommes des total_ht, montant_tva, total_ttc des lignes. Aperçu par ligne avant ajout : Total HT, TVA (affichée seulement si > 0), marge en valeur + % (vert si >= 0, rouge sinon), prix de vente actuel.",
+    "details_ui": "Encart vert (fond #f6ffed) montrant le stock actuel GROS en boîtes + stock VENTE du produit sélectionné. Colonne Marge% dans la table (vert/rouge). Enter dans quantité ou prix ajoute la ligne. Footer sticky avec TOTAL TTC."
+   },
+   {
+    "nom": "Achat — bon d'entrée en stock imprimable (AchatFactureModal)",
+    "description": "Modal (820px) affiché après validation d'un achat : document 'Bon d'entrée en stock' avec en-tête PHARMACIE DU CENTRE REX / Fianarantsoa · La Vita per Te, imprimable via window.print().",
+    "regles_metier": [
+     "Zone d'impression identifiée par id='facture-print-area' ; boutons masqués à l'impression via classe 'no-print'",
+     "Badge vert 'DON' affiché si typeAchat === 'don' — BUG probable : la page envoie 'dons' (avec s), la condition ne matche donc jamais",
+     "Péremption affichée en format MM/YYYY seulement",
+     "Bloc TVA affiché seulement si totalTVA > 0",
+     "Pied : '✓ Stock mis à jour — N médicament(s) enregistré(s)'"
+    ],
+    "cas_limites": [
+     "data null → return null (rien ne rend)",
+     "lot/date péremption absents → '—'"
+    ],
+    "details_ui": "Table HTML pure (pas antd) pour l'impression : lignes zébrées blanc/#f7f9fc, entête bleu #1a5276, total TTC dans un bandeau bleu inversé. Deux cartouches méta : Fournisseur / (Date d'entrée + N° facture fournisseur)."
+   },
+   {
+    "nom": "Achat — historique avec filtres et annulation",
+    "description": "Table des achats passés avec filtres (période RangePicker, fournisseur), lignes expansibles montrant le détail, totaux HT/TTC de la sélection, et annulation admin.",
+    "regles_metier": [
+     "Filtres passés à window.api.achats.search : date_from, date_to (YYYY-MM-DD), fournisseur_id ; tous optionnels (par défaut tout est chargé)",
+     "Détail des lignes chargé paresseusement à l'expansion (window.api.achats.getLignes) et mis en cache par achat_id ; rowExpandable seulement si nb_lignes > 0",
+     "Annulation : réservée au rôle 'admin' ET aux achats non déjà annulés (statut !== 'annule')",
+     "Motif d'annulation OBLIGATOIRE (TextArea, trim, message d'avertissement sinon)",
+     "L'annulation retire le stock GROS ajouté par l'achat ; le message précise : 'Impossible si le stock a déjà été vendu ou transféré' (contrôle backend)",
+     "Trace : l'opérateur annulant est envoyé sous forme 'Nom Prénom' (currentUser)",
+     "Statut affiché : Tag rouge 'Annulé' / vert 'Valide'",
+     "Marge par ligne recalculée depuis le snapshot : marge% = marge_valeur / prix_achat_ht × 100, tooltip montrant le prix de vente snapshotté"
+    ],
+    "cas_limites": [
+     "Achat annulé : bouton d'annulation masqué",
+     "Ligne de résumé du sous-tableau : Total HT + Total TVA (TVA seulement si > 0)"
+    ],
+    "details_ui": "Pagination 25/page. Type affiché : Tag violet 'Dons' / bleu 'Normal'. Résumé en haut à droite : Total HT et Total TTC de l'ensemble des résultats filtrés."
+   },
+   {
+    "nom": "Transfert — entre stock GROS et stock VENTE (détail)",
+    "description": "Il n'y a que DEUX stocks internes : GROS (boîtes fermées, réserve) et VENTE/DÉTAIL (unités sorties de boîte, prêtes à la vente à l'unité). Le transfert est bidirectionnel via un Segmented : GROS_TO_DETAIL (déballage de boîtes) ou DETAIL_TO_GROS (ré-emballage). La quantité de transfert s'exprime toujours en BOÎTES.",
+    "regles_metier": [
+     "baseUnitsRequis = qte_transfert × facteur_conversion",
+     "Sens GROS→DÉTAIL : contrôle qteTransfert <= Math.floor(quantite / facteur) (boîtes entières disponibles) ; message 'Stock GROS insuffisant: disponible X boite(s), demandé Y'",
+     "Sens DÉTAIL→GROS : contrôle baseUnitsRequis <= quantite_detail ; message affichant les unités disponibles ET leur équivalent en boîtes (Math.floor(detailUnits / facteur))",
+     "Quantité minimale du champ = 0.1, step 1 (boîtes fractionnaires autorisées à la saisie), mais validation > 0",
+     "Date de transfert figée à aujourd'hui (non modifiable)",
+     "Changer de direction VIDE le panier et la sélection en cours",
+     "Chaque ligne snapshotte qte_gros et qte_detail AVANT transfert (colonnes 'GROS avant' / 'VENTE avant')",
+     "Payload : date_transfert, operateur_id, direction, lignes ; le backend renvoie une référence affichée dans un Modal.success",
+     "Récapitulatif : nombre de médicaments + total de boîtes transférées (somme des qte_transfert)"
+    ],
+    "cas_limites": [
+     "Panier vide → refus de validation",
+     "formatQte : entier affiché tel quel, sinon 2 décimales (n % 1 === 0 ? String(n) : n.toFixed(2))"
+    ],
+    "details_ui": "Tags Source/Destination inversés selon la direction (bleu=GROS, vert=VENTE). Encart bleu montrant les deux stocks du produit sélectionné, avec le stock SOURCE en gras/coloré et l'autre grisé. Onglet Historique : 100 derniers transferts (getRecent(100)), pagination 25, lignes expansibles chargées à la demande avec cache, montrant lot, péremption, qté transférée et les stocks avant transfert."
+   },
+   {
+    "nom": "Recettes / Caisse — journal des ventes avec totaux par type",
+    "description": "Page caisse : liste des ventes filtrable (période, opérateur, type cash/PEC), défaut = aujourd'hui. Cartes Statistic : total ESPÈCES, total PEC, TOTAL GLOBAL, chacune avec le nombre de ventes.",
+    "regles_metier": [
+     "Filtres par défaut au montage : date_from = date_to = aujourd'hui ; bouton 'Aujourd'hui' réinitialise tout",
+     "API : window.api.recettes.caisse({date_from, date_to, operateur_id?, type_vente?})",
+     "Totaux calculés côté client sur les lignes retournées : totalESP = Σ montant_reel des ventes cash ; totalPEC = Σ montant_reel des PEC ; totalGlobal = somme des deux — NB : les totaux utilisent montant_reel (montant réellement encaissé), pas total",
+     "Référence affichée : 'VTE-' + id paddé à 5 chiffres (format différent du reçu YY/MM/PHA/NNNNN)",
+     "Lignes expansibles (lazy + cache par vente) avec sous-table des articles et ligne de résumé Total = Σ sous_total",
+     "Le cache des lignes est vidé à chaque nouvelle recherche"
+    ],
+    "cas_limites": [
+     "Cartes de stats masquées si aucune vente",
+     "Colonne client : en PEC affiche Tag violet entité + nom patient + (service) ; en cash nom du client ou '—'",
+     "En-tête de période : si date unique affiche 'dddd DD MMMM YYYY', sinon 'DD/MM/YYYY → DD/MM/YYYY'"
+    ],
+    "calculs": "montant_reel sommé par type ; heure tronquée à HH:MM via slice(0,5)",
+    "details_ui": "Lignes PEC surlignées en violet clair (#f9f0ff) via rowClassName + style injecté. Montant coloré : bleu pour cash, violet pour PEC. Pagination 30/page. Descriptions dans la ligne étendue : réf, heure, type, médecin prescripteur (si présent)."
+   },
+   {
+    "nom": "Recettes — Reso (retour jour même) vs Annulation (correction admin)",
+    "description": "Deux mécanismes distincts d'annulation d'une vente, choisis automatiquement selon la date : 'Reso' (retour) si la vente date d'aujourd'hui, 'Annulation' (correction) sinon.",
+    "regles_metier": [
+     "isSameDay : date_vente === aujourd'hui → bouton Undo 'Reso (retour, jour même)' visible pour TOUT utilisateur → appelle window.api.ventes.retourner",
+     "Vente d'un jour antérieur : bouton Stop rouge visible UNIQUEMENT si currentUser.role === 'admin' → appelle window.api.ventes.annuler",
+     "Motif obligatoire dans les deux cas (TextArea, trim)",
+     "Le stock des articles vendus est restauré automatiquement dans les deux cas",
+     "L'opérateur (currentUser 'Nom Prénom') est journalisé avec le motif",
+     "Après confirmation : rafraîchissement de la recherche courante"
+    ],
+    "cas_limites": [
+     "Non-admin sur vente ancienne : aucune action affichée"
+    ],
+    "details_ui": "Le titre du modal s'adapte : 'Reso de la vente' vs 'Annuler la vente (correction)'. Rappel de la vente (réf, montant, date) + note 'Le stock sera restauré automatiquement'. Bouton Confirmer en danger."
+   },
+   {
+    "nom": "Situation stock — tableau principal avec 3 jeux de colonnes",
+    "description": "Vue d'ensemble du stock avec trois modes d'affichage mutuellement exclusifs : (1) courant standard, (2) mode 'Unités fractionnées', (3) mode historique à une date passée. Les colonnes changent dynamiquement selon le mode.",
+    "regles_metier": [
+     "Colonnes mode courant : Code, Désignation (+dosage+DCI), Forme, Lot, Péremption, Qté GROS (boîtes), Qté VENTE (+unité), Seuil min, Statut, Prix vente/boîte, Valorisation, Emplacement, Actions",
+     "Filtres d'affichage (Radio) : 'nonNull' (défaut, stocks > 0, filtré serveur), 'all' (tout, serveur show_all=true), 'gros' (client : quantite > 0), 'detail' (client : quantite_detail > 0), 'fraction' (client : peut_fractionner truthy, avec show_all serveur)",
+     "Recherche texte envoyée au serveur (window.api.stock.situation({search, show_all})), Enter ou bouton Actualiser pour lancer ; désactivée en mode historique",
+     "Statut : Tag rouge 'Rupture' si boîtes équiv <= 0 ; orange 'Stock bas' si <= stock_min ; vert 'OK' sinon (sur le total boîtes équivalent GROS+DÉTAIL)",
+     "Valorisation d'un produit = (quantite + quantite_detail) × (prix_vente / facteur si fractionnable et facteur > 1, sinon prix_vente) — c'est-à-dire tout le stock en unités de base × prix par unité de base",
+     "Péremption colorée : rouge #cf1322 si dépassée, orange #d46b08 si < 90 jours, gris sinon",
+     "Lignes colorées : fond rouge pâle si rupture, jaune pâle si stock bas",
+     "Résumé : nb articles, valorisation totale (masquée en histo), Tag rouge nb ruptures, Tag orange nb stock bas ; date de référence affichée",
+     "Ligne de synthèse du tableau (Summary) : valorisation totale de la page — uniquement en mode courant standard",
+     "Actions par ligne : Historique des mouvements (MovimentiModal, tous), Rectifier le stock (AjustStockModal, admin), Modifier le produit (EditProduitModal, admin)"
+    ],
+    "cas_limites": [
+     "Erreur de chargement : message + tableau vidé",
+     "Filtres gros/detail/fraction appliqués côté client APRÈS le fetch",
+     "Le cache des lots est vidé à chaque fetch"
+    ],
+    "calculs": "totalBoitesEquiv = (quantite + quantite_detail) / facteur si fractionnable ; arrondi affichage Math.round(n*100)/100 ; Qté GROS en boîtes = Math.floor(quantite / facteur)",
+    "details_ui": "Pagination 30/page, scroll x max-content, colonne Actions fixée à droite. Tooltip sur la désignation avec 'désignation · dosage · DCI'."
+   },
+   {
+    "nom": "Situation stock — sous-lignes lots FEFO",
+    "description": "En mode courant, chaque produit est expansible et affiche ses lots (window.api.lots.parProduit, lazy + cache), triés par péremption la plus proche (FEFO — First Expired First Out).",
+    "regles_metier": [
+     "Colonnes : Lot, Péremption (mêmes seuils de couleur : expiré rouge, < 90 j orange), Qté GROS (convertie en boîtes si fractionnable), Qté VENTE (+unité)",
+     "Le PREMIER lot de la liste (péremption la plus proche) reçoit un Tag bleu 'À vendre en priorité' — seulement s'il y a plus d'un lot",
+     "Mention explicative : 'Lots triés par péremption la plus proche (FEFO) — à écouler en premier'"
+    ],
+    "cas_limites": [
+     "Produit sans lot : Empty 'Aucun lot enregistré'",
+     "Lot sans péremption : 'Sans péremption' en gris"
+    ],
+    "details_ui": "Expansion désactivée en mode historique."
+   },
+   {
+    "nom": "Situation stock — mode historique (stock à une date passée)",
+    "description": "Un DatePicker (dates futures interdites) bascule la page en mode comparaison : stock reconstruit à la date D (window.api.stock.historique(date)) vs stock actuel, avec colonne Évolution (delta).",
+    "regles_metier": [
+     "Le serveur renvoie stock_histo_base (unités de base totales à la date D) ; conversion en boîtes équiv : base / facteur si fractionnable et facteur > 1",
+     "Colonnes spécifiques : 'Stock au DD/MM/YY' (coloré rouge <= 0, orange <= stock_min, bleu sinon), 'Stock actuel' (mêmes seuils, vert si OK), 'Évolution' = actuel − histo (vert avec '+' si positif, rouge si négatif, '—' si 0)",
+     "Bannière d'information explicite : seul le stock TOTAL (GROS+DÉTAIL combiné) est reconstruit, la répartition GROS/DÉTAIL n'est pas reconstruite",
+     "En mode histo : recherche désactivée, filtres Radio masqués, expansion lots désactivée, valorisation masquée, export Excel réduit",
+     "Arrondi des boîtes : Math.round(n × 100) / 100 ; unité affichée 'boîtes eq.' si fractionnable, 'boîtes' sinon"
+    ],
+    "cas_limites": [
+     "disabledDate interdit les dates après aujourd'hui",
+     "Bouton 'X' dans la bannière pour revenir au mode courant"
+    ],
+    "details_ui": "Bannière Alert info avec légende : 'vert = entrées nettes, rouge = sorties nettes après cette date'."
+   },
+   {
+    "nom": "Situation stock — mode 'Unités fractionnées'",
+    "description": "Filtre spécial listant uniquement les produits fractionnables avec des colonnes pédagogiques dédiées au double stock et aux prix unitaires.",
+    "regles_metier": [
+     "Colonnes : Code, Désignation, Forme, 'Stock GROS (boîtes fermées)', 'Unités / boîte (info. — pas du stock)' = facteur affiché '× N', 'Prix unité (calc.)' = prix_vente / facteur, 'Prix unité (vendu)' = prix_vente_detail réellement pratiqué, 'Stock DÉTAIL (unités prêtes à la vente)', Statut, Actions",
+     "Le prix calculé et le prix vendu sont affichés côte à côte pour repérer les écarts de tarification",
+     "Stock DÉTAIL en vert si > 0, rouge si 0, avec pluriel automatique de l'unité"
+    ],
+    "cas_limites": [
+     "prix_vente_detail null → '—'",
+     "facteur null → '—'"
+    ],
+    "details_ui": "Alert explicative bleue définissant GROS (boîtes fermées) vs DÉTAIL (unités sorties de boîte) et précisant que 'Unités/boîte' est une info de référence, pas un stock."
+   },
+   {
+    "nom": "Situation stock — export Excel",
+    "description": "Bouton vert Excel qui mappe les produits FILTRÉS affichés vers des objets à clés françaises et appelle window.api.stock.exportExcel(rows) (génération et sauvegarde côté main process).",
+    "regles_metier": [
+     "Colonnes mode courant : Code, Désignation, DCI, Forme, Dosage, Lot, Date péremption, Qté GROS (boites), Qté VENTE, Unité détail, Qté totale (boites), Seuil min (boites), Prix achat (Ar), Prix vente/boite (Ar), Valorisation (Ar) arrondie, Emplacement",
+     "Colonnes mode historique (réduites) : Code, Désignation, DCI, Forme, Dosage, Lot, 'Stock total au {date} (boites)' arrondi à 2 décimales, Seuil min, Prix vente/boite, Emplacement",
+     "Qté totale (boites) en mode courant = Math.floor((quantite + quantite_detail) / facteur) si fractionnable — NB : Math.floor ici alors que l'histo utilise Math.round à 2 décimales",
+     "Export bloqué si aucun article (message d'avertissement)",
+     "Succès : message avec le chemin du fichier retourné (result.filePath)"
+    ],
+    "cas_limites": [
+     "Champs null exportés en chaîne vide",
+     "L'export respecte le filtre actif (gros/detail/fraction inclus)"
+    ],
+    "details_ui": "Bouton stylé vert Excel (#217346)."
+   },
+   {
+    "nom": "Alertes — tableau de bord multi-types",
+    "description": "Page d'alertes avec 5 cartes Statistic (rupture, stock bas, expirés, péremption proche, détail bas) et 5 onglets à badge : Stock GROS, Péremptions, Stock détail, À commander (groupé fournisseur), Chirurgie Pédiatrique.",
+    "regles_metier": [
+     "Source : window.api.stock.alertes() renvoie des AlerteProduit avec champs pré-calculés serveur : alerte_stock ('rupture'|'bas'|null), alerte_expiration ('expire'|autre valeur non nulle = proche), alerte_detail ('bas'|null), quantite_boites, gros_boites, jours_expiration",
+     "Partitions client : ruptures = alerte_stock==='rupture' ; stockBas = 'bas' ; expires = alerte_expiration==='expire' ; prochesExp = alerte_expiration non nul et différent de 'expire' ; detailBas = alerte_detail==='bas' ; aCommander = tout alerte_stock non nul",
+     "Quantité à commander = Math.max(0, stock_min − quantite_boites), affichée Math.ceil (arrondi supérieur en boîtes)",
+     "Seuils péremption (couleur des Tags) : j < 0 rouge 'Expiré (|j|j)' ; j <= 30 rouge ; j <= 60 orange ; sinon gold",
+     "Onglet détail bas : pourcentage de boîte restant = Math.round(quantite_detail / facteur_conversion × 100) ; quantité détail affichée toFixed(1)",
+     "fmtBte : Math.floor de la valeur, plancher à 0 ('0 bte' si négatif)",
+     "onCountChange remonte le nombre total d'alertes au parent (badge de navigation)",
+     "Horodatage 'Dernière mise à jour' affiché après chaque fetch"
+    ],
+    "cas_limites": [
+     "État vide global (aucune alerte ET stock externe vide) : écran ✅ 'Aucune alerte' avec boutons refresh + import",
+     "Cartes grisées (#fafafa, valeur #bbb) quand le compteur est 0",
+     "Tables des onglets : rupture en premier puis stock bas (concat [...ruptures, ...stockBas]) ; expirés avant proches"
+    ],
+    "details_ui": "Lignes colorées (rouge pâle rupture/expiré, orange pâle bas/proche) avec états hover dédiés. Badges d'onglet plafonnés à 99."
+   },
+   {
+    "nom": "Alertes — regroupement 'À commander' par fournisseur",
+    "description": "Onglet réassort : les produits en alerte de stock sont groupés dans un Collapse par fournisseur, tous les panneaux ouverts par défaut.",
+    "regles_metier": [
+     "Clé de groupe : fournisseur_nom || fournisseur || 'Sans fournisseur' (libellé i18n)",
+     "En-tête de panneau : nom fournisseur + Tag bleu nb articles + Tag orange 'N bte à commander' où N = Math.ceil(Σ max(0, stock_min − quantite_boites))",
+     "Colonnes internes : désignation, statut, stock actuel, seuil min, à commander (Tag bleu gras), emplacement"
+    ],
+    "cas_limites": [
+     "Aucun produit à commander : état vide avec icône AlertOutlined"
+    ],
+    "details_ui": "Sert de bon de commande visuel par fournisseur (pas de génération de document, lecture seule)."
+   },
+   {
+    "nom": "Alertes — transfert rapide GROS → DÉTAIL depuis l'alerte",
+    "description": "Dans l'onglet 'Stock détail bas', chaque ligne a un bouton qui ouvre un modal de transfert immédiat de boîtes du GROS vers le DÉTAIL, sans passer par la page Transfert.",
+    "regles_metier": [
+     "Bouton désactivé si gros_boites <= 0",
+     "Quantité initiale = Math.min(1, gros_boites) ; bornes du InputNumber : min 1, max Math.floor(gros_boites)",
+     "Équivalence affichée si facteur > 1 : qte × facteur_conversion unités",
+     "Appelle la MÊME API que la page Transfert : window.api.transferts.create avec direction 'GROS_TO_DETAIL', date du jour, operateur_id hardcodé 1, une seule ligne",
+     "Note FEFO affichée : 'La boîte la plus proche de la péremption est ouverte en priorité' (le choix du lot est fait côté backend)",
+     "Succès : message + rechargement des alertes"
+    ],
+    "cas_limites": [
+     "operateur_id figé à 1 : le transfert rapide n'est pas attribué à l'utilisateur courant (perte de traçabilité)"
+    ],
+    "details_ui": "Encart récapitulatif stock GROS dispo / stock détail actuel (toFixed(1)) avant confirmation, autoFocus sur la quantité."
+   },
+   {
+    "nom": "Stock externe 'Chirurgie Pédiatrique' (consultation + import Excel)",
+    "description": "Stock séparé, NON vendable, hors GROS/VENTE — visibilité informative pour une mission de chirurgie pédiatrique. Consultable depuis deux endroits : onglet dédié de la page Alertes (gestion) et modal en lecture seule dans Situation Stock.",
+    "regles_metier": [
+     "Import/actualisation depuis un fichier Excel : window.api.stockExterne.import() (dialogue de fichier natif ; result.canceled géré) ; message '{n} article(s) importé(s)'",
+     "Quantité stockée en TEXTE LIBRE (quantite_texte, ex: '15 fiale') — pas de gestion numérique",
+     "Correspondance automatique avec les produits de la pharmacie : champ produit_correspondant affiché en Tag vert, sinon 'Aucune correspondance' (matching fait côté backend)",
+     "Urgence : jours_expiration <= 30 → ligne rouge + compte dans le badge de l'onglet ; mêmes paliers de Tags que les péremptions (expiré / <=30 rouge, <=60 orange, sinon gold)",
+     "CRUD manuel réservé admin : ajout ('new'), édition, suppression avec Popconfirm ; upsert({id: null pour création, designation obligatoire (trim), quantite_texte, lot, date_expiration nullables})",
+     "Suppression et édition invisibles pour les non-admins"
+    ],
+    "cas_limites": [
+     "Désignation vide → refus d'enregistrement",
+     "Import annulé par l'utilisateur → sortie silencieuse"
+    ],
+    "details_ui": "Avertissements répétés 'Stock séparé, non vendable'. Dans SituationStock, l'accès est un bouton 'Stock chirurgie pédiatrique' ouvrant un modal 820px en lecture seule renvoyant vers ALERTES → Chirurgie Pédiatrique pour l'import."
+   },
+   {
+    "nom": "Transversal — formatage et i18n",
+    "description": "Conventions partagées entre toutes les pages.",
+    "regles_metier": [
+     "formatAr : toLocaleString('fr-FR') sans décimales + suffixe ' Ar' (implémentation dupliquée dans ~6 fichiers)",
+     "Conversion FMG : 1 Ar = 5 FMG (affichée uniquement sur le footer de vente)",
+     "Dates stockées/échangées en 'YYYY-MM-DD', affichées 'DD/MM/YYYY' (dayjs)",
+     "i18n via hook useLang()/t() présent partout, mais de nombreux libellés restent en français en dur (sections, modals, messages d'erreur) — l'app est bilingue partielle (probablement FR/IT vu le développeur)",
+     "Références : vente reçu 'YY/MM/PHA/#####', vente caisse 'VTE-#####', achat 'ACH-YYYYMMDD-NNNN' (client) mais référence backend faisant foi, transfert : référence backend"
+    ],
+    "cas_limites": [],
+    "details_ui": "Charte couleur cohérente : bleu #2a6496 (GROS/cash/primaire), vert #389e0d (VENTE/détail/positif), orange #d46b08 (avertissement), rouge #cf1322 (rupture/expiré), violet #531dab (PEC)."
+   }
+  ],
+  "observations": "ARCHITECTURE : Electron + React + TypeScript + Ant Design (antd) + dayjs. Toute la logique métier persistante (déduction de stock FEFO, reconstruction historique, annulations avec restauration de stock, alertes pré-calculées, export Excel, import Excel) vit dans le main process derrière un pont IPC exposé en window.api.* (produits, ventes, achats, transferts, recettes, stock, stockExterne, lots, fournisseurs, operateurs). Le renderer ne fait que l'affichage et des validations de premier niveau ; les fichiers analysés ne montrent donc pas le code des règles serveur (FEFO réel, calcul des alertes, restauration de stock) — il faudrait lire src/main pour les formules exactes côté persistance. MODÈLE DE STOCK (l'idée maîtresse à reprendre) : double compteur par produit — quantite (GROS, unités de base) et quantite_detail (VENTE, unités de base) — reliés par facteur_conversion (unités/boîte) et le flag peut_fractionner ; les transferts GROS↔DÉTAIL modélisent physiquement l'ouverture/refermeture de boîtes, et les alertes 'détail bas' déclenchent un transfert rapide en un clic. Gestion des lots au niveau recherche (chaque lot = une entrée), FEFO affiché et appliqué backend, plus une table lots par produit. BONNES IDÉES : Reso jour-même (tout opérateur) vs annulation admin pour les jours passés, motif obligatoire et traçabilité de l'opérateur ; snapshot du prix de vente à l'achat (prix_vente_snap) pour des marges historiques fiables ; comparaison stock historique avec colonne delta ; regroupement du réassort par fournisseur avec quantités à commander (max(0, seuil − stock), arrondi sup) ; création inline de fournisseur et de produit sans quitter le flux d'achat ; rendu de monnaie avec min=total et pas de 500 Ar ; double affichage Ar/FMG (×5) ; stock externe en texte libre avec matching automatique vers le catalogue. QUALITÉ/DETTE : formatAr et formatQte dupliqués dans presque chaque fichier ; ENTITES_PEC (['Ilena','Centre Miaraka']) et TVA (0/5/10/20%) codés en dur ; operateur_id hardcodé à 1 dans AchatPage et dans le transfert rapide des alertes (perte de traçabilité) ; bug probable dans AchatFactureModal : condition typeAchat === 'don' alors que la valeur envoyée est 'dons' (badge DON jamais affiché) ; buildRef() d'achat côté client généré mais non utilisé (référence backend prime) — code mort ; incohérences d'arrondi (export courant Math.floor vs histo Math.round à 2 déc.) ; deux formats de référence de vente coexistent (YY/MM/PHA/##### sur le reçu vs VTE-##### en caisse) ; i18n incomplet (beaucoup de français en dur mêlé aux clés t()) ; pas de fusion des lignes de panier identiques ni d'édition de quantité en place ; seuils magiques répétés (90 jours péremption stock, 30/60 jours alertes, page sizes 25/30). DÉPENDANCES EXTERNES : antd (+@ant-design/icons), dayjs, impression via window.print() avec zones no-print/facture-print-area, export/import Excel délégués au main process (probablement xlsx/exceljs côté main). RÔLES : deux rôles visibles ('admin' vs autres) contrôlant annulations, ajustement de stock, édition produit et CRUD du stock externe. Chemins analysés : src/renderer/src/pages/{VentePage,AchatPage,TransfertPage,RecettesPage,SituationStockPage,AlertesPage}.tsx et src/renderer/src/components/Achat/{AchatFactureModal,AchatHistorique}.tsx sous /Users/maxwilliamrafaliarison/Library/CloudStorage/OneDrive-Personnel/Documents/LabBook/Application Pharmarcie Eugénio/Applicazione farmacia/ ; format de référence reçu vérifié dans src/renderer/src/utils/print.ts (buildReference)."
+ },
+ "ui-admin": {
+  "features": [
+   {
+    "nom": "Dashboard — Sélecteur de période",
+    "description": "Barre d'outils du tableau de bord avec 4 presets (Segmented antd) + un RangePicker libre. Toute modification recharge les stats via window.api.dashboard.stats({date_from, date_to}).",
+    "regles_metier": [
+     "Preset 'today' : date_from = date_to = aujourd'hui",
+     "Preset 'week' : du lundi de la semaine courante à aujourd'hui — calcul : daysToMon = (dayOfWeek === 0 ? 6 : dayOfWeek - 1), semaine commençant le LUNDI (dimanche traité comme fin de semaine)",
+     "Preset 'month' : du 1er du mois courant (startOf('month')) à aujourd'hui",
+     "Preset '30days' : glissant, now - 29 jours à aujourd'hui (30 jours inclus)",
+     "Sélection manuelle dans le RangePicker → preset passe à 'custom' ; les deux bornes doivent être non nulles pour être appliquées",
+     "Format interne des dates : YYYY-MM-DD ; format d'affichage du picker : DD/MM/YYYY ; allowClear=false (jamais de période vide)",
+     "Preset par défaut au chargement : 'month'"
+    ],
+    "calculs": "dayjs pour tous les calculs de dates. Rechargement automatique via useEffect sur (dateFrom, dateTo).",
+    "cas_limites": [
+     "Dimanche : la semaine remonte 6 jours en arrière (lundi précédent)",
+     "RangePicker à moitié rempli : ignoré"
+    ],
+    "details_ui": "Bouton refresh manuel (ReloadOutlined) avec état loading. Contenu scrollable sous une toolbar fixe."
+   },
+   {
+    "nom": "Dashboard — 5 cartes KPI",
+    "description": "Rangée de 5 KpiCard à largeur égale (Col flex=1) : CA Ventes Cash, Prises en charge (PEC), Articles vendus (+ nb transferts en sous-titre), Achats fournisseurs, Valeur stock.",
+    "regles_metier": [
+     "KPI 1 'CA Cash' : stats.ventesCash formaté compact, sous-titre = ventesCount + ' ventes', couleur #3db36b sur fond #f0fff4",
+     "KPI 2 'Prises en charge' : stats.ventesPecCount (compteur brut, pas un montant — les PEC ne génèrent pas de CA), couleur #722ed1 fond #f9f0ff",
+     "KPI 3 'Articles vendus' : Math.round(stats.totalArticlesVendus) (arrondi car les ventes fractionnées produisent des décimales), sous-titre 'Transferts: N', couleur #1677ff fond #e6f4ff",
+     "KPI 4 'Achats' : stats.achatsTotal, sous-titre achatsCount + ' commandes', couleur #d4690a fond #fff7e6",
+     "KPI 5 'Valeur stock' : stats.stockValeur, sous-titre stockNbProduits + ' produits', couleur #2a6496 fond #e8f3fb"
+    ],
+    "calculs": "Formatage compact fmtAr : v ≥ 1 000 000 → '(v/1M).toFixed(1)M' (ex: 2.3M) ; v ≥ 1 000 → '(v/1K).toFixed(0)K' (ex: 45K) ; sinon valeur brute arrondie. Format complet fmtArFull : Math.round(n).toLocaleString('fr-FR') + ' Ar'.",
+    "cas_limites": [
+     "stats null (chargement) : toutes les valeurs affichent 0"
+    ],
+    "details_ui": "Titre 11px uppercase gris, valeur 24px fontWeight 800, unité 'Ar' en 12px à côté. Bordure de carte = couleur + suffixe alpha '55'."
+   },
+   {
+    "nom": "Dashboard — Marge brute estimée",
+    "description": "Bandeau affichant la marge brute de la période, uniquement si au moins une vente existe.",
+    "regles_metier": [
+     "Formule exacte : marge = stats.ventesCash − stats.achatsTotal (les PEC sont exclues car non encaissées)",
+     "Affiché seulement si stats.ventesCount > 0",
+     "marge ≥ 0 : fond #f6ffed, bordure #b7eb8f, texte #389e0d ; marge < 0 : fond #fff1f0, bordure #ffa39e, texte #cf1322",
+     "Le détail du calcul est affiché entre parenthèses : '(CA X Ar − Achats Y Ar)'"
+    ],
+    "calculs": "Simple soustraction, pas de COGS réel — c'est une approximation cash-in vs cash-out sur la période, assumée comme 'estimée' dans le libellé.",
+    "cas_limites": [
+     "Marge négative gérée visuellement (rouge)",
+     "Aucune vente : bandeau masqué"
+    ]
+   },
+   {
+    "nom": "Dashboard — Graphique d'évolution journalière (SVG fait main)",
+    "description": "Graphique à barres appariées (ventes vertes / achats orange) par jour, en SVG pur sans bibliothèque de charts, avec grille, tooltips natifs et légende.",
+    "regles_metier": [
+     "Série continue reconstituée jour par jour entre date_from et date_to : buildDailyData remplit chaque jour absent avec 0 (Map date→montant, boucle dayjs +1 jour)",
+     "viewBox 900×158 (H=130 + 28 pour labels/légende), paddings gauche/droite 8px",
+     "maxVal = max(ventes, achats) sur toute la période, minimum forcé à 1 (évite division par zéro)",
+     "Largeur de barre : barW = clamp(3, (pairW − 6) / 2, 22) où pairW = largeurChart / nbJours ; écart entre paire = 2px",
+     "Hauteur mini de barre : 2px si la valeur est > 0 (une petite vente reste visible), 0 sinon",
+     "Grille horizontale à 25 %, 50 %, 75 %, 100 % de maxVal, avec valeur compactée (fmtAr) en 8px gris",
+     "Densité des labels de date : tous les jours si n ≤ 7 ; 1 sur 2 si n ≤ 15 ; 1 sur 5 si n ≤ 31 ; sinon 1 sur 7",
+     "Label de date = date.slice(5) avec '-'→'/' (format MM/JJ)",
+     "Si tous les jours sont à 0 : message 'Aucune donnée pour cette période' à la place du graphique"
+    ],
+    "calculs": "Hauteur barre = (valeur / maxVal) × H. Tooltip natif via <title> SVG : 'YYYY-MM-DD — Ventes: X Ar'.",
+    "cas_limites": [
+     "Période sans données → placeholder",
+     "data.length === 0 → return null",
+     "Beaucoup de jours → barres rétrécies jusqu'à 3px, labels espacés"
+    ],
+    "details_ui": "Couleurs : ventes #52c41a, achats #fa8c16, opacité 0.9, coins arrondis rx=1.5. Légende dessinée dans le SVG. Titre de carte avec la période affichée en secondaire."
+   },
+   {
+    "nom": "Dashboard — Top médicaments vendus / achetés",
+    "description": "Deux cartes côte à côte (span 12/12) listant les tops avec barres de progression horizontales (composant TopBar).",
+    "regles_metier": [
+     "Top ventes : barre proportionnelle au MONTANT ; référence 100 % = montant du 1er élément (topDrugsVente[0].montant), pas la somme — le classement est supposé trié desc côté backend",
+     "Top achats : barre proportionnelle à la QUANTITÉ (qty en boîtes) ; référence = topDrugsAchat[0].qty",
+     "pct = maxValue > 0 ? round(value/maxValue×100) : 0",
+     "Texte secondaire ventes : 'X Ar · N×' ; achats : 'N bte · X Ar'"
+    ],
+    "cas_limites": [
+     "Liste vide → 'Aucune donnée'",
+     "maxValue = 0 → barre à 0 % (pas de NaN)"
+    ],
+    "details_ui": "Barres 6px de haut, fond #f0f0f0, transition width 0.5s. Libellé tronqué avec ellipsis à 55 % de largeur max. Titres colorés : ▲ vert #389e0d / ▼ orange #d4690a."
+   },
+   {
+    "nom": "Dashboard — Ventes par forme pharmaceutique",
+    "description": "Grille de petites cartes (FormeCard) : une par forme (Comprimé, Sirop…), montrant montant total et nombre de ventes.",
+    "regles_metier": [
+     "Maximum 8 formes affichées : ventesParForme.slice(0, 8)",
+     "Carte masquée entièrement si la liste est vide",
+     "Chaque carte : nom de forme (bleu #2a6496), montant complet en Ar, 'N ventes'"
+    ],
+    "details_ui": "flex-wrap avec flex '1 1 110px', minWidth 110px, fond #f8f9fa."
+   },
+   {
+    "nom": "Dashboard — Rapport automatique imprimable configurable",
+    "description": "Panneau de composition d'un rapport HTML A4 : cases à cocher par section, options, préférences persistées, génération et ouverture via window.api.report.openHtml(html) (fenêtre d'impression côté main process).",
+    "regles_metier": [
+     "6 sections activables : kpis, marge, chart (graphique évolution), topVente, topAchat, forme",
+     "Défauts (DEFAULT_PREFS) : kpis✓, marge✓, chart✓, topVente✓, topAchat✗, forme✗, avecGraphiques✓ — les 4 premières portent un tag vert 'Recommandé'",
+     "Préférences persistées dans localStorage clé 'dashReportPrefs', fusion défensive { ...DEFAULT_PREFS, ...JSON.parse(raw) } (tolère un JSON partiel/corrompu via try/catch)",
+     "Bouton reset (UndoOutlined) qui réécrit les défauts",
+     "Option 'Inclure graphiques SVG' : si OFF, la section évolution devient un TABLEAU (uniquement les jours où ventes > 0 OU achats > 0) au lieu du SVG",
+     "La période du rapport = la sélection active du dashboard (affichée dans le panneau)",
+     "Section chart omise si aucun jour n'a de données ; sections top/forme omises si listes vides",
+     "En-tête du rapport : constante en dur 'PHARMACIE DU CENTRE REX', date de génération en toLocaleDateString('fr-FR', {day:'2-digit', month:'long', year:'numeric'}), période from → to",
+     "SVG du rapport : version réduite (660×138, barW clamp 3–18), même règle labelEvery, légende 'Ventes'/'Achats' en dur (non traduite)"
+    ],
+    "calculs": "Marge recalculée dans le rapport avec la même formule ventesCash − achatsTotal, classes CSS pos/neg. KPI tableau 5 colonnes reprenant exactement les 5 KPI écran.",
+    "cas_limites": [
+     "Bouton désactivé tant que stats est null",
+     "localStorage corrompu → retour silencieux aux défauts"
+    ],
+    "details_ui": "CSS print inline complet : page-break-inside:avoid par section, thead bleu #2a6496 blanc, lignes zébrées, @media print { body { padding:10px } }. Le rapport est toujours en français quel que soit la langue de l'UI."
+   },
+   {
+    "nom": "Authentification — Page de connexion",
+    "description": "Écran de login plein écran (dégradé bleu 135deg #1a4a70→#2a6496→#1a4a70) avec double logo (La Vita per Te + Akbaraly Foundation), formulaire username/password, bascule de langue.",
+    "regles_metier": [
+     "Appel window.api.auth.login(username, password) ; succès → onLogin(user) remonte l'AuthUser à App",
+     "Échec : message d'erreur du backend (res.error) ou fallback traduit 'Identifiants invalides' ; exception réseau → même fallback",
+     "Champs requis (message vide ' ' pour ne pas décaler la mise en page)",
+     "Indice affiché en pied de page : 'Compte admin par défaut : admin / admin' (clé i18n users.default.hint) — le compte admin/admin existe donc par défaut",
+     "Pas de session persistée : l'état auth vit uniquement en useState React, un redémarrage de l'app exige une reconnexion"
+    ],
+    "details_ui": "Carte blanche 380px, ombre portée forte, préfixes émoji 👤/🔒 dans les inputs, autoFocus sur username, bouton pleine largeur 44px. Toggle langue en haut à droite au format 'FR → IT'."
+   },
+   {
+    "nom": "Shell applicatif — Navigation par modules et contrôle d'accès par rôle",
+    "description": "App.tsx : header (logos, nom/rôle de l'utilisateur connecté, date du jour localisée, toggle langue, bouton déconnexion ⏻) + barre d'onglets de 10 modules + rendu conditionnel de la page active.",
+    "regles_metier": [
+     "10 modules : vente, achat, transfert, recettes, stock, dashboard, alertes (avec badge), guide, users (adminOnly), parametres (adminOnly)",
+     "Filtrage RBAC : MODULES.filter(m => !m.adminOnly || authUser.role === 'admin') — deux rôles seulement : 'admin' et 'operateur'",
+     "Double garde pour Paramètres : l'onglet est filtré ET le rendu vérifie encore authUser.role === 'admin'",
+     "Badge d'alertes : au login, window.api.stock.alertes() est appelé et le nombre d'alertes s'affiche en pastille sur l'onglet 🔔 Alertes (affiché si > 0) ; AlertesPage peut le mettre à jour via onCountChange",
+     "Déconnexion : remet authUser à null, module actif à 'vente', compteur d'alertes à 0",
+     "Module par défaut après login : 'vente'",
+     "Date du header localisée : it-IT ou fr-FR selon la langue, format DD/MM/YYYY"
+    ],
+    "cas_limites": [
+     "Échec du fetch d'alertes silencieusement ignoré (.catch(() => {}))"
+    ],
+    "details_ui": "Pas de router : simple switch sur activeModule (les pages sont démontées/remontées à chaque changement d'onglet, donc état de page non conservé). Certaines pages reçoivent currentUser (achat, stock, recettes, alertes, users), d'autres non (vente, transfert)."
+   },
+   {
+    "nom": "Gestion utilisateurs — Liste et statuts",
+    "description": "Table antd sans pagination listant tous les comptes : identifiant, nom complet, rôle, statut actif/inactif (switch), dernière connexion, actions.",
+    "regles_metier": [
+     "L'utilisateur courant est marqué d'un tag bleu 'moi'",
+     "Rôle affiché en Tag : 'admin' → gold, sinon bleu",
+     "Switch actif/inactif : appelle users.setActif(id, actif===0) — DÉSACTIVÉ pour soi-même ET pour le compte au username littéral 'admin' (le super-admin ne peut jamais être désactivé)",
+     "Suppression : bouton ✕ avec Popconfirm 'Oui/Non' — visible seulement si la ligne n'est ni soi-même ni le compte 'admin'",
+     "last_login affiché via new Date(v).toLocaleString('fr-FR'), '—' si null",
+     "Champ actif stocké en entier SQLite (0/1), comparé strictement : r.actif === 1"
+    ],
+    "cas_limites": [
+     "Auto-désactivation et auto-suppression impossibles",
+     "Compte 'admin' indestructible et indésactivable"
+    ],
+    "details_ui": "Bouton 🔑 (reset mot de passe) disponible sur TOUTES les lignes y compris soi-même."
+   },
+   {
+    "nom": "Gestion utilisateurs — Création de compte",
+    "description": "Modal de création avec formulaire : identifiant, nom, prénom (facultatif), rôle (Select operateur/admin), mot de passe initial.",
+    "regles_metier": [
+     "Champs requis : username, nom, role, password ; prénom optionnel",
+     "Mot de passe : longueur minimale 4 caractères (rules min: 4) — politique très permissive",
+     "Rôle par défaut : 'operateur' (initialValue)",
+     "Erreur backend (ex. doublon d'identifiant) affichée telle quelle en message.error",
+     "Succès → toast 'Enregistré', fermeture, reset du formulaire, rechargement de la liste"
+    ],
+    "details_ui": "autoComplete='off' sur l'identifiant et 'new-password' sur le mot de passe pour éviter l'autofill. destroyOnClose sur le modal."
+   },
+   {
+    "nom": "Gestion utilisateurs — Réinitialisation et changement de mot de passe",
+    "description": "Deux flux distincts : (1) reset par admin d'un mot de passe de n'importe quel compte sans connaître l'ancien ; (2) changement de son propre mot de passe avec vérification de l'ancien.",
+    "regles_metier": [
+     "Reset admin : users.resetPassword(userId, newPassword), nouveau mot de passe min 4 caractères, aucune vérification de l'ancien",
+     "Changement personnel : 3 champs (actuel, nouveau min 4, confirmation) ; vérification côté client newPassword === confirm avec erreur 'Les mots de passe ne correspondent pas'",
+     "users.changePassword(currentUser.id, old, new) retourne {success, error} — l'échec (ancien mot de passe faux) affiche res.error"
+    ],
+    "cas_limites": [
+     "Confirmation non concordante bloquée avant l'appel API"
+    ],
+    "details_ui": "Le titre du modal de reset inclut le username ciblé. Le bouton 'Changer mon mot de passe' est dans la toolbar de la page, accessible à tout utilisateur qui voit la page."
+   },
+   {
+    "nom": "Paramètres — Sauvegarde locale automatique",
+    "description": "Section informative + bouton de sauvegarde manuelle de la base de données.",
+    "regles_metier": [
+     "Sauvegarde automatique quotidienne AU DÉMARRAGE de l'application (pas de scheduler continu)",
+     "Contrôle d'intégrité annoncé : 'le fichier est réellement testé, pas juste copié' (vérification du backup après création)",
+     "Rétention : les 10 dernières sauvegardes VALIDES sont conservées localement (affichage 'N / 10')",
+     "Bouton '💾 Sauvegarder maintenant' → backup.now() puis relit backup.info() pour rafraîchir la date et le compteur"
+    ],
+    "cas_limites": [
+     "Erreur affichée dans un bandeau rouge 'Erreur backup: …'"
+    ],
+    "details_ui": "Affiche la dernière date de sauvegarde, le compteur x/10 et le chemin du dossier de backup en monospace."
+   },
+   {
+    "nom": "Paramètres — Sauvegarde hors site Google Drive",
+    "description": "Configuration OAuth Google Drive apportée par l'utilisateur (BYO credentials) : Client ID + Client Secret + ID de dossier Drive, connexion OAuth via navigateur, envoi quotidien automatique et test manuel.",
+    "regles_metier": [
+     "Envoi quotidien automatique en plus du backup local ; si pas d'internet → nouvel essai le lendemain (retry silencieux)",
+     "Rétention côté Drive : 10 dernières sauvegardes conservées dans le dossier",
+     "Flux : (1) driveSaveCredentials({clientId, clientSecret, folderId}) ; (2) driveConnect() ouvre le navigateur pour l'OAuth et retourne {success, accountEmail} ; (3) driveUploadNow() pour tester ; driveDisconnect() pour révoquer",
+     "Le bouton 'Connecter' est désactivé tant que configured === false (identifiants non enregistrés)",
+     "L'ID du dossier se copie depuis l'URL Drive après '/folders/' (instructions à l'écran)",
+     "Statut affiché : Connecté (email du compte) en vert / Non connecté en rouge + date du dernier envoi"
+    ],
+    "cas_limites": [
+     "Placeholders masqués '••••' quand des identifiants existent déjà (le secret n'est jamais réaffiché)",
+     "Échec OAuth → message d'erreur backend affiché"
+    ],
+    "details_ui": "Encadré jaune pas-à-pas en 6 étapes pour créer le projet Google Cloud, activer l'API Drive et générer un ID client OAuth 'Application de bureau'. Boutons contextuels : avant connexion 'Connecter', après : 'Tester l'envoi' + 'Déconnecter' (rouge)."
+   },
+   {
+    "nom": "Paramètres — Rapports email planifiés (SMTP Gmail)",
+    "description": "Envoi automatique de rapports par email via un compte Gmail expéditeur (mot de passe d'application), avec fréquence, heure, jour et contenu configurables.",
+    "regles_metier": [
+     "Config EmailConfig : {recipient, smtpUser, smtpPass, frequency, time, day, reports[]}",
+     "Fréquences : 'never' (Désactivé) / 'daily' / 'weekly' / 'monthly' ; défaut : daily à 07:00",
+     "Si weekly : sélecteur jour de semaine 0–6 (Dim, Lun, Mar, Mer, Jeu, Ven, Sam — 0 = dimanche)",
+     "Si monthly : jour du mois limité à 1–28 (évite explicitement les problèmes de 29/30/31 sur les mois courts)",
+     "4 rapports cochables (tous cochés par défaut) : 'ordre' = Médicaments à commander, 'scadenze' = Péremptions à 90 jours, 'vendite' = Récapitulatif ventes, 'acquisti' = Récapitulatif achats (clés internes en italien)",
+     "Prérequis Gmail documenté à l'écran : validation en 2 étapes + mot de passe d'application 16 caractères",
+     "Boutons 'Tester l'envoi' et 'Envoyer maintenant' sauvegardent d'abord la config puis envoient ; désactivés si smtpPass vide",
+     "Sauvegarde hebdomadaire de la BASE DE DONNÉES par email : chaque LUNDI à 06:30 vers l'adresse destinataire, via le même compte SMTP (règle en dur annoncée dans un encadré bleu) ; bouton dédié '📦 Tester la sauvegarde par email' (backup.emailNow())"
+    ],
+    "cas_limites": [
+     "Jour du mois 29-31 impossible par construction",
+     "Tous les boutons d'envoi inertes sans mot de passe SMTP"
+    ],
+    "details_ui": "Page en HTML/CSS inline pur (pas d'antd), style formulaire maison. Messages de statut verts/rouges. Le champ 'day' est une string partagée entre weekly et monthly."
+   },
+   {
+    "nom": "Guide utilisateur intégré (FR + IT)",
+    "description": "Page d'aide embarquée en dur dans le code : 7 sections navigables via une sidebar (TOC), avec intro, sous-sections, étapes numérotées et notes typées (tip/warn/info). Contenu entièrement dupliqué en français et en italien.",
+    "regles_metier": [
+     "7 sections : 1. Présentation générale (5 modules + concept du double stock), 2. Vente, 3. Achat, 4. Transfert GROS→VENTE, 5. Situation Stock, 6. Recettes & Caisse, 7. Ajout de médicaments",
+     "Le guide documente les règles métier de l'app — valeurs citées : autocomplétion vente dès 2 caractères ; monnaie à rendre calculée automatiquement ; vente PEC avec champs Entité payeur/Client/Service/Médecin/N° lit/N° attestation ; stock insuffisant = ajout au panier bloqué ; marge achat = Prix vente actuel − Prix achat saisi ; transfert en boîtes ENTIÈRES uniquement, plafonné au stock GROS ; vente déduit du stock VENTE puis du GROS si besoin ; couleurs stock : rouge = rupture (qté 0), orange = stock bas (qté ≤ seuil min) ; péremption : rouge = expiré, orange = < 90 jours ; valorisation = quantité × prix de vente ; ventes PEC à 0 Ar (remboursées par l'entité payeur) ; produit fractionnable : stock géré en unités de base (cp, ml) pour éviter les erreurs d'arrondi",
+     "3 types de notes avec styles distincts : tip (bleu #e6f4ff / icône check), warn (orange #fff7e6 / warning), info (vert #f6ffed / info)",
+     "La langue du guide suit la langue globale de l'app (useLang) ; sélection de section conservée au changement de langue (ids identiques)"
+    ],
+    "cas_limites": [
+     "activeId introuvable → fallback sur la première section"
+    ],
+    "details_ui": "Sidebar 220px avec item actif surligné (bordure gauche 3px #2a6496), contenu max 760px, étapes rendues avec Tag numéroté bleu, séparateur avant les 'Notes & Conseils'."
+   },
+   {
+    "nom": "Recherche globale multi-entités",
+    "description": "Composant GlobalSearch : champ de recherche (style header sombre) qui interroge window.api.search.global(q) et affiche un dropdown groupé en 3 sections — Médicaments, Ventes, Achats — chaque résultat naviguant vers le module concerné.",
+    "regles_metier": [
+     "Déclenchement : minimum 2 caractères (trim), sinon résultats vidés",
+     "Debounce de 280 ms exactement (setTimeout annulé à chaque frappe)",
+     "Portée : 3 entités. Produits → clic navigue vers 'stock' ; Ventes → 'recettes' ; Achats → 'achat'. La navigation vide la requête et ferme le dropdown (pas de deep-link vers l'élément précis)",
+     "Badges : produit avec quantite ≤ 0 → badge rouge 'Rupture' (#ff4d4f) ; vente avec type_vente === 'prise_en_charge' → badge orange 'PEC' (#d46b08)",
+     "Affichage produit : designation en principal ; secondaire = [code, forme, dosage] joints par ' · ' (champs vides filtrés)",
+     "Affichage vente : reference en principal ; secondaire = [date_vente, client_nom ?? entite_payeur] joints par ' — '",
+     "Affichage achat : reference ; secondaire = [date_facture, fournisseur_nom]",
+     "Raccourcis : Escape ferme et vide le champ. AUCUN raccourci global d'ouverture (pas de Ctrl+K). Clic hors du conteneur (mousedown document) ferme le dropdown. Refocus avec ≥2 chars rouvre les résultats"
+    ],
+    "calculs": "total = somme des longueurs des 3 listes ; 'Aucun résultat' affiché si total = 0 et pas en chargement.",
+    "cas_limites": [
+     "Requête < 2 chars ignorée",
+     "Indicateur de chargement '…' discret dans le champ"
+    ],
+    "details_ui": "Largeur fixe 260px, dropdown maxHeight 480px scrollable, zIndex 9999, en-têtes de section uppercase 10px avec icône. NOTE : ce composant n'est PAS monté dans App.tsx — il attend un onNavigate(module) et semble prêt mais non branché (ou branché ailleurs)."
+   },
+   {
+    "nom": "Ajustement de stock par lot (inventaire)",
+    "description": "Modal AjustStockModal : correction du stock GROS d'un produit AU NIVEAU DU LOT, avec motif obligatoire et traçabilité, y compris création d'un nouveau lot à la volée.",
+    "regles_metier": [
+     "À l'ouverture : chargement des lots du produit (lots.parProduit) ; le PREMIER lot est présélectionné et sa quantité qte_gros préremplit le champ ; sans lot → mode 'nouveau lot' (sentinelle '__new__')",
+     "Libellé de lot : '{code ou Lot #id} — exp. DD/MM/YYYY (ou \"sans péremption\") — {qte_gros} en stock'",
+     "Unité de saisie : si peut_fractionner ET facteur_conversion > 1 → 'unités base (1 boîte = N cp)' ; sinon 'boîtes' — l'ajustement se fait toujours dans l'unité de gestion du stock",
+     "Nouvelle quantité : requise, ≥ 0, entier (precision 0) — c'est une quantité CIBLE absolue, pas un delta",
+     "Delta affiché en temps réel dans l'addon du champ : +N vert (#52c41a) / −N rouge (#ff4d4f) / ±0 gris",
+     "Motif OBLIGATOIRE parmi 6 valeurs fixes : 'Inventaire physique', 'Perte / Casse', 'Produit périmé retiré', 'Don reçu', 'Correction d'erreur de saisie', 'Autre' ; si 'Autre' → champ texte libre requis qui remplace le motif",
+     "Appel : produitsMouvements.ajuster(produitId, lotId|null, nouvelleQte, motif, operateur, nouveauLot?, nouvelleExpiration?) — les 2 derniers args passés uniquement en mode nouveau lot (numéro facultatif, date format YYYY-MM-DD)",
+     "Opérateur tracé = 'Nom Prénom' de l'utilisateur connecté",
+     "Avertissement permanent : action tracée dans l'historique des mouvements"
+    ],
+    "cas_limites": [
+     "Produit sans lots → création de lot directe",
+     "Quantité négative impossible (min 0)",
+     "Nouveau lot sans numéro ni date accepté (null/null)"
+    ],
+    "details_ui": "Bouton de confirmation passe en 'danger' (rouge) quand le delta est négatif. Titre du modal en italien 'Rettifica stock' (incohérence de langue). Spin pendant le chargement des lots."
+   },
+   {
+    "nom": "Édition de produit avec audit par champ",
+    "description": "Modal EditProduitModal : modification de toutes les propriétés d'un médicament ; chaque champ modifié est historisé (ancienne → nouvelle valeur, opérateur, date) côté backend.",
+    "regles_metier": [
+     "Champs : designation (requis), dosage, forme, dci, code, lot, date_expiration, conditionnement, emplacement, prix_achat, prix_vente (requis), stock_min, + bloc fractionnement",
+     "Datalist HTML de 10 formes suggérées (saisie libre possible) : Comprimé, Gélule, Sirop, Sachet, Goutte buvable, Injectable, Crème, Pommade, Suppositoire, Patch",
+     "Tous les prix et seuils : min 0 ; défauts si vides : stock_min → 0, prix_achat → 0 ; champs texte vides normalisés à null",
+     "Fractionnement (switch 'Peut être vendu à l'unité') : si ON, unite_detail / facteur_conversion (min 1) / prix_vente_detail deviennent tous REQUIS ; si OFF, les 3 sont forcés à null à l'enregistrement",
+     "Auto-suggestion du prix unitaire : prix_vente_detail = Math.round(prix_vente / facteur_conversion), recalculé quand prix_vente ou facteur_conversion change, MAIS uniquement tant que l'utilisateur n'a pas touché manuellement le champ (flag prixDetailTouched) ; à l'ouverture, le flag est vrai si un prix unitaire existe déjà (on ne réécrase jamais un prix existant)",
+     "update via produits.update(id, input, operateurLabel) avec l'opérateur en clair pour l'audit"
+    ],
+    "cas_limites": [
+     "Erreur de validation antd silencieuse (errorFields intercepté)",
+     "Erreur backend affichée en Alert dans le modal"
+    ],
+    "details_ui": "Bandeau jaune d'avertissement audit en tête. Grilles 2 et 3 colonnes, modal 560px."
+   },
+   {
+    "nom": "Historique des mouvements produit avec solde cumulé",
+    "description": "Modal MovimentiModal : journal complet des mouvements de stock d'un produit (type, date, référence/motif, delta, lot) avec calcul du stock cumulé ligne par ligne.",
+    "regles_metier": [
+     "7 types de mouvements avec couleur dédiée : achat (#52c41a), vente (#ff4d4f), transfert (#1677ff), ajustement (#fa8c16), retour 'Reso/Retour' (#13c2c2), achat_annule (#8c8c8c), modification (#722ed1)",
+     "Le solde cumulé est reconstitué côté client : les lignes arrivent du plus récent au plus ancien ; on inverse, on accumule bal += delta, on arrondit à 2 décimales (Math.round(bal×100)/100), puis on ré-inverse pour l'affichage",
+     "Deltas arrondis à 2 décimales à l'affichage (les produits fractionnés génèrent des décimales), préfixe '+' si positif, vert/rouge/gris selon signe",
+     "Solde cumulé ≤ 0 affiché en rouge",
+     "Flag annule === 1 → tag 'Annulée' à côté de la référence (les mouvements annulés restent dans l'historique)",
+     "Ligne : référence en gras + détail (motif) en gris + numéro de lot le cas échéant ; date tronquée à 10 caractères (YYYY-MM-DD)"
+    ],
+    "cas_limites": [
+     "Aucun mouvement → Empty antd avec message dédié",
+     "Type inconnu → libellé brut sans couleur"
+    ],
+    "details_ui": "Modal 720px, table paginée 20 lignes fixes, scroll vertical 420px, montants en monospace."
+   },
+   {
+    "nom": "Création de médicament (catalogue)",
+    "description": "Modal ProduitCreateModal, appelable depuis le module Achat avec pré-remplissage de la désignation recherchée ; le produit créé est immédiatement disponible (callback onCreated).",
+    "regles_metier": [
+     "Seuls designation et prix_vente sont requis ; tout le reste optionnel (code, dci, classe_therapeutique, forme, dosage, conditionnement, emplacement)",
+     "Défauts : prix_achat → 0, stock_min → 0, champs texte vides → null",
+     "Même mécanisme de fractionnement que l'édition : switch OFF par défaut, si ON les 3 champs (unité, facteur ≥ 1, prix unité) sont requis",
+     "Même auto-suggestion prix unité = round(prix boîte / facteur), avec flag touched initialisé à false (suggestion active pour tout nouveau produit) et hint affiché 'Suggéré : prix boîte / unités par boîte'",
+     "Reset complet du formulaire à chaque ouverture (afterOpenChange), puis injection de initialDesignation si fournie",
+     "Toast de succès : '« DESIGNATION » ajouté au catalogue'"
+    ],
+    "cas_limites": [
+     "Erreur backend (ex. doublon) affichée en message.error",
+     "Erreurs de validation antd ignorées silencieusement"
+    ],
+    "details_ui": "Placeholder pédagogique 'Ex: PARACETAMOL 500mg'. Datalist des 10 formes partagée avec l'édition. Champ classe_therapeutique présent dans l'input de création mais pas dans le formulaire d'édition."
+   },
+   {
+    "nom": "Reçu de caisse thermique 80mm — génération HTML",
+    "description": "print.ts : génération d'un ticket de caisse HTML autonome pour imprimante thermique 80mm, avec deux variantes (vente cash / prise en charge PEC) et une copie client courte détachable.",
+    "regles_metier": [
+     "Format papier : @page size 80mm auto, marges 4mm 3mm, corps 74mm de large, police 'Courier New' monospace 9pt",
+     "Référence de vente : buildReference(venteId) = 'YY/MM/PHA/NNNNN' — année sur 2 chiffres, mois zero-padded, id de vente paddé à 5 chiffres (ex : 26/06/PHA/00001) ; générée à partir de la date COURANTE d'impression",
+     "En-tête en dur : PHARMACY_NAME='PHARMACIE DU CENTRE REX', PHARMACY_ADDR='Fianarantsoa · La Vita per Te' ; NIF et STAT vides (ligne masquée si NIF vide)",
+     "Métadonnées : date, heure, référence, 'Dispensateur :' (nom opérateur)",
+     "Tableau articles 4 colonnes à largeurs fixes : Désignation 55 % (word-break), Qté 8 % centré, P.U. 18 % droite, Total 19 % droite",
+     "Variante CASH : TOTAL FACTURE en gras ; si montantRecu fourni → lignes ESPÈCES et RENDU, avec monnaie = (montantRecu ?? totalReal) − totalReal",
+     "Variante PEC : prix unitaires et totaux forcés à '0' sur chaque ligne ; encadré '** PRISE EN CHARGE **' (bordure noire, lettres espacées) ; 'TOTAL À PAYER : 0 Ar' ; mention '(Valeur réelle médicaments : X Ar)' en petit ; bloc info patient (chaque ligne omise si champ vide) : Patient, Référence (clientId), Entité, Service, Médecin, N° Lit, Attestation ; N° lit et attestation extraits d'un champ notes JSON {numero_lit, num_attestation} parsé avec try/catch ; ligne de signature 'Signature (Patient / Tuteur)' de 55mm",
+     "Nombres : toLocaleString('fr-FR') sans décimales (maximumFractionDigits: 0)",
+     "Pied : 'Merci de votre visite !' + 'Les retours s'effectuent le jour même uniquement.' (politique de retour en dur)",
+     "Copie client : séparateur '- - - - - COPIE - - - - -', version condensée — date/heure, référence en 11pt ; PEC → '** PRISE EN CHARGE **' + entité ; cash → TOTAL + RENDU (affiché seulement si monnaie > 0) ; nom de l'opérateur en bas à droite"
+    ],
+    "calculs": "monnaie = (montantRecu ?? totalReal) − totalReal (donc 0 si non renseigné, jamais négatif attendu car validé en amont).",
+    "cas_limites": [
+     "notes JSON invalide → ignoré silencieusement",
+     "montantRecu absent → bloc espèces/rendu omis",
+     "Tout champ PEC optionnel absent → sa ligne disparaît"
+    ],
+    "details_ui": "Reçu entièrement en français quelle que soit la langue de l'UI. Classes CSS utilitaires ultra-compactes (.c .r .b .sm .dash .solid)."
+   },
+   {
+    "nom": "Impression du reçu — deux mécanismes (direct et aperçu)",
+    "description": "printReceipt() imprime silencieusement via un iframe caché ; ReceiptPreviewModal affiche le reçu dans un iframe visible avec boutons 'Imprimer' / 'Fermer sans imprimer'.",
+    "regles_metier": [
+     "Impression directe : création d'un iframe positionné hors écran (top:-9999px, 80mm × 200mm, invisible), doc.write(html), puis délai de 400 ms pour laisser le rendu des polices/mise en page avant focus() + print() ; l'iframe est retiré du DOM 1500 ms après le déclenchement (try/finally pour garantir le nettoyage)",
+     "Aperçu : iframe 100 % × 580px dans un modal antd de 440px, contenu réécrit à chaque ouverture (doc.open/write/close), impression via contentWindow.print() du même iframe",
+     "L'UI principale n'est jamais perturbée (pas de window.print global, pas de navigation)"
+    ],
+    "cas_limites": [
+     "Modal sans données (data null) → return null",
+     "Double timer défensif pour le retrait de l'iframe"
+    ],
+    "details_ui": "Le choix aperçu vs direct est laissé à l'appelant (VentePage)."
+   },
+   {
+    "nom": "Internationalisation FR / IT maison",
+    "description": "Mini-système i18n sans dépendance externe : dictionnaire plat d'environ 250 clés, chaque entrée = {fr, it}, exposé via React Context (LangProvider / useLang / t()).",
+    "regles_metier": [
+     "2 langues exactement : 'fr' (défaut) et 'it' — public cible : équipe malgache francophone + ONG italienne",
+     "Résolution : t(key) = dict[key][langCourante] ?? dict[key].fr ?? key — fallback en cascade vers le français puis vers la clé brute (jamais d'erreur)",
+     "Persistance : localStorage clé 'lang', lue à l'initialisation du provider ; setLang écrit l'état ET le localStorage",
+     "Bascule binaire NEXT_LANG {fr→it, it→fr} affichée 'FR → IT' — dupliquée dans App.tsx et LoginPage",
+     "Couverture partielle assumée : ParametresPage, le rapport dashboard, les reçus, GlobalSearch, AjustStock/Edit/Movimenti modals sont en français (ou italien) EN DUR, hors dictionnaire",
+     "Clés organisées par namespace préfixé : app., nav., login., users., btn., f. (champs communs), tag., vente., achat., trf., stock., rec., dash., alerte., prd."
+    ],
+    "cas_limites": [
+     "Clé manquante → la clé elle-même s'affiche (débogage facile)",
+     "localStorage vide → 'fr'"
+    ],
+    "details_ui": "Le dictionnaire révèle des fonctionnalités des pages non lues : mode PUMP pour les achats, TVA/IVA, transfert bidirectionnel VENTE→GROS (trf.dirDetailToGros), stock historique reconstitué à une date passée (stock.histoBanner 'Mode historique'), alertes en 4 onglets (GROS / Expirations / Stock Détail / À réapprovisionner) avec quantités à commander suggérées."
+   }
+  ],
+  "observations": "ARCHITECTURE : Electron + React 18 + TypeScript + antd (Ant Design) + dayjs. Toute la logique métier/persistance vit dans le main process, exposée au renderer via un pont IPC typé window.api.* (namespaces : auth, users, dashboard, search, produits, produitsMouvements, lots, stock, backup, email, report), types partagés dans env.d.ts. Pas de router (switch sur un state activeModule → les pages perdent leur état au changement d'onglet), pas de state manager global, pas de bibliothèque de charts (SVG écrit à la main, dupliqué en 2 versions écran/rapport), i18n maison sans i18next. Impression = HTML autonome dans un iframe caché ou via report.openHtml côté main. Persistance UI dans localStorage ('lang', 'dashReportPrefs').\n\nBONNES IDÉES À REPRENDRE : (1) le rapport imprimable configurable avec préférences persistées, tags 'Recommandé' et bascule SVG↔tableau pour compatibilité impression ; (2) l'ajustement d'inventaire au niveau du LOT avec motif obligatoire à choix fermé + delta visuel temps réel + création de lot inline ; (3) l'historique des mouvements avec solde cumulé reconstitué et types colorés incluant 'modification' (audit des changements de fiche produit champ par champ) ; (4) l'auto-suggestion du prix unitaire (prix boîte / facteur) désactivée dès que l'utilisateur touche le champ — pattern 'touched flag' propre ; (5) le reçu PEC à 0 Ar avec valeur réelle entre parenthèses, bloc patient conditionnel, ligne de signature et copie client détachable ; (6) la stratégie de sauvegarde 3 niveaux : locale quotidienne au démarrage avec test d'intégrité et rétention 10, Google Drive quotidien avec retry lendemain, et base envoyée par email chaque lundi 06:30 ; (7) le guide utilisateur bilingue embarqué qui sert aussi de spec fonctionnelle ; (8) le jour du mois limité à 1–28 pour la planification mensuelle ; (9) la protection du compte 'admin' par username en dur + interdiction d'auto-désactivation.\n\nDETTE / FAIBLESSES : sécurité faible (mot de passe min 4 caractères, hint 'admin / admin' affiché sur l'écran de login, pas de session persistée ni d'expiration) ; GlobalSearch.tsx semble non branché (non importé dans App.tsx — code mort ou intégration inachevée) et sans raccourci clavier global ; i18n incomplet (Paramètres, rapports, reçus, plusieurs modals en dur, titre 'Rettifica stock' en italien dans une UI française) ; constantes en dur à extraire (nom de pharmacie dupliqué dans print.ts, DashboardPage et i18n ; politique de retour ; 06:30 lundi) ; duplication du code SVG chart et du toggle de langue ; le classement Top médicaments suppose un tri desc côté backend (barre à >100 % sinon) ; RBAC binaire admin/opérateur sans permissions fines ; rowKey d'index dans MovimentiModal ; page Users accessible via onglet adminOnly mais sans garde de rendu (contrairement à Paramètres qui a la double garde).\n\nCONTEXTE MÉTIER : monnaie Ariary (Ar, fr-FR, pas de décimales), pharmacie 'Centre REX' à Fianarantsoa (La Vita per Te / Akbaraly Foundation). Concepts clés : double stock GROS (réserve fournisseur) / VENTE (comptoir), transferts en boîtes entières (bidirectionnels d'après l'i18n), vente fractionnée avec stock en unités de base, ventes PEC (prise en charge à 0 Ar remboursées par entité payeur), gestion par lots avec péremption (seuil d'alerte 90 jours), dons fournisseurs, TVA optionnelle, mode 'stock historique' à une date passée d'après les clés i18n. Le dictionnaire i18n est la meilleure carte de la surface fonctionnelle totale de l'app pour les pages non analysées ici (Vente, Achat, Transfert, Recettes, SituationStock, Alertes)."
+ }
+}
