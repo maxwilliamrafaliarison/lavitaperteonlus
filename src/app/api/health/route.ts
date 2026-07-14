@@ -22,8 +22,9 @@ export async function GET() {
     ok: boolean;
     timestamp: string;
     node: string;
-    env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean; pharmacieSheetId: boolean };
+    env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean; pharmacieSheetId: boolean; patientsUrl: boolean; patientsKey: boolean };
     sheets: { reachable: boolean; userCount?: number; error?: string };
+    patients?: { reachable: boolean; error?: string };
     latencyMs?: number;
   } = {
     ok: true,
@@ -35,9 +36,10 @@ export async function GET() {
       privateKey: Boolean(process.env.GOOGLE_PRIVATE_KEY),
       authSecret: Boolean(process.env.AUTH_SECRET),
       encryptionSecret: Boolean(process.env.ENCRYPTION_SECRET),
-      // Pharmacie : optionnelle pour le statut ok (app séparée),
-      // mais reportée ici pour le diagnostic
+      // Apps optionnelles pour le statut ok, reportées pour diagnostic
       pharmacieSheetId: Boolean(process.env.PHARMACIE_SHEET_ID),
+      patientsUrl: Boolean(process.env.PATIENTS_SUPABASE_URL),
+      patientsKey: Boolean(process.env.PATIENTS_SUPABASE_SERVICE_KEY),
     },
     sheets: { reachable: false },
   };
@@ -57,9 +59,26 @@ export async function GET() {
     log.error("health check sheets failure", e instanceof Error ? e : undefined);
   }
 
+  // Teste la connexion Patients (Supabase) si configurée — sanitize la
+  // clé comme le fait le client, pour détecter un caractère parasite.
+  if (result.env.patientsUrl && result.env.patientsKey) {
+    try {
+      const url = (process.env.PATIENTS_SUPABASE_URL ?? "").trim().replace(/\/+$/, "");
+      const key = (process.env.PATIENTS_SUPABASE_SERVICE_KEY ?? "").replace(/[^A-Za-z0-9._-]/g, "");
+      const res = await fetch(`${url}/rest/v1/dossiers?select=id&limit=1`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Accept-Profile": "patients" },
+      });
+      result.patients = res.ok
+        ? { reachable: true }
+        : { reachable: false, error: `HTTP ${res.status}` };
+    } catch (e) {
+      result.patients = { reachable: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
   // L'health est dégradé si une env var du cœur manque
-  // (pharmacieSheetId est diagnostique : app optionnelle)
-  const { pharmacieSheetId: _pharma, ...coreEnv } = result.env;
+  // (pharmacie/patients sont diagnostiques : apps optionnelles)
+  const { pharmacieSheetId: _p, patientsUrl: _pu, patientsKey: _pk, ...coreEnv } = result.env;
   if (Object.values(coreEnv).some((v) => !v)) {
     result.ok = false;
   }
