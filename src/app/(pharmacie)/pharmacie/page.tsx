@@ -282,10 +282,6 @@ export default async function PharmaciePage() {
               </div>
             </GlassCard>
           </section>
-
-          <p className="text-center text-xs text-muted-foreground">
-            {t("pharmacie.phase2_note")}
-          </p>
         </>
       )}
     </main>
