@@ -7,13 +7,20 @@
    ============================================================ */
 
 function env() {
-  const url = process.env.PATIENTS_SUPABASE_URL;
-  const key = process.env.PATIENTS_SUPABASE_SERVICE_KEY;
-  if (!url || !key) {
+  const rawUrl = process.env.PATIENTS_SUPABASE_URL;
+  const rawKey = process.env.PATIENTS_SUPABASE_SERVICE_KEY;
+  if (!rawUrl || !rawKey) {
     throw new Error(
       "Patients non configuré : PATIENTS_SUPABASE_URL / PATIENTS_SUPABASE_SERVICE_KEY manquants.",
     );
   }
+  // Un JWT ne contient que [A-Za-z0-9._-]. On retire tout caractère
+  // parasite (espaces, retours ligne, • collés par erreur) : cela évite
+  // le crash « Cannot convert argument to a ByteString » de fetch quand
+  // un en-tête contient un caractère hors Latin-1, et récupère la clé si
+  // le caractère était surnuméraire.
+  const key = rawKey.replace(/[^A-Za-z0-9._-]/g, "");
+  const url = rawUrl.trim().replace(/\/+$/, "");
   return { url, key };
 }
 
