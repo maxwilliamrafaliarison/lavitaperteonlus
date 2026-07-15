@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
+import { PanneBanner } from "@/components/layout/panne-banner";
 import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
 import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
@@ -43,6 +44,12 @@ export default async function PharmaciePage() {
 
   const res = await safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []);
   const produits = res.data;
+  // Trois états à ne jamais confondre : la source est tombée (res.ok=false),
+  // la source répond mais le stock est vide, ou tout va bien. On se fie au
+  // booléen que safe() renvoie déjà, jamais à une reconnaissance de motif
+  // dans le message d'erreur — isConfigError ne connaît que les erreurs
+  // Google, et laissait donc une panne Supabase s'afficher « Aucun produit ».
+  const panne = !res.ok;
   const configIssue = isConfigError(res.error);
 
   const actifs = produits.filter((p) => p.statut === "actif");
@@ -124,7 +131,16 @@ export default async function PharmaciePage() {
         </div>
       </div>
 
-      {produits.length === 0 ? (
+      {panne ? (
+        // La source de données est injoignable. On ne montre AUCUN chiffre :
+        // un stock affiché à 0 alors que la base est muette ferait vendre
+        // dans le vide, ticket imprimé à l'appui.
+        <PanneBanner
+          titre={t("pharmacie.panne_titre")}
+          consigne={t("pharmacie.panne_consigne")}
+          detail={configIssue ? t("pharmacie.panne_config") : res.error}
+        />
+      ) : produits.length === 0 ? (
         <SheetEmptyState
           title={t("pharmacie.empty_title")}
           description={t("pharmacie.empty_desc")}

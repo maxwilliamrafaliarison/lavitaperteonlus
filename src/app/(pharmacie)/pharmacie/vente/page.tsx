@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
 import { safe } from "@/lib/sheets/safe";
+import { PanneBanner } from "@/components/layout/panne-banner";
 import { getT } from "@/lib/i18n";
 import type { ProduitAvecStock } from "@/lib/pharmacie/types";
 
@@ -43,7 +44,18 @@ export default async function VentePage() {
         </p>
       </div>
 
-      <VenteForm produits={res.data} lang={lang} />
+      {res.ok ? (
+        <VenteForm produits={res.data} lang={lang} />
+      ) : (
+        // Le catalogue est injoignable : on n'affiche PAS la caisse. Un
+        // formulaire vide inviterait à composer un panier qui ne pourrait
+        // pas s'enregistrer — ou pire, à croire le stock à zéro.
+        <PanneBanner
+          titre={t("pharmacie.panne_titre")}
+          consigne={t("pharmacie.panne_consigne_vente")}
+          detail={res.error}
+        />
+      )}
     </main>
   );
 }
