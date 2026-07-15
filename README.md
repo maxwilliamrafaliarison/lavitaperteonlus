@@ -1,10 +1,23 @@
-# 🏥 La Vita Per Te — Tableau de bord Parc Informatique
+# 🏥 La Vita Per Te — Portail du Centre REX
 
-> Application de gestion du parc informatique du **Centre REX Fianarantsoa** et du **Centre MIARAKA** — ONG-ODV Alfeo Corassori, Madagascar.
+> Portail multi-applications du **Centre REX Fianarantsoa** et du **Centre MIARAKA** — ONG-ODV Alfeo Corassori, Madagascar.
 
 🌐 **En production** : https://lavitaperteonlus.vercel.app
 
-Inventaire centralisé, fiches détaillées, détection d'obsolescence automatique, historique des mouvements et gestion sécurisée des mots de passe — pensé pour la direction (outil décisionnel) et les équipes (visibilité du parc).
+## 📦 Les applications
+
+| App | Rôle | Données |
+|---|---|---|
+| **Logistique** | Parc informatique : inventaire, obsolescence, mouvements, mots de passe machines chiffrés. **Porte l'authentification de tout le portail.** | Google Sheets (260 matériels, 6 comptes) |
+| **Pharmacie** | Stock, ventes, ticket 80 mm, facture A4, alertes de péremption, rapport quotidien par email | Supabase `pharmacie` (65 produits) |
+| **Patients** | Consultation des dossiers de dépistage — **lecture seule** | Supabase `patients` (139 928 dossiers) |
+| **Site public** | Vitrine de l'association | — |
+
+> ⚠️ **Données de santé.** Les dossiers de dépistage relèvent de l'article 9
+> du RGPD : hébergement dans l'UE (eu-west-1) obligatoire, accès journalisés,
+> aucune écriture depuis l'application.
+
+🆘 **Panne, reprise, comptes, secrets → [docs/REPRISE.md](docs/REPRISE.md)**
 
 ---
 
@@ -22,14 +35,21 @@ Inventaire centralisé, fiches détaillées, détection d'obsolescence automatiq
 | Framework | Next.js 16 (App Router, TypeScript, React 19) |
 | Style | Tailwind CSS v4 + shadcn/ui |
 | Animations | Framer Motion |
-| BDD | Google Sheets API v4 |
-| Auth | Auth.js v5 (NextAuth) |
+| BDD | **Supabase Postgres** (eu-west-1) — un schéma par app · **Google Sheets** pour la logistique et en secours |
+| Auth | Auth.js v5 (NextAuth), sessions JWT, bcrypt (12 tours) |
 | Chiffrement | AES-256-GCM (node:crypto) |
 | Validation | Zod |
-| i18n | next-intl + JSON messages |
-| Déploiement | Vercel |
+| Tests | Vitest |
+| i18n | maison (`src/lib/i18n`) + JSON messages FR/IT |
+| Déploiement | Vercel (build bloquant si les types ne passent pas) |
+
+Chaque app migrée garde son **interrupteur de retour arrière** (`PHARMACIE_BACKEND`,
+`LOGISTIQUE_SUPABASE_TABS`) : Google Sheets reste le filet de secours.
+Voir [.env.example](.env.example) pour les 16 variables et leur rôle.
 
 ## 👥 Rôles
+
+**Dans la Logistique :**
 
 | Rôle | Lecture | Voir MDP | Écriture | Corbeille | Users |
 |---|:-:|:-:|:-:|:-:|:-:|
@@ -37,8 +57,24 @@ Inventaire centralisé, fiches détaillées, détection d'obsolescence automatiq
 | 🛠 **Informaticien** | ✅ | ✅ | ✅ | ❌ | ❌ |
 | 🏛 **Direction** | ✅ | ✅ | ❌ | ❌ | ❌ |
 | 📦 **Responsable logistique** | ✅ | ❌ | ✅ | ❌ | ❌ |
+| 💊 **Pharmacien** | ❌ | ❌ | ❌ | ❌ | ❌ |
 
-Toute consultation de MDP est enregistrée dans le journal d'audit (`audit_log`).
+**Accès aux applications :**
+
+| Rôle | Logistique | Pharmacie | Patients |
+|---|:-:|:-:|:-:|
+| 👑 Administrateur | ✅ | ✅ | ✅ |
+| 🏛 Direction | ✅ | ✅ | ✅ |
+| 🛠 Informaticien | ✅ | ❌ | ❌ |
+| 📦 Logistique | ✅ | ❌ | ❌ |
+| 💊 Pharmacien | ❌ | ✅ | ❌ |
+
+L'app **Patients** est réservée à l'administration et à la direction : ce sont
+des données de santé (RGPD art. 9), et **chaque consultation d'un dossier est
+journalisée** (`patients.acces_log`). Toute consultation d'un mot de passe
+machine l'est aussi (`audit_log`).
+
+La source de vérité des droits est [src/lib/auth/permissions.ts](src/lib/auth/permissions.ts).
 
 ## 🚀 Démarrage local
 
