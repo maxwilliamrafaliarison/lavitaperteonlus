@@ -61,6 +61,33 @@ export function getSpreadsheetId(): string {
   return _spreadsheetId;
 }
 
+/* ============================================================
+   BASCULE PAR ONGLET
+   ============================================================
+   `LOGISTIQUE_SUPABASE_TABS` liste les onglets servis par Supabase, séparés
+   par des virgules (ex. "sites,rooms"). Vide ou absent = tout sur Google
+   Sheets, c'est-à-dire le comportement d'aujourd'hui.
+
+   Onglet par onglet, et non tout d'un coup : on migre d'abord ce qui est en
+   lecture seule (sites, rooms), on observe, et `users` — qui porte
+   l'authentification — passe en dernier, seul, quand le reste a fait ses
+   preuves. Le retour arrière consiste à retirer un mot de la variable.
+*/
+function tabsSupabase(): Set<string> {
+  const raw = process.env.LOGISTIQUE_SUPABASE_TABS ?? "";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
+/** Vrai si cet onglet doit être servi par Supabase. */
+export function estSurSupabase(sheet: SheetName): boolean {
+  return tabsSupabase().has(sheet);
+}
+
 /**
  * Lit toutes les lignes d'un onglet. Retourne un tableau d'objets
  * (clés = en-têtes de la ligne 1).
@@ -69,6 +96,12 @@ export async function readSheet<T extends Record<string, unknown>>(
   sheet: SheetName,
   range?: string,
 ): Promise<T[]> {
+  // `range` ne sert qu'aux lectures partielles côté Sheets ; aucun appelant
+  // ne le combine avec un onglet migré.
+  if (!range && estSurSupabase(sheet)) {
+    const { readTabSupabase } = await import("./supabase-backend");
+    return readTabSupabase<T>(sheet);
+  }
   const client = getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
   const res = await client.spreadsheets.values.get({
@@ -94,6 +127,10 @@ export async function appendRow(
   sheet: SheetName,
   values: unknown[],
 ): Promise<void> {
+  if (estSurSupabase(sheet)) {
+    const { appendRowSupabase } = await import("./supabase-backend");
+    return appendRowSupabase(sheet, values);
+  }
   const client = getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
   await client.spreadsheets.values.append({
@@ -194,12 +231,20 @@ export async function updateRowById(
   id: string,
   values: unknown[],
 ): Promise<void> {
+  if (estSurSupabase(sheet)) {
+    const { updateRowByIdSupabase } = await import("./supabase-backend");
+    return updateRowByIdSupabase(sheet, id, values);
+  }
   const rowIndex = await resolveRowIndex(sheet, id);
   await updateRow(sheet, rowIndex, values);
 }
 
 /** Supprime définitivement la ligne portant cet `id`. */
 export async function deleteRowById(sheet: SheetName, id: string): Promise<void> {
+  if (estSurSupabase(sheet)) {
+    const { deleteRowByIdSupabase } = await import("./supabase-backend");
+    return deleteRowByIdSupabase(sheet, id);
+  }
   const rowIndex = await resolveRowIndex(sheet, id);
   await deleteRow(sheet, rowIndex);
 }

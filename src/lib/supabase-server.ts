@@ -141,3 +141,46 @@ export async function sbUpdate(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Suppression ciblée (DELETE) via filtres PostgREST.
+ * Retourne le nombre de lignes réellement supprimées.
+ *
+ * ⚠️ Les filtres sont OBLIGATOIRES et non vides : sans clause `where`,
+ * PostgREST viderait la table entière. On refuse plutôt que d'y arriver
+ * par un objet vide passé par mégarde.
+ */
+export async function sbDelete(
+  schema: string,
+  table: string,
+  filters: Record<string, string>,
+): Promise<number> {
+  if (Object.keys(filters).length === 0) {
+    throw new Error(`sbDelete ${schema}.${table} sans filtre : refus (viderait la table)`);
+  }
+  const { url, key } = supabaseEnv();
+  const params = new URLSearchParams(filters);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const res = await fetch(`${url}/rest/v1/${table}?${params}`, {
+      method: "DELETE",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Profile": schema,
+        // representation pour compter ce qui a été supprimé : un 0 permet à
+        // l'appelant de distinguer « ligne absente » de « suppression faite ».
+        Prefer: "return=representation",
+      },
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Supabase delete ${schema}.${table} ${res.status} : ${(await res.text()).slice(0, 160)}`);
+    }
+    const deleted = (await res.json()) as unknown[];
+    return deleted.length;
+  } finally {
+    clearTimeout(timer);
+  }
+}

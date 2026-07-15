@@ -26,6 +26,7 @@ export async function GET() {
     sheets: { reachable: boolean; userCount?: number; error?: string };
     patients?: { reachable: boolean; error?: string };
     pharmacie?: { backend: "sheets" | "supabase"; reachable?: boolean; error?: string };
+    logistique?: { tabsSupabase: string[]; reachable?: boolean; error?: string };
     latencyMs?: number;
   } = {
     ok: true,
@@ -101,6 +102,35 @@ export async function GET() {
     } catch (e) {
       result.pharmacie.reachable = false;
       result.pharmacie.error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  // Logistique : quels onglets sont servis par Supabase ? Cette route est
+  // publique et sans authentification — elle survit donc précisément à la
+  // panne qu'elle diagnostique, et se consulte depuis un téléphone.
+  const tabsLogistique = (process.env.LOGISTIQUE_SUPABASE_TABS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  result.logistique = { tabsSupabase: tabsLogistique };
+  if (tabsLogistique.length > 0) {
+    try {
+      const url = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "")
+        .trim()
+        .replace(/\/+$/, "");
+      const key = (
+        process.env.SUPABASE_SERVICE_KEY ||
+        process.env.PATIENTS_SUPABASE_SERVICE_KEY ||
+        ""
+      ).replace(/[^A-Za-z0-9._-]/g, "");
+      const res = await fetch(`${url}/rest/v1/users?select=id&limit=1`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Accept-Profile": "logistique" },
+      });
+      result.logistique.reachable = res.ok;
+      if (!res.ok) result.logistique.error = `HTTP ${res.status}`;
+    } catch (e) {
+      result.logistique.reachable = false;
+      result.logistique.error = e instanceof Error ? e.message : String(e);
     }
   }
 
