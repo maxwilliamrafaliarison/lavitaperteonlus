@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Pill } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
@@ -28,6 +28,26 @@ function fmtAr(n: number): string {
   );
 }
 
+function Th({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <th
+      scope="col"
+      className={cn(
+        "px-4 py-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium",
+        className,
+      )}
+    >
+      {children}
+    </th>
+  );
+}
+
 export default async function ProduitPage({
   params,
 }: {
@@ -51,10 +71,21 @@ export default async function ProduitPage({
   if (!produit) notFound();
 
   const lots = lotsRes.data.filter((l) => l.produit_id === id);
-  const mouvements = mouvementsRes.data
+
+  // Kardex (idée reprise de l'app d'Eugenio) : chaque mouvement porte le
+  // solde de stock APRÈS lui. Notre stock étant la somme des mouvements,
+  // on part du stock actuel et on remonte le temps en retirant chaque delta.
+  const tousMouvements = mouvementsRes.data
     .filter((m) => m.produit_id === id)
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-    .slice(0, 30);
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const MAX_KARDEX = 50;
+  let solde = produit.stock;
+  const kardex = tousMouvements.map((m) => {
+    const ligne = { ...m, solde };
+    solde -= m.quantite;
+    return ligne;
+  });
+  const mouvements = kardex.slice(0, MAX_KARDEX);
 
   const TYPE_TONES: Record<string, string> = {
     entree: "text-[oklch(0.75_0.18_150)]",
@@ -133,47 +164,90 @@ export default async function ProduitPage({
             )}
           </GlassCard>
 
-          <GlassCard className="p-5">
-            <h2 className="font-display text-lg font-semibold mb-3">
-              {t("pharmacie.fiche_mouvements")} ({mouvements.length})
-            </h2>
+          <GlassCard className="overflow-hidden p-0">
+            <div className="p-5 pb-3">
+              <h2 className="font-display text-lg font-semibold">
+                {t("pharmacie.fiche_mouvements")} ({tousMouvements.length})
+              </h2>
+              {tousMouvements.length > MAX_KARDEX && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("pharmacie.kardex_tronque", { n: MAX_KARDEX })}
+                </p>
+              )}
+            </div>
             {mouvements.length === 0 ? (
-              <p className="text-sm text-muted-foreground">—</p>
+              <p className="px-5 pb-5 text-sm text-muted-foreground">
+                {t("pharmacie.kardex_vide")}
+              </p>
             ) : (
-              <ul role="list" className="divide-y divide-glass-border">
-                {mouvements.map((m) => (
-                  <li key={m.id} className="flex items-center gap-3 py-2 text-sm">
-                    <Pill className="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate">
-                        <span className={cn("font-medium", TYPE_TONES[m.type])}>
-                          {t(`pharmacie.mvt_${m.type}`)}
-                        </span>{" "}
-                        <span className="text-muted-foreground text-xs">
-                          {m.note || m.reference}
-                        </span>
-                      </p>
-                      <p className="text-[11px] text-muted-foreground font-mono">
-                        {new Date(m.timestamp).toLocaleString(
-                          lang === "it" ? "it-IT" : "fr-FR",
-                          { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" },
-                        )}
-                        {m.user_email ? ` · ${m.user_email.split("@")[0]}` : ""}
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        "font-mono tabular-nums font-semibold shrink-0",
-                        m.quantite > 0
-                          ? "text-[oklch(0.75_0.18_150)]"
-                          : "text-primary",
-                      )}
-                    >
-                      {m.quantite > 0 ? `+${m.quantite}` : m.quantite}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">
+                    {t("pharmacie.fiche_mouvements")}
+                  </caption>
+                  <thead>
+                    <tr className="border-y border-glass-border text-left">
+                      <Th>{t("pharmacie.kardex_date")}</Th>
+                      <Th>{t("pharmacie.kardex_type")}</Th>
+                      <Th className="hidden sm:table-cell">
+                        {t("pharmacie.kardex_detail")}
+                      </Th>
+                      <Th className="text-right">{t("pharmacie.kardex_delta")}</Th>
+                      <Th className="text-right">{t("pharmacie.kardex_solde")}</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-glass-border">
+                    {mouvements.map((m) => (
+                      <tr key={m.id} className="hover:bg-white/3 transition-colors">
+                        <td className="px-4 py-2.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                          {new Date(m.timestamp).toLocaleString(
+                            lang === "it" ? "it-IT" : "fr-FR",
+                            {
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            },
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={cn("font-medium", TYPE_TONES[m.type])}>
+                            {t(`pharmacie.mvt_${m.type}`)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 hidden sm:table-cell text-xs text-muted-foreground">
+                          <span className="line-clamp-1">
+                            {m.note || m.reference || "—"}
+                          </span>
+                          {m.user_email && (
+                            <span className="block text-[10px] font-mono opacity-70">
+                              {m.user_email.split("@")[0]}
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-4 py-2.5 text-right font-mono tabular-nums font-semibold whitespace-nowrap",
+                            m.quantite > 0
+                              ? "text-[oklch(0.75_0.18_150)]"
+                              : "text-primary",
+                          )}
+                        >
+                          {m.quantite > 0 ? `+${m.quantite}` : m.quantite}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-4 py-2.5 text-right font-mono tabular-nums",
+                            m.solde <= 0 && "text-primary font-semibold",
+                          )}
+                        >
+                          {m.solde}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </GlassCard>
         </div>
