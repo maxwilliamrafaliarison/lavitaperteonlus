@@ -129,9 +129,12 @@ async function updateProduitFieldsSheets(
   const rowIndex = col.findIndex((v) => v === produitId);
   if (rowIndex < 0) return false;
   const row = rowIndex + 1;
+  // Lettres de colonnes du Sheet. Doit suivre COLUMN_ORDER.produits :
+  // A=id … P=createdAt, puis les colonnes du fractionnement.
   const COLS: Record<string, string> = {
     prix_achat: "I", prix_vente: "J", stock_min: "L",
     fournisseur: "M", emplacement: "N", statut: "O",
+    facteur_conversion: "Q", unite_detail: "R", prix_vente_detail: "S",
   };
   const data = Object.entries(fields)
     .filter(([, v]) => v !== undefined)
@@ -391,6 +394,14 @@ export async function updateProduitFields(
     fournisseur?: string;
     emplacement?: string;
     statut?: string;
+    // Fractionnement. `facteur_conversion` DÉFINIT l'unité du stock : son
+    // seul appelant légitime est definirFractionnementAction, qui porte la
+    // conversion du stock existant. Ne jamais l'exposer dans un formulaire
+    // d'édition générique — le changer sans convertir fausserait tout
+    // l'historique d'un coup.
+    facteur_conversion?: number;
+    unite_detail?: string;
+    prix_vente_detail?: number;
   },
 ): Promise<boolean> {
   return backend() === "supabase"
