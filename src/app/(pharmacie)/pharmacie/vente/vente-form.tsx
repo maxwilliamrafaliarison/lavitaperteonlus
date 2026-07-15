@@ -62,7 +62,7 @@ export function VenteForm({
   const [recu, setRecu] = React.useState<number>(0);
 
   const vendables = React.useMemo(
-    () => produits.filter((p) => p.statut === "actif" && p.stock > 0),
+    () => produits.filter((p) => p.statut === "actif" && p.stockBase > 0),
     [produits],
   );
 
@@ -88,7 +88,7 @@ export function VenteForm({
     setPanier((prev) => {
       const existing = prev.find((l) => l.produit.id === p.id);
       if (existing) {
-        if (existing.quantite >= p.stock) {
+        if (existing.quantite >= p.stockBase) {
           toast.warning(t("pharmacie.vente_stock_max", { p: p.designation }));
           return prev;
         }
@@ -106,7 +106,7 @@ export function VenteForm({
       prev
         .map((l) => {
           if (l.produit.id !== id) return l;
-          const next = Math.min(l.quantite + delta, l.produit.stock);
+          const next = Math.min(l.quantite + delta, l.produit.stockBase);
           return { ...l, quantite: next };
         })
         .filter((l) => l.quantite > 0),
@@ -315,7 +315,7 @@ export function VenteForm({
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground font-mono tabular-nums shrink-0">
-                      {t("pharmacie.vente_stock_dispo", { n: p.stock })}
+                      {t("pharmacie.vente_stock_dispo", { n: p.stockBase })}
                     </span>
                   </>
                 );
@@ -402,7 +402,7 @@ export function VenteForm({
                       </span>
                       <QtyBtn
                         onClick={() => changerQuantite(l.produit.id, 1)}
-                        disabled={l.quantite >= l.produit.stock}
+                        disabled={l.quantite >= l.produit.stockBase}
                         label="+"
                       >
                         <Plus className="size-3" aria-hidden="true" />

@@ -12,6 +12,7 @@ import {
   PHARMA_SHEETS,
 } from "@/lib/pharmacie/sheets";
 import { ProduitStatut } from "@/lib/pharmacie/types";
+import { estFractionnable } from "@/lib/pharmacie/fractionnement";
 import { getT, isLang } from "@/lib/i18n";
 
 export type ProduitActionResult = { ok: true } | { ok: false; error: string };
@@ -99,7 +100,19 @@ export async function ajusterStockAction(
   const produit = produits.find((p) => p.id === produitId);
   if (!produit) return { ok: false, error: t("pharmacie.vente_error_produit") };
 
-  const delta = stockPhysique - produit.stock;
+  // GARDE-FOU : l'écran d'inventaire n'a qu'un seul champ, donc la quantité
+  // saisie est forcément dans l'unité de base — ce qui n'est vrai que tant
+  // que le produit n'est pas fractionné (1 boîte = 1 unité de base).
+  // Sur un produit fractionné, le pharmacien compterait des BOÎTES : avec
+  // 600 comprimés en stock (20 boîtes), saisir 20 donnerait delta = −580 et
+  // écraserait le stock. L'écran censé corriger l'inventaire le détruirait.
+  // Tant qu'il ne sait pas distinguer boîtes pleines et appoint (tranche
+  // suivante), on refuse plutôt que de détruire.
+  if (estFractionnable(produit)) {
+    return { ok: false, error: t("pharmacie.ajust_error_fractionnable") };
+  }
+
+  const delta = stockPhysique - produit.stockBase;
   if (delta === 0) {
     return { ok: false, error: t("pharmacie.ajust_error_egal") };
   }
@@ -118,7 +131,7 @@ export async function ajusterStockAction(
         "inventaire",
         session.user.email ?? "",
         note ||
-          `Inventaire : théorique ${produit.stock} → physique ${stockPhysique}`,
+          `Inventaire : théorique ${produit.stockBase} → physique ${stockPhysique}`,
       ],
     ]);
   } catch (e) {

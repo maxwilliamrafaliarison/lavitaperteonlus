@@ -72,12 +72,12 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
         error: t("pharmacie.vente_error_statut", { p: produit.designation }),
       };
     }
-    if (produit.stock < ligne.quantite) {
+    if (produit.stockBase < ligne.quantite) {
       return {
         ok: false,
         error: t("pharmacie.vente_error_stock", {
           p: produit.designation,
-          stock: produit.stock,
+          stock: produit.stockBase,
         }),
       };
     }

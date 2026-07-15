@@ -18,6 +18,7 @@ import { GlassButton } from "@/components/glass/glass-button";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
+import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
 import { STATUT_LABELS, type ProduitAvecStock } from "@/lib/pharmacie/types";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
@@ -55,12 +56,18 @@ export default async function PharmaciePage() {
       p.joursAvantPeremption >= 0 &&
       p.joursAvantPeremption <= 90,
   );
-  const ruptures = actifs.filter((p) => p.stock <= 0);
+  // stockBase et stock_min sont dans la MÊME unité (unités de base) :
+  // la comparaison est juste par construction, sans conversion.
+  const ruptures = actifs.filter((p) => p.stockBase <= 0);
   const sousStockMin = actifs.filter(
-    (p) => p.stock > 0 && p.stock_min > 0 && p.stock <= p.stock_min,
+    (p) => p.stockBase > 0 && p.stock_min > 0 && p.stockBase <= p.stock_min,
   );
+  // Valorisation : prixParUniteBase() et NON prix_vente. Le stock est en
+  // unités de base ; multiplier par le prix de la BOÎTE surévaluerait d'un
+  // facteur 30 sur un produit fractionné — faux, et invisible pour le
+  // compilateur (number × number).
   const valeurStock = actifs.reduce(
-    (sum, p) => sum + p.stock * (p.prix_vente || 0),
+    (sum, p) => sum + p.stockBase * prixParUniteBase(p),
     0,
   );
 
@@ -225,20 +232,23 @@ export default async function PharmaciePage() {
                               </p>
                               <p className="text-[11px] text-muted-foreground">
                                 {t("pharmacie.commander_stock_seuil", {
-                                  stock: p.stock,
-                                  min: p.stock_min,
+                                  stock: formaterQuantite(p, p.stockBase),
+                                  min: formaterQuantite(p, p.stock_min),
                                 })}
                               </p>
                             </div>
-                            {p.stock <= 0 && (
+                            {p.stockBase <= 0 && (
                               <Badge tone="primary">
                                 {t("pharmacie.badge_rupture")}
                               </Badge>
                             )}
-                            {Math.ceil(p.stock_min - p.stock) > 0 && (
+                            {Math.ceil(p.stock_min - p.stockBase) > 0 && (
                               <Badge tone="warning">
                                 {t("pharmacie.commander_qte", {
-                                  n: Math.ceil(p.stock_min - p.stock),
+                                  n: formaterQuantite(
+                                    p,
+                                    Math.ceil(p.stock_min - p.stockBase),
+                                  ),
                                 })}
                               </Badge>
                             )}
@@ -282,9 +292,9 @@ export default async function PharmaciePage() {
                           p.joursAvantPeremption !== null &&
                           p.joursAvantPeremption >= 0 &&
                           p.joursAvantPeremption <= 90;
-                        const rupture = p.stock <= 0;
+                        const rupture = p.stockBase <= 0;
                         const lowStock =
-                          !rupture && p.stock_min > 0 && p.stock <= p.stock_min;
+                          !rupture && p.stock_min > 0 && p.stockBase <= p.stock_min;
                         return (
                           <tr key={p.id} className="hover:bg-white/3 transition-colors">
                             <td className="px-4 py-3">
@@ -311,7 +321,7 @@ export default async function PharmaciePage() {
                                 lowStock && "text-[oklch(0.82_0.16_85)] font-semibold",
                               )}
                             >
-                              {p.stock}
+                              {formaterQuantite(p, p.stockBase)}
                             </td>
                             <td className="px-4 py-3 text-right font-mono tabular-nums hidden sm:table-cell">
                               {p.prix_vente ? fmtAr(p.prix_vente) : "—"}

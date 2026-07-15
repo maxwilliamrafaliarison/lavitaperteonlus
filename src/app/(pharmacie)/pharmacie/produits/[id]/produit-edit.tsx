@@ -27,7 +27,7 @@ export function ProduitEditPanel({
   const t = React.useMemo(() => getT(lang), [lang]);
   const [saving, setSaving] = React.useState(false);
   const [ajusting, setAjusting] = React.useState(false);
-  const [stockPhysique, setStockPhysique] = React.useState<number>(produit.stock);
+  const [stockPhysique, setStockPhysique] = React.useState<number>(produit.stockBase);
   const [noteAjust, setNoteAjust] = React.useState("");
 
   async function enregistrer(e: React.FormEvent<HTMLFormElement>) {
@@ -70,7 +70,7 @@ export function ProduitEditPanel({
       });
       if (result.ok) {
         toast.success(t("pharmacie.ajust_success"), {
-          description: `${produit.stock} → ${stockPhysique}`,
+          description: `${produit.stockBase} → ${stockPhysique}`,
         });
         setNoteAjust("");
         router.refresh();
@@ -82,7 +82,7 @@ export function ProduitEditPanel({
     }
   }
 
-  const delta = stockPhysique - produit.stock;
+  const delta = stockPhysique - produit.stockBase;
 
   return (
     <>

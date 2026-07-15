@@ -8,6 +8,7 @@ import {
   listVentes,
   listParametres,
 } from "@/lib/pharmacie/sheets";
+import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -71,8 +72,11 @@ export async function GET(req: NextRequest) {
 
     // --- Calculs ---
     const actifs = produits.filter((p) => p.statut === "actif");
+    // prixParUniteBase() et non prix_vente : le stock est en unités de base,
+    // le multiplier par le prix de la BOÎTE surévaluerait d'un facteur 30
+    // sur un produit fractionné.
     const valeurStock = actifs.reduce(
-      (s, p) => s + p.stock * (p.prix_vente || 0),
+      (s, p) => s + p.stockBase * prixParUniteBase(p),
       0,
     );
     const perimes = actifs.filter(
@@ -87,7 +91,7 @@ export async function GET(req: NextRequest) {
       )
       .sort((a, b) => (a.joursAvantPeremption ?? 0) - (b.joursAvantPeremption ?? 0));
     const stockBas = actifs.filter(
-      (p) => p.stock_min > 0 && p.stock <= p.stock_min,
+      (p) => p.stock_min > 0 && p.stockBase <= p.stock_min,
     );
 
     const depuis = Date.now() - 24 * 3600 * 1000;
@@ -144,7 +148,7 @@ export async function GET(req: NextRequest) {
     ${
       perimes.length > 0
         ? `<p style="font-size:13px;color:#E30613"><strong>Périmés (${perimes.length})</strong></p>
-           <table cellspacing="0" style="width:100%">${rows(perimes.map((p) => [p.designation, p.prochainePeremption ?? "", `stock ${p.stock}`]))}</table>`
+           <table cellspacing="0" style="width:100%">${rows(perimes.map((p) => [p.designation, p.prochainePeremption ?? "", `stock ${formaterQuantite(p, p.stockBase)}`]))}</table>`
         : ""
     }
     ${
@@ -169,8 +173,8 @@ export async function GET(req: NextRequest) {
                  .map((p) => [
                    p.designation,
                    p.fournisseur || "—",
-                   `${p.stock} / ${p.stock_min}`,
-                   `<strong>${Math.max(0, Math.ceil(p.stock_min - p.stock))}</strong>`,
+                   `${formaterQuantite(p, p.stockBase)} / ${formaterQuantite(p, p.stock_min)}`,
+                   `<strong>${formaterQuantite(p, Math.max(0, Math.ceil(p.stock_min - p.stockBase)))}</strong>`,
                  ]),
              )}
            </table>`

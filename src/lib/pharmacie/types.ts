@@ -121,7 +121,21 @@ export type Mouvement = z.infer<typeof Mouvement>;
 
 /** Produit enrichi du stock calculé et de la péremption la plus proche. */
 export interface ProduitAvecStock extends Produit {
-  stock: number;
+  /**
+   * Stock en UNITÉS DE BASE : des comprimés si le produit est fractionnable
+   * (facteur_conversion > 1), des boîtes sinon.
+   *
+   * RENOMMÉ depuis `stock` VOLONTAIREMENT. Le nom neutre invitait à écrire
+   * `p.stock * p.prix_vente` — juste tant que tout valait des boîtes, faux
+   * d'un facteur 30 dès qu'un produit est fractionné, et invisible pour le
+   * compilateur (number × number). Le renommage transforme chaque site en
+   * erreur de compilation, donc en décision consciente.
+   *
+   * Pour l'affichage, passer par formaterQuantite() ou enBoites()
+   * (src/lib/pharmacie/fractionnement.ts) — jamais afficher ce nombre brut
+   * sur un produit fractionnable.
+   */
+  stockBase: number;
   prochainePeremption: string | null;
   /** jours restants avant péremption (négatif = périmé) */
   joursAvantPeremption: number | null;

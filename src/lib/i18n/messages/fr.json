@@ -248,6 +248,7 @@
     "ajust_valider": "Enregistrer l'ajustement",
     "ajust_success": "Stock ajusté",
     "ajust_error_egal": "Le stock physique est égal au stock théorique : rien à ajuster.",
+    "ajust_error_fractionnable": "Ce produit se vend à l'unité : l'inventaire à un seul champ ne saurait pas distinguer les boîtes des unités, et fausserait le stock. La saisie adaptée arrive prochainement.",
     "mvt_entree": "Entrée",
     "mvt_vente": "Vente",
     "mvt_ajustement": "Ajustement",

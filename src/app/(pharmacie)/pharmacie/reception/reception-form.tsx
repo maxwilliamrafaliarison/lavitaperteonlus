@@ -119,7 +119,7 @@ export function ReceptionForm({
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground font-mono tabular-nums">
-                        {t("pharmacie.vente_stock_dispo", { n: p.stock })}
+                        {t("pharmacie.vente_stock_dispo", { n: p.stockBase })}
                       </span>
                     </button>
                   </li>
@@ -138,7 +138,7 @@ export function ReceptionForm({
                   {selection.designation}
                 </h2>
                 <p className="text-xs text-muted-foreground font-mono">
-                  {selection.id} · {t("pharmacie.vente_stock_dispo", { n: selection.stock })}
+                  {selection.id} · {t("pharmacie.vente_stock_dispo", { n: selection.stockBase })}
                 </p>
               </div>
               <GlassButton

@@ -11,6 +11,8 @@ import {
   listLots,
   listMouvements,
 } from "@/lib/pharmacie/sheets";
+import type { Mouvement } from "@/lib/pharmacie/types";
+import { formaterQuantite } from "@/lib/pharmacie/fractionnement";
 import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -79,12 +81,18 @@ export default async function ProduitPage({
     .filter((m) => m.produit_id === id)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
   const MAX_KARDEX = 50;
-  let solde = produit.stock;
-  const kardex = tousMouvements.map((m) => {
-    const ligne = { ...m, solde };
-    solde -= m.quantite;
-    return ligne;
-  });
+  // reduce plutôt qu'un compteur muté dans un map : le compilateur React
+  // interdit de réassigner une variable pendant le rendu, et l'accumulateur
+  // dit mieux ce qui se passe — chaque ligne porte le solde APRÈS elle,
+  // le suivant se déduit en retirant le delta.
+  const kardex = tousMouvements.reduce<Array<Mouvement & { solde: number }>>(
+    (acc, m) => {
+      const solde = acc.length === 0 ? produit.stockBase : acc[acc.length - 1].solde - acc[acc.length - 1].quantite;
+      acc.push({ ...m, solde });
+      return acc;
+    },
+    [],
+  );
   const mouvements = kardex.slice(0, MAX_KARDEX);
 
   const TYPE_TONES: Record<string, string> = {
@@ -128,7 +136,7 @@ export default async function ProduitPage({
               {t("pharmacie.col_stock")}
             </p>
             <p className="font-display text-4xl font-semibold tabular-nums">
-              {produit.stock}
+              {formaterQuantite(produit, produit.stockBase)}
             </p>
           </div>
         </div>
@@ -241,7 +249,7 @@ export default async function ProduitPage({
                             m.solde <= 0 && "text-primary font-semibold",
                           )}
                         >
-                          {m.solde}
+                          {formaterQuantite(produit, m.solde)}
                         </td>
                       </tr>
                     ))}

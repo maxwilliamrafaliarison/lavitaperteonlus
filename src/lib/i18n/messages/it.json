@@ -248,6 +248,7 @@
     "ajust_valider": "Registra la rettifica",
     "ajust_success": "Stock rettificato",
     "ajust_error_egal": "Lo stock fisico è uguale a quello teorico : niente da rettificare.",
+    "ajust_error_fractionnable": "Questo prodotto si vende all'unità: un inventario a campo unico non saprebbe distinguere le scatole dalle unità e falserebbe la giacenza. La schermata adatta arriva a breve.",
     "mvt_entree": "Carico",
     "mvt_vente": "Vendita",
     "mvt_ajustement": "Rettifica",

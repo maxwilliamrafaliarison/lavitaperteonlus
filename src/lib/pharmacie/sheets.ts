@@ -480,7 +480,9 @@ export async function listProduitsAvecStock(): Promise<ProduitAvecStock[]> {
     const prochainePeremption = peremptionParProduit.get(p.id) ?? null;
     return {
       ...p,
-      stock: stockParProduit.get(p.id) ?? 0,
+      // Somme des quantités signées des mouvements, donc TOUJOURS en unités
+      // de base — la même unité que celle dans laquelle elles ont été écrites.
+      stockBase: stockParProduit.get(p.id) ?? 0,
       prochainePeremption,
       joursAvantPeremption: prochainePeremption
         ? daysUntil(prochainePeremption)
