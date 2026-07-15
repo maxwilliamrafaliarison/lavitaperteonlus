@@ -120,6 +120,90 @@ export async function updateRow(
   });
 }
 
+/* ============================================================
+   ADRESSAGE PAR ID
+   ============================================================
+   Une ligne se désigne par son `id` (colonne A), jamais par sa position.
+   Le numéro de ligne est un détail d'implémentation de Google Sheets qui
+   ne doit pas fuir hors de ce fichier : Supabase n'en a pas, et une ligne
+   insérée ou supprimée entre la lecture et l'écriture ferait écrire sur
+   la mauvaise ligne — donc sur le mauvais utilisateur.
+*/
+
+/**
+ * Décide du numéro de ligne (1-based) à partir de la colonne A déjà lue.
+ * Partie pure, séparée de l'appel réseau pour être testable telle quelle —
+ * c'est ici que se joue le choix de la ligne qu'on va écraser.
+ *
+ * Lève plutôt que de renvoyer une cible douteuse : sur l'onglet `users`,
+ * une mauvaise cible réécrit le compte de quelqu'un d'autre.
+ *
+ * @param colonneA les valeurs brutes de la colonne A, en-tête compris
+ */
+export function pickRowIndex(
+  colonneA: unknown[][],
+  id: string,
+  sheet: string,
+): number {
+  // 1. Un id vide résoudrait vers la première ligne blanche de l'onglet
+  //    (voir `.map()` ci-dessous) et on écrirait dedans. Barrière en premier.
+  if (!id || !String(id).trim()) {
+    throw new Error(`Identifiant vide : refus d'écrire dans "${sheet}"`);
+  }
+
+  // 2. `.map()` et non `.flat()` : une ligne vide au milieu de l'onglet a une
+  //    case A vide, que .flat() FAIT DISPARAÎTRE — tous les index suivants se
+  //    décalent alors d'un cran et l'écriture atterrit une ligne trop haut.
+  //    .map() préserve la correspondance index ↔ ligne.
+  const ids = colonneA.map((r) => String(r?.[0] ?? ""));
+
+  const idx = ids.indexOf(id);
+  // 3. L'index 0 est la ligne d'en-têtes : jamais une donnée.
+  if (idx <= 0) throw new Error(`Identifiant "${id}" introuvable dans "${sheet}"`);
+
+  // 4. Deux lignes portant le même id : impossible de choisir. On refuse
+  //    d'écrire plutôt que de modifier arbitrairement la première.
+  const doublon = ids.indexOf(id, idx + 1);
+  if (doublon > 0) {
+    throw new Error(
+      `Identifiant "${id}" en double dans "${sheet}" (lignes ${idx + 1} et ${doublon + 1}) : refus d'écrire`,
+    );
+  }
+
+  return idx + 1; // 1-based : la ligne 1 étant l'en-tête, idx 1 → ligne 2
+}
+
+/** Lit la colonne A de l'onglet et y trouve la ligne portant cet `id`. */
+async function resolveRowIndex(sheet: SheetName, id: string): Promise<number> {
+  // La garde sur l'id vide vaut avant même de payer un appel réseau.
+  if (!id || !String(id).trim()) {
+    throw new Error(`Identifiant vide : refus d'écrire dans "${sheet}"`);
+  }
+  const client = getSheetsClient();
+  const spreadsheetId = getSpreadsheetId();
+  const res = await client.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheet}!A:A`,
+  });
+  return pickRowIndex(res.data.values ?? [], id, sheet);
+}
+
+/** Met à jour la ligne portant cet `id`. */
+export async function updateRowById(
+  sheet: SheetName,
+  id: string,
+  values: unknown[],
+): Promise<void> {
+  const rowIndex = await resolveRowIndex(sheet, id);
+  await updateRow(sheet, rowIndex, values);
+}
+
+/** Supprime définitivement la ligne portant cet `id`. */
+export async function deleteRowById(sheet: SheetName, id: string): Promise<void> {
+  const rowIndex = await resolveRowIndex(sheet, id);
+  await deleteRow(sheet, rowIndex);
+}
+
 /**
  * Supprime physiquement une ligne d'un onglet (hard delete).
  * Contrairement à `values.clear` qui laisse une ligne vide,

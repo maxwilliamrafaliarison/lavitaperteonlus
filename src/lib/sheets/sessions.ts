@@ -1,4 +1,4 @@
-import { appendRow, readSheet, SHEETS, updateRow, getSheetsClient, getSpreadsheetId } from "./client";
+import { appendRow, readSheet, SHEETS, updateRowById, deleteRowById } from "./client";
 import { encrypt, decrypt } from "@/lib/crypto/aes";
 import type { MaterialSession } from "@/types";
 
@@ -110,19 +110,8 @@ export interface UpdateSessionInput {
 }
 
 export async function updateSession(id: string, input: UpdateSessionInput): Promise<MaterialSession> {
-  const client = getSheetsClient();
-  const spreadsheetId = getSpreadsheetId();
-  const res = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEETS.sessions}!A:A`,
-  });
-  const ids = (res.data.values ?? []).flat() as string[];
-  const idx = ids.indexOf(id);
-  if (idx <= 0) throw new Error(`Session ${id} introuvable`);
-  const rowIndex = idx + 1;
-
   const current = await getSession(id);
-  if (!current) throw new Error(`Session ${id} introuvable (re-fetch)`);
+  if (!current) throw new Error(`Session ${id} introuvable`);
 
   let { encryptedPassword, passwordIv, passwordTag } = current;
   if (input.plainPassword) {
@@ -143,27 +132,19 @@ export async function updateSession(id: string, input: UpdateSessionInput): Prom
     notes: input.notes !== undefined ? input.notes : current.notes,
     updatedAt: new Date().toISOString(),
   };
-  await updateRow(SHEETS.sessions, rowIndex, sessionToRow(merged));
+  await updateRowById(SHEETS.sessions, id, sessionToRow(merged));
   return merged;
 }
 
 export async function deleteSession(id: string): Promise<void> {
-  const client = getSheetsClient();
-  const spreadsheetId = getSpreadsheetId();
-  const res = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEETS.sessions}!A:A`,
-  });
-  const ids = (res.data.values ?? []).flat() as string[];
-  const idx = ids.indexOf(id);
-  if (idx <= 0) return;
-  const rowIndex = idx + 1;
-
-  // Hard delete : on remplace la ligne par des vides
-  // (Sheets API ne supporte pas deleteRow facilement sans batchUpdate sur sheetId numeric)
-  await updateRow(SHEETS.sessions, rowIndex, [
-    "", "", "", "", "", "", "", "", "", "", "",
-  ]);
+  // Retire réellement la ligne. L'implémentation précédente écrivait onze
+  // chaînes vides par-dessus, laissant une LIGNE FANTÔME à l'id vide :
+  // elle faussait la résolution des lignes suivantes et un identifiant vide
+  // y aurait résolu. Le commentaire qui justifiait ce contournement
+  // (« l'API ne supporte pas deleteRow ») était périmé : deleteRow existe
+  // dans client.ts. Et c'était intraduisible en Supabase — deux suppressions
+  // auraient violé la clé primaire sur l'id vide.
+  await deleteRowById(SHEETS.sessions, id);
 }
 
 // --- Déchiffrement contrôlé ----------------------------------

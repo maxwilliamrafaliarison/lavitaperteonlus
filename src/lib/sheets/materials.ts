@@ -1,4 +1,4 @@
-import { appendRow, readSheet, SHEETS, updateRow, deleteRow, getSheetsClient, getSpreadsheetId } from "./client";
+import { appendRow, readSheet, SHEETS, updateRowById, deleteRowById } from "./client";
 import { MaterialState, MaterialType } from "@/types";
 import type { Material } from "@/types";
 import { str, opt, bool, num, list, enumOr } from "./cells";
@@ -109,25 +109,14 @@ export async function createMaterial(material: Material): Promise<Material> {
 }
 
 export async function updateMaterial(id: string, patch: Partial<Material>): Promise<Material> {
-  const client = getSheetsClient();
-  const spreadsheetId = getSpreadsheetId();
-  const res = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEETS.materials}!A:A`,
-  });
-  const ids = (res.data.values ?? []).flat() as string[];
-  const idx = ids.indexOf(id);
-  if (idx <= 0) throw new Error(`Matériel ${id} introuvable`);
-  const rowIndex = idx + 1;
-
   const current = await getMaterial(id);
-  if (!current) throw new Error(`Matériel ${id} introuvable (re-fetch)`);
+  if (!current) throw new Error(`Matériel ${id} introuvable`);
   const merged: Material = {
     ...current,
     ...patch,
     updatedAt: new Date().toISOString(),
   };
-  await updateRow(SHEETS.materials, rowIndex, materialToRow(merged));
+  await updateRowById(SHEETS.materials, id, materialToRow(merged));
   return merged;
 }
 
@@ -144,14 +133,5 @@ export async function restoreMaterial(id: string): Promise<Material> {
  * Les sessions et mouvements associés restent par design (traçabilité).
  */
 export async function hardDeleteMaterial(id: string): Promise<void> {
-  const client = getSheetsClient();
-  const spreadsheetId = getSpreadsheetId();
-  const res = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEETS.materials}!A:A`,
-  });
-  const ids = (res.data.values ?? []).flat() as string[];
-  const idx = ids.indexOf(id);
-  if (idx <= 0) throw new Error(`Matériel ${id} introuvable`);
-  await deleteRow(SHEETS.materials, idx + 1);
+  await deleteRowById(SHEETS.materials, id);
 }

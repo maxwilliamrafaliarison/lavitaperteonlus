@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { appendRow, readSheet, SHEETS, updateRow, getSheetsClient, getSpreadsheetId } from "./client";
+import { appendRow, readSheet, SHEETS, updateRowById } from "./client";
 import { AppUser, UserRole } from "@/types";
 import { str, opt, bool, enumOr } from "./cells";
 
@@ -91,27 +91,13 @@ export async function createUser(user: AppUser): Promise<AppUser> {
   return user;
 }
 
-/**
- * Met à jour les champs d'un utilisateur. Effectue une lecture pour
- * trouver l'index de la ligne, puis updateRow.
- */
+/** Met à jour les champs d'un utilisateur, désigné par son id. */
 export async function updateUser(id: string, patch: Partial<AppUser>): Promise<AppUser> {
-  const client = getSheetsClient();
-  const spreadsheetId = getSpreadsheetId();
-  const res = await client.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${SHEETS.users}!A:A`,
-  });
-  const ids = (res.data.values ?? []).flat() as string[];
-  const idx = ids.indexOf(id);
-  if (idx <= 0) throw new Error(`Utilisateur ${id} introuvable`);
-  const rowIndex = idx + 1; // 1-based; ligne 1 = headers, donc l'utilisateur est à idx+1
-
   const users = await listUsers();
   const current = users.find((u) => u.id === id);
-  if (!current) throw new Error(`Utilisateur ${id} introuvable (re-fetch)`);
+  if (!current) throw new Error(`Utilisateur ${id} introuvable`);
   const merged: AppUser = { ...current, ...patch };
-  await updateRow(SHEETS.users, rowIndex, userToRow(merged));
+  await updateRowById(SHEETS.users, id, userToRow(merged));
   return merged;
 }
 
