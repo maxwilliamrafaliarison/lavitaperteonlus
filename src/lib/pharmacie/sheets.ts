@@ -178,13 +178,25 @@ async function appendRowsSupabase(tab: PharmaSheetName, values: unknown[][]): Pr
   const rows = values.map((arr) => {
     const obj: Record<string, unknown> = {};
     order.forEach((colName, i) => {
-      let v = arr[i];
-      if (v === "" || v === undefined) v = null;
-      if (v !== null && nums.has(colName)) {
-        const n = Number(v);
-        v = Number.isFinite(n) ? n : null;
+      const raw = arr[i];
+      if (nums.has(colName)) {
+        // Colonne numérique : une valeur vide n'est pas 0, c'est « non
+        // renseigné » → null. Ces colonnes sont restées nullables en base.
+        if (raw === "" || raw === null || raw === undefined) {
+          obj[colName] = null;
+        } else {
+          const n = Number(raw);
+          obj[colName] = Number.isFinite(n) ? n : null;
+        }
+        return;
       }
-      obj[colName] = v;
+      // Colonne TEXTE : le vide s'écrit "" et JAMAIS null. La migration 004
+      // les a passées NOT NULL, donc un null y déclenche une erreur 23502 —
+      // ce qui faisait échouer toute création de produit sans DCI et TOUTE
+      // vente (les mouvements sans lot écrivaient lot_id = null).
+      // "" et null sont de toute façon équivalents ici, et le lecteur txt()
+      // absorbe les deux.
+      obj[colName] = raw === null || raw === undefined ? "" : raw;
     });
     return obj;
   });
