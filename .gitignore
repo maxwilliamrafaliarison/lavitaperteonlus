@@ -49,3 +49,6 @@ next-env.d.ts
 *credentials*.json
 # Inventaire local (importé une fois, source de vérité = Google Sheet)
 /data/
+
+# Sauvegardes de données — ne JAMAIS committer (données de santé)
+backups/
