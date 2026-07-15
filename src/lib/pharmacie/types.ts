@@ -7,35 +7,48 @@ import { z } from "zod";
    depuis l'onglet mouvements, jamais stocké en cellule.
    ============================================================ */
 
+/**
+ * Champ texte tolérant au null — À UTILISER POUR TOUT CHAMP TEXTE OPTIONNEL.
+ *
+ * `z.string().default("")` ne suffit PAS : `.default()` ne se déclenche que sur
+ * `undefined`, donc un `null` échoue à la validation. Or Supabase renvoie `null`
+ * pour toute colonne vide (les onglets Sheets, eux, renvoient ""). Comme
+ * `listProduits()` écarte silencieusement les lignes invalides (`.filter(p =>
+ * p.success)`), un seul null faisait DISPARAÎTRE le produit de toute l'app sans
+ * la moindre erreur — 18 des 65 produits étaient concernés à la bascule Supabase.
+ */
+const txt = () => z.string().nullish().transform((v) => v ?? "");
+
 export const ProduitStatut = z.enum(["actif", "a_detruire", "archive"]);
 export type ProduitStatut = z.infer<typeof ProduitStatut>;
 
 export const Produit = z.object({
   id: z.string(),
-  code: z.string().default(""),
+  code: txt(),
   designation: z.string(),
-  dci: z.string().default(""),
-  classe: z.string().default(""),
-  forme: z.string().default(""),
-  dosage: z.string().default(""),
-  conditionnement: z.string().default(""),
+  dci: txt(),
+  classe: txt(),
+  forme: txt(),
+  dosage: txt(),
+  conditionnement: txt(),
+  // Les champs numériques sont déjà null-safe : Number(null) === 0.
   prix_achat: z.coerce.number().default(0),
   prix_vente: z.coerce.number().default(0),
   prix_unitaire: z.coerce.number().default(0),
   stock_min: z.coerce.number().default(0),
-  fournisseur: z.string().default(""),
-  emplacement: z.string().default(""),
-  statut: ProduitStatut.default("actif"),
-  createdAt: z.string().default(""),
+  fournisseur: txt(),
+  emplacement: txt(),
+  statut: z.preprocess((v) => v ?? "actif", ProduitStatut.default("actif")),
+  createdAt: txt(),
 });
 export type Produit = z.infer<typeof Produit>;
 
 export const Lot = z.object({
   id: z.string(),
   produit_id: z.string(),
-  numero_lot: z.string().default(""),
-  date_expiration: z.string().default(""),
-  date_reception: z.string().default(""),
+  numero_lot: txt(),
+  date_expiration: txt(),
+  date_reception: txt(),
 });
 export type Lot = z.infer<typeof Lot>;
 
@@ -53,15 +66,15 @@ export const Mouvement = z.object({
   id: z.string(),
   timestamp: z.string(),
   produit_id: z.string(),
-  lot_id: z.string().default(""),
+  lot_id: txt(),
   type: MouvementType,
   // Quantité SIGNÉE : entrée/retour > 0, vente/perte/destruction < 0,
   // ajustement dans les deux sens.
   quantite: z.coerce.number(),
   prix_unitaire: z.coerce.number().default(0),
-  reference: z.string().default(""),
-  user_email: z.string().default(""),
-  note: z.string().default(""),
+  reference: txt(),
+  user_email: txt(),
+  note: txt(),
 });
 export type Mouvement = z.infer<typeof Mouvement>;
 

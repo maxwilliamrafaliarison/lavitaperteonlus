@@ -123,8 +123,11 @@ function cast(table, row) {
     if (out[col] === "" || out[col] == null) { out[col] = null; }
     else { const n = Number(out[col]); out[col] = Number.isFinite(n) ? n : null; }
   }
-  // vides → null pour éviter les "" en text (cohérence)
-  for (const k of Object.keys(out)) if (out[k] === "") out[k] = null;
+  // Les colonnes TEXTE vides restent "" — surtout PAS null. Zod rejette null
+  // sur un champ texte (`.default()` ne joue que sur `undefined`) et
+  // listProduits() écarte silencieusement les lignes invalides : cette ligne
+  // faisait disparaître 18 des 65 produits à la bascule Supabase.
+  // Voir le helper txt() dans src/lib/pharmacie/types.ts et la migration 004.
   return out;
 }
 

@@ -155,8 +155,25 @@ export async function GET(req: NextRequest) {
     }
     ${
       stockBas.length > 0
-        ? `<p style="font-size:13px;color:#b45309"><strong>Stock bas (${stockBas.length})</strong></p>
-           <table cellspacing="0" style="width:100%">${rows(stockBas.map((p) => [p.designation, `stock ${p.stock}`, `min ${p.stock_min}`]))}</table>`
+        ? `<p style="font-size:13px;color:#b45309"><strong>À commander — stock bas (${stockBas.length})</strong></p>
+           <table cellspacing="0" style="width:100%">
+             <tr><th ${th}>Produit</th><th ${th}>Fournisseur</th><th ${th}>Stock / seuil</th><th ${th}>À commander</th></tr>
+             ${rows(
+               stockBas
+                 .slice()
+                 .sort(
+                   (a, b) =>
+                     (a.fournisseur || "￿").localeCompare(b.fournisseur || "￿") ||
+                     a.designation.localeCompare(b.designation),
+                 )
+                 .map((p) => [
+                   p.designation,
+                   p.fournisseur || "—",
+                   `${p.stock} / ${p.stock_min}`,
+                   `<strong>${Math.max(0, Math.ceil(p.stock_min - p.stock))}</strong>`,
+                 ]),
+             )}
+           </table>`
         : ""
     }`
   }
