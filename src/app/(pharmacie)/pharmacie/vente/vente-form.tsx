@@ -21,14 +21,25 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { getT, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { ProduitAvecStock } from "@/lib/pharmacie/types";
+import type { ProduitAvecStock, ModeVente } from "@/lib/pharmacie/types";
+import {
+  estFractionnable,
+  prixPour,
+  versUnitesBase,
+  formaterQuantite,
+} from "@/lib/pharmacie/fractionnement";
 
 import { creerVenteAction } from "./actions";
 
 interface LignePanier {
   produit: ProduitAvecStock;
+  /** Quantité dans l'unité du mode : des boîtes, ou des comprimés. */
   quantite: number;
+  mode: ModeVente;
 }
+
+/** Deux lignes du même produit dans deux modes différents sont distinctes. */
+const cle = (l: LignePanier) => `${l.produit.id}|${l.mode}`;
 
 function fmtAr(n: number): string {
   return (
@@ -80,34 +91,46 @@ export function VenteForm({
   }, [query, vendables]);
 
   const total = panier.reduce(
-    (s, l) => s + l.quantite * (l.produit.prix_vente || 0),
+    (s, l) => s + l.quantite * prixPour(l.produit, l.mode),
     0,
   );
 
-  function ajouter(p: ProduitAvecStock) {
+  /**
+   * Quantité maximale d'une ligne, en tenant compte de ce que les AUTRES
+   * lignes du même produit consomment déjà. Sans ça, 2 boîtes + N comprimés
+   * du même produit pourraient dépasser le stock à eux deux — le serveur
+   * refuserait, mais après que le pharmacien a composé tout son panier.
+   */
+  function maxPour(ligne: LignePanier, courant: LignePanier[]): number {
+    const dejaPris = courant
+      .filter((l) => l.produit.id === ligne.produit.id && l.mode !== ligne.mode)
+      .reduce((s, l) => s + versUnitesBase(l.produit, l.quantite, l.mode), 0);
+    const dispo = ligne.produit.stockBase - dejaPris;
+    const parUnite = versUnitesBase(ligne.produit, 1, ligne.mode);
+    return Math.max(0, Math.floor(dispo / parUnite));
+  }
+
+  function ajouter(p: ProduitAvecStock, mode: ModeVente) {
     setPanier((prev) => {
-      const existing = prev.find((l) => l.produit.id === p.id);
-      if (existing) {
-        if (existing.quantite >= p.stockBase) {
-          toast.warning(t("pharmacie.vente_stock_max", { p: p.designation }));
-          return prev;
-        }
-        return prev.map((l) =>
-          l.produit.id === p.id ? { ...l, quantite: l.quantite + 1 } : l,
-        );
+      const existante = prev.find((l) => l.produit.id === p.id && l.mode === mode);
+      const cible: LignePanier = existante ?? { produit: p, quantite: 0, mode };
+      if (cible.quantite + 1 > maxPour(cible, prev)) {
+        toast.warning(t("pharmacie.vente_stock_max", { p: p.designation }));
+        return prev;
       }
-      return [...prev, { produit: p, quantite: 1 }];
+      return existante
+        ? prev.map((l) => (cle(l) === cle(cible) ? { ...l, quantite: l.quantite + 1 } : l))
+        : [...prev, { produit: p, quantite: 1, mode }];
     });
     setQuery("");
   }
 
-  function changerQuantite(id: string, delta: number) {
+  function changerQuantite(k: string, delta: number) {
     setPanier((prev) =>
       prev
         .map((l) => {
-          if (l.produit.id !== id) return l;
-          const next = Math.min(l.quantite + delta, l.produit.stockBase);
-          return { ...l, quantite: next };
+          if (cle(l) !== k) return l;
+          return { ...l, quantite: Math.min(l.quantite + delta, maxPour(l, prev)) };
         })
         .filter((l) => l.quantite > 0),
     );
@@ -122,7 +145,9 @@ export function VenteForm({
         lignes: panier.map((l) => ({
           produitId: l.produit.id,
           quantite: l.quantite,
-          prixUnitaire: l.produit.prix_vente || 0,
+          mode: l.mode,
+          // Indicatif : le serveur relit le catalogue de toute façon.
+          prixUnitaire: prixPour(l.produit, l.mode),
         })),
       });
       if (result.ok) {
@@ -161,13 +186,23 @@ export function VenteForm({
           )}
           <ul role="list" className="divide-y divide-glass-border">
             {panier.map((l) => (
-              <li key={l.produit.id} className="flex justify-between py-1.5">
+              <li key={cle(l)} className="flex justify-between py-1.5">
                 <span>
                   {l.produit.designation}{" "}
-                  <span className="text-muted-foreground">× {l.quantite}</span>
+                  {/* « × 3 » sans l'unité, c'est un litige au comptoir :
+                      3 boîtes ou 3 comprimés ? */}
+                  <span className="text-muted-foreground">
+                    × {l.quantite}
+                    {estFractionnable(l.produit) &&
+                      ` ${
+                        l.mode === "detail"
+                          ? l.produit.unite_detail || t("pharmacie.vente_mode_detail")
+                          : "bte"
+                      }`}
+                  </span>
                 </span>
                 <span className="font-mono tabular-nums">
-                  {fmtAr(l.quantite * (l.produit.prix_vente || 0))}
+                  {fmtAr(l.quantite * prixPour(l.produit, l.mode))}
                 </span>
               </li>
             ))}
@@ -315,12 +350,15 @@ export function VenteForm({
                       </p>
                     </div>
                     <span className="text-xs text-muted-foreground font-mono tabular-nums shrink-0">
-                      {t("pharmacie.vente_stock_dispo", { n: p.stockBase })}
+                      {formaterQuantite(p, p.stockBase)}
                     </span>
                   </>
                 );
                 const classeLigne =
                   "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+                // Vendable à l'unité seulement si le produit est fractionné ET
+                // qu'un prix de comptoir a été fixé pour l'unité.
+                const auDetail = estFractionnable(p) && p.prix_vente_detail > 0;
                 return (
                   <li key={p.id}>
                     {sansPrix ? (
@@ -337,8 +375,31 @@ export function VenteForm({
                         />
                         <span className="sr-only">{t("pharmacie.vente_sans_prix_aide")}</span>
                       </Link>
+                    ) : auDetail ? (
+                      // Deux boutons : le pharmacien choisit l'unité au moment
+                      // d'ajouter, pas après — c'est le geste du comptoir.
+                      <div className="flex items-center gap-3 px-3 py-2.5">
+                        {infos}
+                        <div className="flex gap-1.5 shrink-0">
+                          <BoutonMode
+                            onClick={() => ajouter(p, "boite")}
+                            libelle={t("pharmacie.vente_mode_boite")}
+                            prix={fmtAr(p.prix_vente)}
+                          />
+                          <BoutonMode
+                            onClick={() => ajouter(p, "detail")}
+                            libelle={p.unite_detail || t("pharmacie.vente_mode_detail")}
+                            prix={fmtAr(p.prix_vente_detail)}
+                            accent
+                          />
+                        </div>
+                      </div>
                     ) : (
-                      <button type="button" onClick={() => ajouter(p)} className={classeLigne}>
+                      <button
+                        type="button"
+                        onClick={() => ajouter(p, "boite")}
+                        className={classeLigne}
+                      >
                         {infos}
                         <span className="font-mono text-sm tabular-nums shrink-0">
                           {fmtAr(p.prix_vente)}
@@ -374,46 +435,64 @@ export function VenteForm({
             </p>
           ) : (
             <ul role="list" className="mt-4 space-y-3">
-              {panier.map((l) => (
-                <li key={l.produit.id} className="rounded-xl glass border p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-tight flex-1">
-                      {l.produit.designation}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => changerQuantite(l.produit.id, -l.quantite)}
-                      aria-label={t("actions.delete")}
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      <Trash2 className="size-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between">
-                    <div className="inline-flex items-center gap-1">
-                      <QtyBtn
-                        onClick={() => changerQuantite(l.produit.id, -1)}
-                        label="-"
+              {panier.map((l) => {
+                const k = cle(l);
+                return (
+                  <li key={k} className="rounded-xl glass border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium leading-tight">
+                          {l.produit.designation}
+                        </p>
+                        {/* L'unité doit être lisible : deux lignes du même
+                            produit ne se distinguent que par elle. */}
+                        {estFractionnable(l.produit) && (
+                          <span
+                            className={cn(
+                              "mt-1 inline-block rounded-full border px-1.5 py-0.5 text-[9px] font-medium",
+                              l.mode === "detail"
+                                ? "border-accent/30 bg-accent/10 text-accent"
+                                : "border-glass-border text-muted-foreground",
+                            )}
+                          >
+                            {l.mode === "detail"
+                              ? l.produit.unite_detail || t("pharmacie.vente_mode_detail")
+                              : t("pharmacie.vente_mode_boite")}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => changerQuantite(k, -l.quantite)}
+                        aria-label={t("actions.delete")}
+                        className="text-muted-foreground hover:text-primary transition-colors"
                       >
-                        <Minus className="size-3" aria-hidden="true" />
-                      </QtyBtn>
-                      <span className="w-8 text-center font-mono text-sm tabular-nums">
-                        {l.quantite}
-                      </span>
-                      <QtyBtn
-                        onClick={() => changerQuantite(l.produit.id, 1)}
-                        disabled={l.quantite >= l.produit.stockBase}
-                        label="+"
-                      >
-                        <Plus className="size-3" aria-hidden="true" />
-                      </QtyBtn>
+                        <Trash2 className="size-3.5" aria-hidden="true" />
+                      </button>
                     </div>
-                    <span className="font-mono text-sm tabular-nums">
-                      {fmtAr(l.quantite * (l.produit.prix_vente || 0))}
-                    </span>
-                  </div>
-                </li>
-              ))}
+                    <div className="mt-2 flex items-center justify-between">
+                      <div className="inline-flex items-center gap-1">
+                        <QtyBtn onClick={() => changerQuantite(k, -1)} label="-">
+                          <Minus className="size-3" aria-hidden="true" />
+                        </QtyBtn>
+                        <span className="w-8 text-center font-mono text-sm tabular-nums">
+                          {l.quantite}
+                        </span>
+                        <QtyBtn
+                          onClick={() => changerQuantite(k, 1)}
+                          disabled={l.quantite >= maxPour(l, panier)}
+                          label="+"
+                        >
+                          <Plus className="size-3" aria-hidden="true" />
+                        </QtyBtn>
+                      </div>
+                      <span className="font-mono text-sm tabular-nums">
+                        {fmtAr(l.quantite * prixPour(l.produit, l.mode))}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
 
@@ -456,6 +535,43 @@ export function VenteForm({
         </GlassCard>
       </div>
     </div>
+  );
+}
+
+/**
+ * Bouton d'ajout au panier dans une unité donnée. Le prix figure DANS le
+ * bouton : au comptoir, on choisit « la boîte à 8 126 » ou « le comprimé à
+ * 300 » — pas un mode abstrait qu'il faudrait traduire mentalement.
+ * (Geste repris de l'app d'Eugenio.)
+ */
+function BoutonMode({
+  onClick,
+  libelle,
+  prix,
+  accent,
+}: {
+  onClick: () => void;
+  libelle: string;
+  prix: string;
+  accent?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center rounded-xl border px-2.5 py-1.5 transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        accent
+          ? "border-accent/30 bg-accent/10 hover:bg-accent/20"
+          : "border-glass-border glass hover:bg-white/8",
+      )}
+    >
+      <span className={cn("text-[10px] font-medium leading-none", accent && "text-accent")}>
+        {libelle}
+      </span>
+      <span className="mt-0.5 font-mono text-[11px] tabular-nums leading-none">{prix}</span>
+    </button>
   );
 }
 

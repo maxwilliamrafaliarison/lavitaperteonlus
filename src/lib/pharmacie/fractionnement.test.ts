@@ -113,6 +113,33 @@ describe("prixDetailSuggere", () => {
   });
 });
 
+describe("panier mixte — le contrôle de stock doit agréger", () => {
+  /** Ce que fait la validation serveur : sommer AVANT de comparer. */
+  const besoinTotal = (lignes: Array<{ q: number; mode: "boite" | "detail" }>) =>
+    lignes.reduce((s, l) => s + versUnitesBase(frac, l.q, l.mode), 0);
+
+  it("additionne les deux modes du même produit", () => {
+    // 2 boîtes (60 cp) + 5 comprimés = 65 comprimés
+    expect(besoinTotal([{ q: 2, mode: "boite" }, { q: 5, mode: "detail" }])).toBe(65);
+  });
+
+  it("attrape le dépassement qu'un contrôle ligne par ligne laissait passer", () => {
+    // Stock de 570 comprimés (19 boîtes). Vendre 19 bte + 1 cp = 571.
+    // Vérifiées séparément, les deux lignes passaient : 19 ≤ 570 et 1 ≤ 570.
+    // C'est la somme qui dépasse — d'où l'agrégation par produit.
+    const stock = 570;
+    const besoin = besoinTotal([{ q: 19, mode: "boite" }, { q: 1, mode: "detail" }]);
+    expect(besoin).toBe(571);
+    expect(besoin > stock).toBe(true);
+  });
+
+  it("le prix suit le mode de chaque ligne, pas le produit", () => {
+    const total =
+      2 * prixPour(frac, "boite") + 5 * prixPour(frac, "detail");
+    expect(total).toBe(2 * 8126 + 5 * 300);
+  });
+});
+
 describe("formaterQuantite", () => {
   it("laisse un produit non fractionnable strictement inchangé", () => {
     expect(formaterQuantite(plat, 12)).toBe("12");
