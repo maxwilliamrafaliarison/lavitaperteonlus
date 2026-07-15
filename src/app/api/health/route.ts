@@ -22,6 +22,14 @@ export async function GET() {
     ok: boolean;
     timestamp: string;
     node: string;
+    /**
+     * Région d'exécution des fonctions. DOIT rester dans l'UE : ces
+     * fonctions lisent 139 928 dossiers de santé (RGPD art. 9), et les
+     * traiter hors Union serait un transfert au sens des art. 44 à 49.
+     * Épinglée à cdg1 dans vercel.json — exposée ici pour qu'une dérive
+     * se voie sans avoir à décoder un en-tête HTTP.
+     */
+    region: { code: string; dansUE: boolean };
     env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean; pharmacieSheetId: boolean; patientsUrl: boolean; patientsKey: boolean };
     sheets: { reachable: boolean; userCount?: number; error?: string };
     patients?: { reachable: boolean; error?: string };
@@ -32,6 +40,18 @@ export async function GET() {
     ok: true,
     timestamp: new Date().toISOString(),
     node: process.version,
+    region: (() => {
+      // Vercel pose VERCEL_REGION à l'exécution ; absent en local.
+      const code = process.env.VERCEL_REGION ?? "local";
+      // Régions de Vercel réellement DANS l'Union. Volontairement strict :
+      // Londres (lhr1) n'y figure pas — le Royaume-Uni est hors UE depuis le
+      // Brexit. Un transfert y reste licite (décision d'adéquation), mais il
+      // doit être une décision consciente, pas un glissement silencieux.
+      // Mieux vaut un drapeau qui s'allume à tort qu'un transfert qu'on ne
+      // voit jamais.
+      const UE = ["cdg1", "fra1", "arn1", "dub1", "local"];
+      return { code, dansUE: UE.includes(code) };
+    })(),
     env: {
       sheetId: Boolean(process.env.GOOGLE_SHEET_ID),
       serviceAccount: Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL),

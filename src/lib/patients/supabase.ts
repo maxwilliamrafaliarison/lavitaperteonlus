@@ -229,6 +229,9 @@ export async function statsPatients(): Promise<PatientsStats> {
 export async function logAccesPatient(entry: {
   userEmail: string;
   action: string;
+  /** Numéro de patiente (R####) — l'identifiant STABLE. */
+  nPatiente?: string;
+  /** Ligne de visite précise, quand elle a un sens. Une patiente en a plusieurs. */
   dossierId?: number;
   details?: string;
 }): Promise<void> {
@@ -241,13 +244,30 @@ export async function logAccesPatient(entry: {
         {
           user_email: entry.userEmail,
           action: entry.action,
+          // Colonne interrogeable : c'est elle qui permet de répondre à
+          // « qui a consulté MON dossier ? » (RGPD art. 15) sans fouiller
+          // du texte libre à la main.
+          n_patiente: entry.nPatiente ?? null,
           dossier_id: entry.dossierId ?? null,
           details: entry.details ?? null,
         },
       ],
     );
-  } catch {
-    // Le journal ne doit jamais bloquer la consultation ; on avale
-    // l'erreur (elle sera visible dans les logs serveur si fetch échoue).
+  } catch (e) {
+    // Le journal ne doit jamais bloquer une consultation : un dossier
+    // médical illisible parce que la traçabilité est en panne serait pire
+    // que l'inverse. Mais l'échec ne doit pas non plus être MUET — sans
+    // cette trace, on croirait la traçabilité opérationnelle alors qu'elle
+    // ne consigne plus rien, et on ne pourrait ni instruire une violation
+    // (art. 33) ni le démontrer (art. 5.2).
+    console.error(
+      "[patients:acces_log] ÉCHEC DU JOURNAL — accès NON tracé",
+      JSON.stringify({
+        user: entry.userEmail,
+        action: entry.action,
+        patiente: entry.nPatiente,
+        erreur: e instanceof Error ? e.message : String(e),
+      }),
+    );
   }
 }

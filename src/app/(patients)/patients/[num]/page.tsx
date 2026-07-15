@@ -43,11 +43,15 @@ export default async function DossierPatientePage({
   const visites = await visitesDeLaPatiente(nPatiente);
   if (visites.length === 0) notFound();
 
-  // Journal d'accès RGPD : consultation d'un dossier patiente
+  // Journal d'accès RGPD : consultation d'un dossier patiente.
+  // `nPatiente` va dans sa propre colonne, pas seulement dans le texte :
+  // c'est ce qui permet de répondre à « qui a consulté mon dossier ? »
+  // (art. 15) par une requête, et non en relisant des phrases à la main.
   await logAccesPatient({
     userEmail: session.user.email ?? "",
     action: "consultation_dossier",
-    details: `patiente N° ${nPatiente} (${visites.length} visite(s))`,
+    nPatiente,
+    details: `${visites.length} visite(s)`,
   });
 
   const nom = premier(visites, "nom_prenom") || t("patients.sans_nom");

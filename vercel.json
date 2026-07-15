@@ -1,4 +1,25 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "//": [
+    "regions: cdg1 (Paris) — LES FONCTIONS DOIVENT S'EXÉCUTER DANS L'UE.",
+    "",
+    "Sans cette clé, Vercel exécute par défaut en iad1 (Washington). Mesuré",
+    "le 15/07/2026 sur la production : l'en-tête x-vercel-id renvoyait",
+    "'cdg1::iad1::…' — point d'entrée à Paris, mais EXÉCUTION AUX",
+    "ÉTATS-UNIS. Les 139 928 dossiers de dépistage sont bien stockés en",
+    "eu-west-1 (Irlande), mais chaque consultation les faisait transiter et",
+    "traiter hors de l'Union : un transfert au sens des art. 44 à 49 du",
+    "RGPD, sur des données de santé (art. 9), sans encadrement.",
+    "",
+    "cdg1 est aussi la région la plus proche d'eu-west-1 : la latence y gagne.",
+    "",
+    "⚠️ Ne jamais retirer cette clé ni la pointer hors UE. Contrôle :",
+    "   curl -sI https://lavitaperteonlus.vercel.app/api/health | grep x-vercel-id",
+    "   Le SECOND code doit être cdg1 — c'est celui de l'exécution."
+  ],
+  "regions": ["cdg1"],
+
   "crons": [
     {
       "path": "/api/pharmacie/rapport-quotidien",
