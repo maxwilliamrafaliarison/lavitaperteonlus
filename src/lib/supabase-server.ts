@@ -143,6 +143,43 @@ export async function sbUpdate(
 }
 
 /**
+ * Appelle une fonction Postgres (RPC).
+ *
+ * Sert là où plusieurs écritures doivent tomber ENSEMBLE : PostgREST traite
+ * chaque requête isolément, donc trois appels d'affilée peuvent laisser un
+ * état à moitié écrit. Une fonction plpgsql, elle, est atomique par
+ * construction — c'est la seule façon d'obtenir une transaction ici.
+ */
+export async function sbRpc<T>(
+  schema: string,
+  fonction: string,
+  params: Record<string, unknown>,
+): Promise<T> {
+  const { url, key } = supabaseEnv();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const res = await fetch(`${url}/rest/v1/rpc/${fonction}`, {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Profile": schema,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Supabase rpc ${schema}.${fonction} ${res.status} : ${(await res.text()).slice(0, 200)}`);
+    }
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Suppression ciblée (DELETE) via filtres PostgREST.
  * Retourne le nombre de lignes réellement supprimées.
  *

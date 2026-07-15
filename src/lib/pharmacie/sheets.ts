@@ -6,7 +6,7 @@ import {
   Mouvement,
   type ProduitAvecStock,
 } from "./types";
-import { sbSelect, sbInsert, sbUpdate } from "@/lib/supabase-server";
+import { sbSelect, sbInsert, sbUpdate, sbRpc } from "@/lib/supabase-server";
 
 /* ============================================================
    PHARMACIE — Accès données, à deux backends
@@ -264,14 +264,52 @@ export async function appendRows(tab: PharmaSheetName, values: unknown[][]): Pro
  * Les mouvements en DERNIER pour que le stock ne décrémente qu'une fois
  * la vente réellement tracée.
  */
+/** Tableau positionnel → objet nommé, selon COLUMN_ORDER de l'onglet. */
+function versObjet(tab: PharmaSheetName, values: unknown[]): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+  COLUMN_ORDER[tab].forEach((col, i) => {
+    if (values[i] !== undefined) obj[col] = values[i];
+  });
+  return obj;
+}
+
+/**
+ * Enregistre une vente : l'en-tête, ses lignes et les mouvements de stock.
+ *
+ * Sur SUPABASE, les trois écritures passent par une fonction Postgres, donc
+ * tombent ENSEMBLE ou pas du tout. C'est indispensable : en trois appels
+ * séparés, un échec du dernier laissait la vente et son ticket en base sans
+ * jamais décrémenter le stock. Le pharmacien refaisait la vente, et la
+ * première restait — comptée dans le chiffre d'affaires. La caisse et le
+ * stock divergeaient en silence.
+ *
+ * La fonction est idempotente : renvoyer deux fois le même identifiant de
+ * vente n'écrit qu'une fois. Un double clic ou un renvoi de formulaire ne
+ * duplique donc pas la recette.
+ *
+ * Sur SHEETS, l'atomicité est hors de portée (l'API n'a pas de
+ * transaction) : on conserve les trois appels, dans l'ordre le moins
+ * dommageable — le stock EN PREMIER. Si la suite échoue, le stock est
+ * décrémenté sans vente : visible à l'inventaire, et sans effet sur la
+ * caisse. L'inverse — une vente encaissée sans sortie de stock — serait
+ * bien pire.
+ */
 export async function enregistrerVente(input: {
   venteRow: unknown[];
   lignesRows: unknown[][];
   mouvementsRows: unknown[][];
 }): Promise<void> {
+  if (backend() === "supabase") {
+    await sbRpc<string>(SCHEMA, "enregistrer_vente", {
+      p_vente: versObjet(PHARMA_SHEETS.ventes, input.venteRow),
+      p_lignes: input.lignesRows.map((r) => versObjet(PHARMA_SHEETS.lignesVente, r)),
+      p_mouvements: input.mouvementsRows.map((r) => versObjet(PHARMA_SHEETS.mouvements, r)),
+    });
+    return;
+  }
+  await appendRows(PHARMA_SHEETS.mouvements, input.mouvementsRows);
   await appendRows(PHARMA_SHEETS.ventes, [input.venteRow]);
   await appendRows(PHARMA_SHEETS.lignesVente, input.lignesRows);
-  await appendRows(PHARMA_SHEETS.mouvements, input.mouvementsRows);
 }
 
 // ------------------------------------------------------------------
