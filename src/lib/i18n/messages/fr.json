@@ -158,6 +158,8 @@
     "vente_client": "Client",
     "vente_client_placeholder": "Nom du patient ou du client (externe accepté)",
     "vente_total": "Total",
+    "vente_recu": "Montant reçu",
+    "vente_rendu": "Monnaie à rendre",
     "vente_encaisser": "Encaisser la vente",
     "vente_success": "Vente enregistrée",
     "vente_done_title": "Vente enregistrée",

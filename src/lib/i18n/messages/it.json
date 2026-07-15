@@ -158,6 +158,8 @@
     "vente_client": "Cliente",
     "vente_client_placeholder": "Nome del paziente o del cliente (esterno accettato)",
     "vente_total": "Totale",
+    "vente_recu": "Importo ricevuto",
+    "vente_rendu": "Resto da rendere",
     "vente_encaisser": "Incassa la vendita",
     "vente_success": "Vendita registrata",
     "vente_done_title": "Vendita registrata",

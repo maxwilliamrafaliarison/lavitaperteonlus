@@ -35,6 +35,14 @@ function fmtAr(n: number): string {
   );
 }
 
+// 1 Ariary = 5 FMG (francs malgaches) — beaucoup de clients comptent encore en FMG
+function fmtFmg(ariary: number): string {
+  return (
+    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(ariary * 5) +
+    " FMG"
+  );
+}
+
 export function VenteForm({
   produits,
   lang,
@@ -49,6 +57,7 @@ export function VenteForm({
   const [clientNom, setClientNom] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [done, setDone] = React.useState<{ venteId: string; total: number } | null>(null);
+  const [recu, setRecu] = React.useState<number>(0);
 
   const vendables = React.useMemo(
     () => produits.filter((p) => p.statut === "actif" && p.stock > 0),
@@ -116,6 +125,7 @@ export function VenteForm({
       });
       if (result.ok) {
         setDone({ venteId: result.venteId, total: result.total });
+        setRecu(result.total);
         toast.success(t("pharmacie.vente_success"));
         router.refresh();
       } else {
@@ -164,6 +174,52 @@ export function VenteForm({
             <span>{t("pharmacie.vente_total")}</span>
             <span className="font-mono tabular-nums">{fmtAr(done.total)}</span>
           </p>
+          <p className="flex justify-end text-xs text-muted-foreground">
+            <span className="font-mono tabular-nums">= {fmtFmg(done.total)}</span>
+          </p>
+        </div>
+
+        {/* Monnaie à rendre (espèces) */}
+        <div className="mt-4 rounded-2xl glass border p-4 text-left text-sm print:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <label
+              htmlFor="montant-recu"
+              className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground"
+            >
+              {t("pharmacie.vente_recu")}
+            </label>
+            <div className="inline-flex items-center gap-1">
+              <QtyBtn onClick={() => setRecu((r) => Math.max(done.total, r - 500))} label="-500">
+                <Minus className="size-3" aria-hidden="true" />
+              </QtyBtn>
+              <input
+                id="montant-recu"
+                type="number"
+                inputMode="numeric"
+                min={done.total}
+                step={500}
+                value={recu}
+                onChange={(e) => setRecu(Math.max(0, Number(e.target.value) || 0))}
+                className="w-28 rounded-xl glass border px-2 h-9 text-right font-mono text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <QtyBtn onClick={() => setRecu((r) => r + 500)} label="+500">
+                <Plus className="size-3" aria-hidden="true" />
+              </QtyBtn>
+            </div>
+          </div>
+          <p className="mt-3 flex items-center justify-between border-t border-glass-border pt-3">
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+              {t("pharmacie.vente_rendu")}
+            </span>
+            <span
+              className={cn(
+                "font-mono text-base font-semibold tabular-nums",
+                recu >= done.total && "text-[oklch(0.75_0.18_150)]",
+              )}
+            >
+              {fmtAr(Math.max(0, recu - done.total))}
+            </span>
+          </p>
         </div>
 
         <div className="mt-6 flex flex-wrap justify-center gap-2 print:hidden">
@@ -205,6 +261,7 @@ export function VenteForm({
               setPanier([]);
               setClientNom("");
               setDone(null);
+              setRecu(0);
             }}
           >
             {t("pharmacie.vente_new")}
@@ -346,10 +403,15 @@ export function VenteForm({
               />
             </label>
 
-            <p className="flex items-center justify-between text-lg font-semibold">
-              <span>{t("pharmacie.vente_total")}</span>
-              <span className="font-mono tabular-nums">{fmtAr(total)}</span>
-            </p>
+            <div>
+              <p className="flex items-center justify-between text-lg font-semibold">
+                <span>{t("pharmacie.vente_total")}</span>
+                <span className="font-mono tabular-nums">{fmtAr(total)}</span>
+              </p>
+              <p className="flex justify-end text-xs text-muted-foreground">
+                <span className="font-mono tabular-nums">= {fmtFmg(total)}</span>
+              </p>
+            </div>
 
             <GlassButton
               type="button"
