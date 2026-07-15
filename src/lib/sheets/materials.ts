@@ -1,5 +1,7 @@
 import { appendRow, readSheet, SHEETS, updateRow, deleteRow, getSheetsClient, getSpreadsheetId } from "./client";
-import type { Material, MaterialState, MaterialType } from "@/types";
+import { MaterialState, MaterialType } from "@/types";
+import type { Material } from "@/types";
+import { str, opt, bool, num, list, enumOr } from "./cells";
 
 /* ============================================================
    COUCHE D'ACCÈS — onglet `materials` du Google Sheet
@@ -16,59 +18,45 @@ import type { Material, MaterialState, MaterialType } from "@/types";
 
 type RawRow = Record<string, unknown>;
 
-function toBool(v: unknown): boolean | undefined {
-  if (v === null || v === undefined || v === "") return undefined;
-  if (typeof v === "boolean") return v;
-  const s = String(v).toUpperCase();
-  if (s === "TRUE" || s === "OUI" || s === "YES" || s === "1") return true;
-  if (s === "FALSE" || s === "NON" || s === "NO" || s === "0") return false;
-  return undefined;
-}
-
-function toNum(v: unknown): number | undefined {
-  if (v === null || v === undefined || v === "") return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
-
 function rowToMaterial(row: RawRow): Material | null {
   if (!row.id || !row.ref) return null;
   return {
-    id: String(row.id),
-    ref: String(row.ref),
-    type: (String(row.type) as MaterialType) || "autre",
-    designation: String(row.designation ?? ""),
-    brand: row.brand ? String(row.brand) : undefined,
-    model: row.model ? String(row.model) : undefined,
-    serialNumber: row.serialNumber ? String(row.serialNumber) : undefined,
-    siteId: String(row.siteId ?? ""),
-    roomId: String(row.roomId ?? ""),
-    service: row.service ? String(row.service) : undefined,
-    owner: row.owner ? String(row.owner) : undefined,
-    assignedTo: row.assignedTo ? String(row.assignedTo) : undefined,
-    purchaseDate: row.purchaseDate ? String(row.purchaseDate) : undefined,
-    purchasePrice: toNum(row.purchasePrice),
-    amortization: row.amortization ? String(row.amortization) : undefined,
-    os: row.os ? String(row.os) : undefined,
-    cpu: row.cpu ? String(row.cpu) : undefined,
-    ram: row.ram ? String(row.ram) : undefined,
-    storage: row.storage ? String(row.storage) : undefined,
-    ipAddress: row.ipAddress ? String(row.ipAddress) : undefined,
-    macAddress: row.macAddress ? String(row.macAddress) : undefined,
-    internetAccess: toBool(row.internetAccess),
-    linkedToBDD: toBool(row.linkedToBDD),
-    state: ((String(row.state) as MaterialState) || "operationnel") as MaterialState,
-    notes: row.notes ? String(row.notes) : undefined,
-    photos: row.photos
-      ? String(row.photos).split(",").map((s) => s.trim()).filter(Boolean)
-      : [],
-    quantity2023: toNum(row.quantity2023),
-    quantity2024: toNum(row.quantity2024),
-    quantity2025: toNum(row.quantity2025),
-    createdAt: String(row.createdAt ?? ""),
-    updatedAt: String(row.updatedAt ?? ""),
-    deletedAt: row.deletedAt ? String(row.deletedAt) : undefined,
-    biosDate: row.biosDate ? String(row.biosDate) : undefined,
+    id: str(row.id),
+    ref: str(row.ref),
+    // enumOr : une valeur vide OU inconnue retombe sur le repli. L'ancien
+    // `String(row.type) || "autre"` ne repliait jamais (String(null) = "null",
+    // truthy) — voir l'en-tête de cells.ts.
+    type: enumOr(row.type, MaterialType, "autre"),
+    designation: str(row.designation),
+    brand: opt(row.brand),
+    model: opt(row.model),
+    serialNumber: opt(row.serialNumber),
+    siteId: str(row.siteId),
+    roomId: str(row.roomId),
+    service: opt(row.service),
+    owner: opt(row.owner),
+    assignedTo: opt(row.assignedTo),
+    purchaseDate: opt(row.purchaseDate),
+    purchasePrice: num(row.purchasePrice),
+    amortization: opt(row.amortization),
+    os: opt(row.os),
+    cpu: opt(row.cpu),
+    ram: opt(row.ram),
+    storage: opt(row.storage),
+    ipAddress: opt(row.ipAddress),
+    macAddress: opt(row.macAddress),
+    internetAccess: bool(row.internetAccess),
+    linkedToBDD: bool(row.linkedToBDD),
+    state: enumOr(row.state, MaterialState, "operationnel"),
+    notes: opt(row.notes),
+    photos: list(row.photos),
+    quantity2023: num(row.quantity2023),
+    quantity2024: num(row.quantity2024),
+    quantity2025: num(row.quantity2025),
+    createdAt: str(row.createdAt),
+    updatedAt: str(row.updatedAt),
+    deletedAt: opt(row.deletedAt),
+    biosDate: opt(row.biosDate),
   };
 }
 

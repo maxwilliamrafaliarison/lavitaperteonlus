@@ -1,5 +1,9 @@
+import { z } from "zod";
 import { appendRow, readSheet, SHEETS, updateRow, getSheetsClient, getSpreadsheetId } from "./client";
 import { AppUser, UserRole } from "@/types";
+import { str, opt, bool, enumOr } from "./cells";
+
+const Lang = z.enum(["fr", "it"]);
 
 /* ============================================================
    COUCHE D'ACCÈS — onglet `users` du Google Sheet
@@ -28,20 +32,26 @@ const HEADERS = [
 
 function rowToUser(row: UserRow): AppUser | null {
   if (!row.id || !row.email) return null;
-  const active = typeof row.active === "string"
-    ? row.active.toUpperCase() === "TRUE"
-    : Boolean(row.active);
   return {
-    id: row.id,
-    email: row.email,
-    passwordHash: row.passwordHash ?? "",
-    name: row.name ?? "",
-    role: (row.role as UserRole) ?? "logistique",
-    lang: (row.lang as "fr" | "it") ?? "fr",
-    active,
-    createdAt: String(row.createdAt ?? ""),
-    lastLoginAt: row.lastLoginAt ? String(row.lastLoginAt) : undefined,
-    invitedBy: row.invitedBy || undefined,
+    id: str(row.id),
+    email: str(row.email),
+    passwordHash: str(row.passwordHash),
+    name: str(row.name),
+    // enumOr valide contre l'énumération : une cellule vide OU un rôle
+    // inconnu retombe sur "logistique" de façon explicite. L'ancien
+    // `(row.role as UserRole) ?? "logistique"` laissait passer "" tel quel
+    // (?? ne filtre que null/undefined), ce qui rétrogradait silencieusement
+    // un admin plus bas dans la chaîne — sans le bloquer ni le signaler.
+    role: enumOr(row.role, UserRole, "logistique"),
+    lang: enumOr(row.lang, Lang, "fr"),
+    // `active` arrive en booléen quand la cellule est une case à cochée
+    // (USER_ENTERED convertit "TRUE"), en chaîne sinon : bool() gère les deux.
+    // Une cellule vide vaut `undefined` → false : un compte sans valeur
+    // explicite est INACTIF (on n'ouvre jamais un accès par défaut).
+    active: bool(row.active) ?? false,
+    createdAt: str(row.createdAt),
+    lastLoginAt: opt(row.lastLoginAt),
+    invitedBy: opt(row.invitedBy),
   };
 }
 

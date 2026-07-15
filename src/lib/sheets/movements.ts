@@ -1,5 +1,7 @@
 import { appendRow, readSheet, SHEETS } from "./client";
-import type { Movement, MovementType } from "@/types";
+import { MovementType } from "@/types";
+import type { Movement } from "@/types";
+import { str, opt, enumOr } from "./cells";
 
 /* ============================================================
    COUCHE D'ACCÈS — onglet `movements` du Google Sheet
@@ -19,18 +21,20 @@ function genId(): string {
 function rowToMovement(row: RawRow): Movement | null {
   if (!row.id || !row.materialId) return null;
   return {
-    id: String(row.id),
-    materialId: String(row.materialId),
-    type: ((String(row.type) as MovementType) || "creation") as MovementType,
-    fromSiteId: row.fromSiteId ? String(row.fromSiteId) : undefined,
-    fromRoomId: row.fromRoomId ? String(row.fromRoomId) : undefined,
-    fromAssignedTo: row.fromAssignedTo ? String(row.fromAssignedTo) : undefined,
-    toSiteId: row.toSiteId ? String(row.toSiteId) : undefined,
-    toRoomId: row.toRoomId ? String(row.toRoomId) : undefined,
-    toAssignedTo: row.toAssignedTo ? String(row.toAssignedTo) : undefined,
-    byUserId: String(row.byUserId ?? ""),
-    reason: row.reason ? String(row.reason) : undefined,
-    date: String(row.date ?? ""),
+    id: str(row.id),
+    materialId: str(row.materialId),
+    // L'ancien `String(row.type) || "creation"` ne repliait jamais
+    // (String(null) = "null", truthy) — voir l'en-tête de cells.ts.
+    type: enumOr(row.type, MovementType, "creation"),
+    fromSiteId: opt(row.fromSiteId),
+    fromRoomId: opt(row.fromRoomId),
+    fromAssignedTo: opt(row.fromAssignedTo),
+    toSiteId: opt(row.toSiteId),
+    toRoomId: opt(row.toRoomId),
+    toAssignedTo: opt(row.toAssignedTo),
+    byUserId: str(row.byUserId),
+    reason: opt(row.reason),
+    date: str(row.date),
   };
 }
 
