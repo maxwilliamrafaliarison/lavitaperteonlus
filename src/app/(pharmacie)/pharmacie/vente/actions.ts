@@ -15,7 +15,10 @@ import { getT, isLang } from "@/lib/i18n";
 const LigneInput = z.object({
   produitId: z.string().min(1),
   quantite: z.number().int().positive(),
-  prixUnitaire: z.number().nonnegative(),
+  // Le prix envoyé par le navigateur n'est qu'INDICATIF (il sert à afficher
+  // le panier). Le serveur le recalcule systématiquement depuis le catalogue :
+  // ce qui arrive ici n'a aucun effet sur ce qui est facturé.
+  prixUnitaire: z.number().nonnegative().optional(),
 });
 
 const VenteInput = z.object({
@@ -78,6 +81,15 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
         }),
       };
     }
+    // Garde-fou prix : un produit sans prix de vente serait encaissé à 0 Ar.
+    // 31 des 65 produits étaient dans ce cas (prix absents de l'inventaire
+    // Excel d'origine) — la caisse refuse plutôt que d'offrir la marchandise.
+    if (!produit.prix_vente || produit.prix_vente <= 0) {
+      return {
+        ok: false,
+        error: t("pharmacie.vente_error_sans_prix", { p: produit.designation }),
+      };
+    }
   }
 
   // FEFO simplifié : lot à la péremption la plus proche pour chaque produit
@@ -103,21 +115,30 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   const timestamp = now.toISOString();
   const heure = timestamp.slice(11, 19);
   const email = session.user.email ?? "";
-  const total = lignes.reduce((s, l) => s + l.quantite * l.prixUnitaire, 0);
+
+  // Le prix facturé vient TOUJOURS du catalogue, jamais du navigateur : un
+  // client modifié ou une page restée ouverte pendant un changement de tarif
+  // ne peuvent pas décider du montant encaissé. La boucle de validation
+  // ci-dessus garantit que chaque produit existe et a un prix > 0.
+  const lignesTarifees = lignes.map((l) => {
+    const prixUnitaire = parId.get(l.produitId)!.prix_vente;
+    return { ...l, prixUnitaire, sousTotal: l.quantite * prixUnitaire };
+  });
+  const total = lignesTarifees.reduce((s, l) => s + l.sousTotal, 0);
 
   try {
     await enregistrerVente({
       venteRow: [venteId, timestamp, clientNom, "cash", total, email, "active"],
-      lignesRows: lignes.map((l, i) => [
+      lignesRows: lignesTarifees.map((l, i) => [
         `${venteId}-L${i + 1}`,
         venteId,
         l.produitId,
         lotPourProduit.get(l.produitId) ?? "",
         l.quantite,
         l.prixUnitaire,
-        l.quantite * l.prixUnitaire,
+        l.sousTotal,
       ]),
-      mouvementsRows: lignes.map((l, i) => [
+      mouvementsRows: lignesTarifees.map((l, i) => [
         `MVT-${venteId}-${i + 1}`,
         timestamp,
         l.produitId,

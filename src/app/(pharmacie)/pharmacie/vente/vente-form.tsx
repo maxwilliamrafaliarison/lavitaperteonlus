@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -12,6 +13,7 @@ import {
   CheckCircle2,
   Receipt,
   FileText,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -295,13 +297,14 @@ export function VenteForm({
         {resultats.length > 0 && (
           <GlassCard className="p-2">
             <ul role="list" className="divide-y divide-glass-border">
-              {resultats.map((p) => (
-                <li key={p.id}>
-                  <button
-                    type="button"
-                    onClick={() => ajouter(p)}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  >
+              {resultats.map((p) => {
+                // Sans prix de vente, la caisse encaisserait 0 Ar : le
+                // serveur refuse la vente, autant l'annoncer ici et
+                // renvoyer vers la fiche produit plutôt que de laisser
+                // composer un panier qui sera rejeté.
+                const sansPrix = !p.prix_vente || p.prix_vente <= 0;
+                const infos = (
+                  <>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm leading-tight truncate">
                         {p.designation}
@@ -314,13 +317,38 @@ export function VenteForm({
                     <span className="text-xs text-muted-foreground font-mono tabular-nums shrink-0">
                       {t("pharmacie.vente_stock_dispo", { n: p.stock })}
                     </span>
-                    <span className="font-mono text-sm tabular-nums shrink-0">
-                      {fmtAr(p.prix_vente || 0)}
-                    </span>
-                    <Plus className="size-4 text-primary shrink-0" aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
+                  </>
+                );
+                const classeLigne =
+                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+                return (
+                  <li key={p.id}>
+                    {sansPrix ? (
+                      // Le produit n'est pas vendable : on mène à la fiche
+                      // pour saisir le prix, au lieu d'un bouton mort.
+                      <Link href={`/pharmacie/produits/${p.id}`} className={classeLigne}>
+                        {infos}
+                        <span className="rounded-full border border-[oklch(0.82_0.16_85_/_0.3)] bg-[oklch(0.82_0.16_85_/_0.12)] px-2 py-0.5 text-[10px] font-medium text-[oklch(0.82_0.16_85)] whitespace-nowrap shrink-0">
+                          {t("pharmacie.vente_sans_prix_badge")}
+                        </span>
+                        <Pencil
+                          className="size-3.5 text-muted-foreground shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">{t("pharmacie.vente_sans_prix_aide")}</span>
+                      </Link>
+                    ) : (
+                      <button type="button" onClick={() => ajouter(p)} className={classeLigne}>
+                        {infos}
+                        <span className="font-mono text-sm tabular-nums shrink-0">
+                          {fmtAr(p.prix_vente)}
+                        </span>
+                        <Plus className="size-4 text-primary shrink-0" aria-hidden="true" />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </GlassCard>
         )}
