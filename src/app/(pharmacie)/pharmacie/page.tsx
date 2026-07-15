@@ -55,12 +55,26 @@ export default async function PharmaciePage() {
       p.joursAvantPeremption >= 0 &&
       p.joursAvantPeremption <= 90,
   );
+  const ruptures = actifs.filter((p) => p.stock <= 0);
   const sousStockMin = actifs.filter(
-    (p) => p.stock_min > 0 && p.stock <= p.stock_min,
+    (p) => p.stock > 0 && p.stock_min > 0 && p.stock <= p.stock_min,
   );
   const valeurStock = actifs.reduce(
     (sum, p) => sum + p.stock * (p.prix_vente || 0),
     0,
+  );
+
+  // Liste de réapprovisionnement groupée par fournisseur (logique reprise
+  // de l'app d'Eugenio) : quantité à commander = seuil min − stock actuel.
+  const aCommander = [...ruptures, ...sousStockMin];
+  const parFournisseur = new Map<string, ProduitAvecStock[]>();
+  for (const p of aCommander) {
+    const cle = p.fournisseur.trim();
+    parFournisseur.set(cle, [...(parFournisseur.get(cle) ?? []), p]);
+  }
+  const groupesFournisseur = [...parFournisseur.entries()].sort(
+    // Fournisseurs par ordre alphabétique, « sans fournisseur » ("") en dernier
+    ([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)),
   );
 
   return (
@@ -137,12 +151,12 @@ export default async function PharmaciePage() {
             <Kpi
               icon={<AlertTriangle className="size-5" />}
               label={t("pharmacie.kpi_alertes")}
-              value={String(perimes.length + sousStockMin.length)}
+              value={String(perimes.length + aCommander.length)}
               hint={t("pharmacie.kpi_alertes_hint", {
                 perimes: perimes.length,
-                stock: sousStockMin.length,
+                stock: aCommander.length,
               })}
-              tone={perimes.length + sousStockMin.length > 0 ? "primary" : "success"}
+              tone={perimes.length + aCommander.length > 0 ? "primary" : "success"}
             />
           </section>
 
@@ -172,6 +186,68 @@ export default async function PharmaciePage() {
                     </li>
                   ))}
                 </ul>
+              </GlassCard>
+            </section>
+          )}
+
+          {/* À commander (groupé par fournisseur) */}
+          {aCommander.length > 0 && (
+            <section aria-label={t("pharmacie.commander_title")}>
+              <GlassCard className="p-5 border-[oklch(0.82_0.16_85_/_0.3)]">
+                <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+                  <ShoppingCart
+                    className="size-4 text-[oklch(0.82_0.16_85)]"
+                    aria-hidden="true"
+                  />
+                  {t("pharmacie.commander_title")} ({aCommander.length})
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("pharmacie.commander_desc")}
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  {groupesFournisseur.map(([fournisseur, items]) => (
+                    <div key={fournisseur || "__none__"} className="rounded-xl glass border p-4">
+                      <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                        {fournisseur || t("pharmacie.commander_sans_fournisseur")}
+                        <span className="ml-2 font-mono normal-case tracking-normal">
+                          ({items.length})
+                        </span>
+                      </h3>
+                      <ul role="list" className="mt-2 divide-y divide-glass-border">
+                        {items.map((p) => (
+                          <li
+                            key={p.id}
+                            className="flex items-center justify-between gap-3 py-2 text-sm"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-medium leading-tight truncate">
+                                {p.designation}
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                {t("pharmacie.commander_stock_seuil", {
+                                  stock: p.stock,
+                                  min: p.stock_min,
+                                })}
+                              </p>
+                            </div>
+                            {p.stock <= 0 && (
+                              <Badge tone="primary">
+                                {t("pharmacie.badge_rupture")}
+                              </Badge>
+                            )}
+                            {Math.ceil(p.stock_min - p.stock) > 0 && (
+                              <Badge tone="warning">
+                                {t("pharmacie.commander_qte", {
+                                  n: Math.ceil(p.stock_min - p.stock),
+                                })}
+                              </Badge>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
               </GlassCard>
             </section>
           )}
@@ -206,7 +282,9 @@ export default async function PharmaciePage() {
                           p.joursAvantPeremption !== null &&
                           p.joursAvantPeremption >= 0 &&
                           p.joursAvantPeremption <= 90;
-                        const lowStock = p.stock_min > 0 && p.stock <= p.stock_min;
+                        const rupture = p.stock <= 0;
+                        const lowStock =
+                          !rupture && p.stock_min > 0 && p.stock <= p.stock_min;
                         return (
                           <tr key={p.id} className="hover:bg-white/3 transition-colors">
                             <td className="px-4 py-3">
@@ -229,6 +307,7 @@ export default async function PharmaciePage() {
                             <td
                               className={cn(
                                 "px-4 py-3 text-right font-mono tabular-nums",
+                                rupture && "text-primary font-semibold",
                                 lowStock && "text-[oklch(0.82_0.16_85)] font-semibold",
                               )}
                             >
@@ -258,16 +337,25 @@ export default async function PharmaciePage() {
                                   <Badge tone="primary">{t("pharmacie.badge_perime")}</Badge>
                                 )}
                                 {!perime && bientot && (
-                                  <Badge tone="warning">
+                                  <Badge
+                                    tone={
+                                      (p.joursAvantPeremption ?? 0) <= 30
+                                        ? "primary"
+                                        : "warning"
+                                    }
+                                  >
                                     {t("pharmacie.badge_bientot", {
                                       j: p.joursAvantPeremption ?? 0,
                                     })}
                                   </Badge>
                                 )}
+                                {rupture && (
+                                  <Badge tone="primary">{t("pharmacie.badge_rupture")}</Badge>
+                                )}
                                 {lowStock && (
                                   <Badge tone="warning">{t("pharmacie.badge_stock_bas")}</Badge>
                                 )}
-                                {!perime && !bientot && !lowStock && (
+                                {!perime && !bientot && !rupture && !lowStock && (
                                   <Badge tone="success">
                                     {STATUT_LABELS[p.statut][lang]}
                                   </Badge>
