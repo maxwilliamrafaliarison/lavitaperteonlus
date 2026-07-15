@@ -42,8 +42,10 @@ describe("estFractionnable", () => {
     // Le point critique : si l'unité du stock dépendait d'un champ
     // commercial, vider le prix de détail réinterpréterait 600 comprimés
     // en 600 boîtes. Le stock ne suit QUE le facteur.
-    expect(estFractionnable({ ...frac, prix_vente_detail: 0 })).toBe(true);
-    expect(estFractionnable({ ...frac, unite_detail: "" })).toBe(true);
+    const sansPrixDetail = { ...frac, prix_vente_detail: 0 };
+    const sansUnite = { ...frac, unite_detail: "" };
+    expect(estFractionnable(sansPrixDetail)).toBe(true);
+    expect(estFractionnable(sansUnite)).toBe(true);
   });
 });
 
