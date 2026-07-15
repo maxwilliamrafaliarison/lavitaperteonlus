@@ -171,8 +171,21 @@ async function marquerVenteAnnuleeSheets(venteId: string): Promise<boolean> {
 async function readTabSupabase<T extends Record<string, unknown>>(tab: PharmaSheetName): Promise<T[]> {
   const all: T[] = [];
   const page = 1000;
+  // Clé de tri de chaque table. `parametres` n'a pas d'`id` : sa clé est `cle`.
+  const cle = tab === PHARMA_SHEETS.parametres ? "cle" : "id";
   for (let offset = 0; ; offset += page) {
-    const { rows } = await sbSelect<T>(SCHEMA, tab, { select: "*", limit: page, offset });
+    // `order` EXPLICITE, jamais optionnel : un LIMIT/OFFSET sans ORDER BY
+    // n'a aucun ordre garanti en Postgres. Au-delà de la première page, des
+    // lignes seraient dupliquées ou omises — et comme le stock EST la somme
+    // des mouvements, une dérive silencieuse et indatable s'installerait sur
+    // un médicament au hasard. La table grossit à chaque ligne de chaque
+    // vente : le seuil des 1000 tombera de lui-même.
+    const { rows } = await sbSelect<T>(SCHEMA, tab, {
+      select: "*",
+      order: `${cle}.asc`,
+      limit: page,
+      offset,
+    });
     all.push(...rows);
     if (rows.length < page) break;
   }
