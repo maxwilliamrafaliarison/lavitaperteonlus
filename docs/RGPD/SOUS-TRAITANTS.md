@@ -29,9 +29,23 @@ articles 44 à 49, sur des données de l'article 9, sans encadrement
 spécifique. Vercel s'exécute en `iad1` par défaut ; aucune région n'avait
 été déclarée.
 
-**Corrigé** : `"regions": ["cdg1"]` dans `vercel.json`. Contrôle permanent
-sur https://lavitaperteonlus.vercel.app/api/health → `region.dansUE` doit
-valoir `true`.
+**Corrigé** : `"regions": ["cdg1"]` dans `vercel.json` (Paris — aussi la
+région la plus proche d'eu-west-1, la latence y gagne).
+
+> ⚠️ **Ne jamais retirer cette clé ni la pointer hors UE.** `vercel.json`
+> n'accepte aucun commentaire — son schéma est strict et rejette toute clé
+> inconnue, y compris `"//"` (une tentative de commentaire y a fait échouer
+> un déploiement le 15/07/2026). D'où cette explication ici.
+
+**Deux contrôles**, à faire après tout changement d'hébergement :
+
+```bash
+# 1. Le SECOND code est la région d'exécution — il doit être cdg1
+curl -sI https://lavitaperteonlus.vercel.app/api/health | grep x-vercel-id
+
+# 2. Plus lisible : region.dansUE doit valoir true
+curl -s https://lavitaperteonlus.vercel.app/api/health | grep -o '"region":{[^}]*}'
+```
 
 **À décider par la direction** : ce transfert passé doit-il être documenté
 comme un incident ? Il a concerné des données de santé pendant une période à
