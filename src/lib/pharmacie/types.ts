@@ -19,6 +19,31 @@ import { z } from "zod";
  */
 const txt = () => z.string().nullish().transform((v) => v ?? "");
 
+/**
+ * Nombre d'unités de base par boîte. LE champ qui définit l'unité du stock.
+ *
+ * `z.coerce.number().default(1)` ne suffirait pas : `.default()` ne joue que
+ * sur `undefined`, et `Number("")` vaut 0 — or une cellule vide de Sheets
+ * arrive en `""`. On obtiendrait facteur 0, donc une division par zéro et
+ * des `Infinity` dans les prix. Ce piège est propre à ce champ : sa valeur
+ * neutre est 1, là où toutes les autres colonnes numériques ont 0.
+ *
+ * Ce lecteur ne peut jamais échouer, donc ne peut jamais faire tomber un
+ * produit dans le filtre silencieux de listProduits().
+ */
+const FacteurConversion = z.preprocess((v) => {
+  if (v === "" || v === null || v === undefined) return 1;
+  const n = Number(v);
+  return Number.isFinite(n) && n >= 1 ? Math.trunc(n) : 1;
+}, z.number().int().min(1));
+
+/** Unité dans laquelle une quantité est saisie ou vendue. */
+export const ModeVente = z.enum(["boite", "detail"]);
+export type ModeVente = z.infer<typeof ModeVente>;
+
+const modeVente = () =>
+  z.preprocess((v) => (v === "detail" ? "detail" : "boite"), ModeVente);
+
 export const ProduitStatut = z.enum(["actif", "a_detruire", "archive"]);
 export type ProduitStatut = z.infer<typeof ProduitStatut>;
 
@@ -40,6 +65,14 @@ export const Produit = z.object({
   emplacement: txt(),
   statut: z.preprocess((v) => v ?? "actif", ProduitStatut.default("actif")),
   createdAt: txt(),
+  // --- Fractionnement (migration 005) ---
+  // Le produit est fractionnable SSI facteur_conversion > 1. Aucun drapeau
+  // séparé : l'unité du stock ne doit dépendre QUE de ce nombre, jamais
+  // d'un prix ni d'un libellé — sinon vider prix_vente_detail
+  // réinterpréterait 600 comprimés en 600 boîtes.
+  facteur_conversion: FacteurConversion,
+  unite_detail: txt(),
+  prix_vente_detail: z.coerce.number().default(0),
 });
 export type Produit = z.infer<typeof Produit>;
 
@@ -75,6 +108,14 @@ export const Mouvement = z.object({
   reference: txt(),
   user_email: txt(),
   note: txt(),
+  // --- Fractionnement (migration 005) : AUDIT ET AFFICHAGE SEULEMENT ---
+  // Ce qui a été saisi à l'écran, pour que le kardex reste vrai après un
+  // changement de facteur (« 10 boîtes reçues » reste exact pour son époque).
+  // `quantite` demeure la SEULE source du stock, toujours en unités de base :
+  // se servir de ces deux colonnes dans un calcul de stock recréerait la
+  // dette relevée chez Eugenio.
+  unite_saisie: modeVente(),
+  facteur_applique: FacteurConversion,
 });
 export type Mouvement = z.infer<typeof Mouvement>;
 

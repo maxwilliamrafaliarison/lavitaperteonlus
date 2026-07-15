@@ -39,20 +39,24 @@ export type PharmaSheetName = (typeof PHARMA_SHEETS)[keyof typeof PHARMA_SHEETS]
 
 /** Ordre des colonnes par table (les appelants passent des tableaux positionnels). */
 const COLUMN_ORDER: Record<PharmaSheetName, string[]> = {
-  produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt"],
+  // ⚠ AJOUT EN FIN DE LISTE UNIQUEMENT, jamais d'insertion : les lignes sont
+  // écrites par POSITION (appendRowsSheets envoie un tableau brut) et
+  // updateProduitFieldsSheets mappe les colonnes par lettre en dur. Insérer
+  // une colonne décalerait tout, sans la moindre erreur.
+  produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt", "facteur_conversion", "unite_detail", "prix_vente_detail"],
   lots: ["id", "produit_id", "numero_lot", "date_expiration", "date_reception"],
-  mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note"],
+  mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note", "unite_saisie", "facteur_applique"],
   ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut"],
-  lignes_vente: ["id", "vente_id", "produit_id", "lot_id", "quantite", "prix_unitaire", "sous_total"],
+  lignes_vente: ["id", "vente_id", "produit_id", "lot_id", "quantite", "prix_unitaire", "sous_total", "mode_vente", "qte_stock_deduire"],
   fournisseurs: ["id", "nom", "telephone", "email", "adresse"],
   parametres: ["cle", "valeur"],
 };
 
 const NUMERIC_COLS: Record<PharmaSheetName, Set<string>> = {
-  produits: new Set(["prix_achat", "prix_vente", "prix_unitaire", "stock_min"]),
-  mouvements: new Set(["quantite", "prix_unitaire"]),
+  produits: new Set(["prix_achat", "prix_vente", "prix_unitaire", "stock_min", "facteur_conversion", "prix_vente_detail"]),
+  mouvements: new Set(["quantite", "prix_unitaire", "facteur_applique"]),
   ventes: new Set(["total"]),
-  lignes_vente: new Set(["quantite", "prix_unitaire", "sous_total"]),
+  lignes_vente: new Set(["quantite", "prix_unitaire", "sous_total", "qte_stock_deduire"]),
   lots: new Set(),
   fournisseurs: new Set(),
   parametres: new Set(),
@@ -179,10 +183,17 @@ async function appendRowsSupabase(tab: PharmaSheetName, values: unknown[][]): Pr
     const obj: Record<string, unknown> = {};
     order.forEach((colName, i) => {
       const raw = arr[i];
+      // Valeur absente du tableau (appelant écrit avant l'ajout de la
+      // colonne) : on omet la clé pour laisser jouer le DEFAULT de la base.
+      // Envoyer null ferait échouer les colonnes NOT NULL (facteur_conversion
+      // vaut 1 par défaut, pas 0 : une valeur imposée serait fausse).
+      // Côté Sheets, un tableau court laisse la cellule vide et le lecteur
+      // applique le même défaut — les deux backends restent alignés.
+      if (raw === undefined) return;
       if (nums.has(colName)) {
         // Colonne numérique : une valeur vide n'est pas 0, c'est « non
-        // renseigné » → null. Ces colonnes sont restées nullables en base.
-        if (raw === "" || raw === null || raw === undefined) {
+        // renseigné » → null (ces colonnes-là sont nullables en base).
+        if (raw === "" || raw === null) {
           obj[colName] = null;
         } else {
           const n = Number(raw);
@@ -196,7 +207,7 @@ async function appendRowsSupabase(tab: PharmaSheetName, values: unknown[][]): Pr
       // vente (les mouvements sans lot écrivaient lot_id = null).
       // "" et null sont de toute façon équivalents ici, et le lecteur txt()
       // absorbe les deux.
-      obj[colName] = raw === null || raw === undefined ? "" : raw;
+      obj[colName] = raw === null ? "" : raw;
     });
     return obj;
   });
