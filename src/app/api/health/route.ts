@@ -25,6 +25,7 @@ export async function GET() {
     env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean; pharmacieSheetId: boolean; patientsUrl: boolean; patientsKey: boolean };
     sheets: { reachable: boolean; userCount?: number; error?: string };
     patients?: { reachable: boolean; error?: string };
+    pharmacie?: { backend: "sheets" | "supabase"; reachable?: boolean; error?: string };
     latencyMs?: number;
   } = {
     ok: true,
@@ -73,6 +74,33 @@ export async function GET() {
         : { reachable: false, error: `HTTP ${res.status}` };
     } catch (e) {
       result.patients = { reachable: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  // Teste le backend pharmacie actif (flag PHARMACIE_BACKEND). Sur le
+  // backend supabase, vérifie la joignabilité du schéma pharmacie ; sur
+  // sheets, la connectivité est déjà couverte par le test ci-dessus.
+  const pharmacieBackend =
+    process.env.PHARMACIE_BACKEND === "supabase" ? "supabase" : "sheets";
+  result.pharmacie = { backend: pharmacieBackend };
+  if (pharmacieBackend === "supabase") {
+    try {
+      const url = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "")
+        .trim()
+        .replace(/\/+$/, "");
+      const key = (
+        process.env.SUPABASE_SERVICE_KEY ||
+        process.env.PATIENTS_SUPABASE_SERVICE_KEY ||
+        ""
+      ).replace(/[^A-Za-z0-9._-]/g, "");
+      const res = await fetch(`${url}/rest/v1/produits?select=id&limit=1`, {
+        headers: { apikey: key, Authorization: `Bearer ${key}`, "Accept-Profile": "pharmacie" },
+      });
+      result.pharmacie.reachable = res.ok;
+      if (!res.ok) result.pharmacie.error = `HTTP ${res.status}`;
+    } catch (e) {
+      result.pharmacie.reachable = false;
+      result.pharmacie.error = e instanceof Error ? e.message : String(e);
     }
   }
 
