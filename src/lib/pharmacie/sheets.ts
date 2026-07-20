@@ -4,7 +4,9 @@ import {
   Produit,
   Lot,
   Mouvement,
+  EntitePec,
   type ProduitAvecStock,
+  type StockLot,
 } from "./types";
 import { sbSelect, sbInsert, sbUpdate, sbRpc } from "@/lib/supabase-server";
 
@@ -34,6 +36,9 @@ export const PHARMA_SHEETS = {
   lignesVente: "lignes_vente",
   fournisseurs: "fournisseurs",
   parametres: "parametres",
+  achats: "achats",
+  achatsLignes: "achats_lignes",
+  entitesPec: "entites_pec",
 } as const;
 export type PharmaSheetName = (typeof PHARMA_SHEETS)[keyof typeof PHARMA_SHEETS];
 
@@ -44,22 +49,28 @@ const COLUMN_ORDER: Record<PharmaSheetName, string[]> = {
   // updateProduitFieldsSheets mappe les colonnes par lettre en dur. Insérer
   // une colonne décalerait tout, sans la moindre erreur.
   produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt", "facteur_conversion", "unite_detail", "prix_vente_detail"],
-  lots: ["id", "produit_id", "numero_lot", "date_expiration", "date_reception"],
-  mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note", "unite_saisie", "facteur_applique"],
-  ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut"],
+  mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note", "unite_saisie", "facteur_applique", "compartiment"],
+  ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut", "pec_payeur", "valeur_pec"],
   lignes_vente: ["id", "vente_id", "produit_id", "lot_id", "quantite", "prix_unitaire", "sous_total", "mode_vente", "qte_stock_deduire"],
+  lots: ["id", "produit_id", "numero_lot", "date_expiration", "date_reception", "contenance"],
   fournisseurs: ["id", "nom", "telephone", "email", "adresse"],
   parametres: ["cle", "valeur"],
+  achats: ["id", "timestamp", "date_facture", "fournisseur", "num_facture", "num_bl", "montant_total", "operateur_email", "statut", "note"],
+  achats_lignes: ["id", "achat_id", "produit_id", "designation", "contenance", "quantite", "date_expiration", "numero_lot", "montant"],
+  entites_pec: ["id", "nom", "actif"],
 };
 
 const NUMERIC_COLS: Record<PharmaSheetName, Set<string>> = {
   produits: new Set(["prix_achat", "prix_vente", "prix_unitaire", "stock_min", "facteur_conversion", "prix_vente_detail"]),
   mouvements: new Set(["quantite", "prix_unitaire", "facteur_applique"]),
-  ventes: new Set(["total"]),
+  ventes: new Set(["total", "valeur_pec"]),
   lignes_vente: new Set(["quantite", "prix_unitaire", "sous_total", "qte_stock_deduire"]),
   lots: new Set(),
   fournisseurs: new Set(),
   parametres: new Set(),
+  achats: new Set(["montant_total"]),
+  achats_lignes: new Set(["quantite", "montant"]),
+  entites_pec: new Set(),
 };
 
 // ==================================================================
@@ -551,4 +562,90 @@ export async function listProduitsAvecStock(): Promise<ProduitAvecStock[]> {
         : null,
     };
   });
+}
+
+/**
+ * Stock ventilé par lot ET compartiment (migration 009), pour l'allocation
+ * FEFO. Retourne, par produit, la liste de ses lots avec leurs quantités
+ * GROS et DÉTAIL — toutes en unités de base, toutes issues de la somme des
+ * mouvements (jamais d'une cellule stockée).
+ *
+ * Les mouvements sans lot_id (historique d'avant les lots) sont rangés sous
+ * la clé "" : le backfill (migration 011) les rattachera à un vrai lot.
+ */
+export async function listStockParLot(): Promise<Map<string, StockLot[]>> {
+  const [mouvements, lots] = await Promise.all([listMouvements(), listLots()]);
+
+  // Péremption et numéro par lot, pour enrichir l'affichage FEFO.
+  const infoLot = new Map(lots.map((l) => [l.id, l]));
+
+  // Accumulateur : produit → lot → { gros, detail }.
+  const parProduit = new Map<string, Map<string, { gros: number; detail: number }>>();
+  for (const m of mouvements) {
+    if (!parProduit.has(m.produit_id)) parProduit.set(m.produit_id, new Map());
+    const parLot = parProduit.get(m.produit_id)!;
+    if (!parLot.has(m.lot_id)) parLot.set(m.lot_id, { gros: 0, detail: 0 });
+    const bucket = parLot.get(m.lot_id)!;
+    if (m.compartiment === "detail") bucket.detail += m.quantite;
+    else bucket.gros += m.quantite;
+  }
+
+  const out = new Map<string, StockLot[]>();
+  for (const [produitId, parLot] of parProduit) {
+    const lignes: StockLot[] = [];
+    for (const [lotId, { gros, detail }] of parLot) {
+      const info = infoLot.get(lotId);
+      lignes.push({
+        lotId,
+        numeroLot: info?.numero_lot ?? "",
+        dateExpiration: info?.date_expiration ?? "",
+        gros,
+        detail,
+      });
+    }
+    out.set(produitId, lignes);
+  }
+  return out;
+}
+
+/** Mouvements d'une vente donnée (pour l'annulation miroir lot par lot). */
+export async function listMouvementsDeVente(venteId: string): Promise<Mouvement[]> {
+  const rows = await listMouvements();
+  return rows.filter((m) => m.reference === venteId);
+}
+
+/** Entités de prise en charge actives (liste suggérée au comptoir). */
+export async function listEntitesPec(): Promise<EntitePec[]> {
+  const rows = await readTab(PHARMA_SHEETS.entitesPec);
+  return rows
+    .map((r) => EntitePec.safeParse(r))
+    .filter((p) => p.success)
+    .map((p) => p.data)
+    .filter((e) => e.actif);
+}
+
+/**
+ * Écrit un paramètre (upsert). Sur Supabase via la RPC set_parametre ; sur
+ * Sheets, on met à jour la ligne existante ou on l'ajoute. Sert à l'option
+ * TVA réservée admin (tranche T7) — aucun chemin d'écriture n'existait.
+ */
+export async function setParametre(cle: string, valeur: string): Promise<void> {
+  if (backend() === "supabase") {
+    await sbRpc(SCHEMA, "set_parametre", { p_cle: cle, p_valeur: valeur });
+    return;
+  }
+  // Sheets (filet de secours) : mettre à jour la ligne existante, sinon l'ajouter.
+  // idx+2 : ligne 1 = en-têtes, donc la donnée d'index 0 est en ligne 2.
+  const rows = await readTabSheets<{ cle: unknown }>(PHARMA_SHEETS.parametres);
+  const idx = rows.findIndex((r) => String(r.cle) === cle);
+  if (idx >= 0) {
+    await sheetsClient().spreadsheets.values.update({
+      spreadsheetId: sheetsEnv().spreadsheetId,
+      range: `${PHARMA_SHEETS.parametres}!A${idx + 2}`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[cle, valeur]] },
+    });
+  } else {
+    await appendRowsSheets(PHARMA_SHEETS.parametres, [[cle, valeur]]);
+  }
 }

@@ -82,6 +82,8 @@ export const Lot = z.object({
   numero_lot: txt(),
   date_expiration: txt(),
   date_reception: txt(),
+  // Contenance du conditionnement (boîte, flacon, tube, autre) — migration 009.
+  contenance: txt(),
 });
 export type Lot = z.infer<typeof Lot>;
 
@@ -92,8 +94,21 @@ export const MouvementType = z.enum([
   "retour",
   "perte",
   "destruction",
+  // Ouverture d'une boîte : déplacement GROS → DÉTAIL du même lot (net nul
+  // sur le stock du produit). Migration 009.
+  "transfert",
 ]);
 export type MouvementType = z.infer<typeof MouvementType>;
+
+/**
+ * Où se trouve physiquement le stock d'un mouvement :
+ * - GROS  : la réserve, boîtes fermées ;
+ * - DÉTAIL : le rayon de la pharmacie, unités déjà ouvertes.
+ * On ne vend au détail que depuis DÉTAIL ; couvrir un manque exige d'ouvrir
+ * une boîte (transfert GROS → DÉTAIL). Migration 009.
+ */
+export const Compartiment = z.enum(["gros", "detail"]);
+export type Compartiment = z.infer<typeof Compartiment>;
 
 export const Mouvement = z.object({
   id: z.string(),
@@ -116,6 +131,9 @@ export const Mouvement = z.object({
   // dette relevée chez Eugenio.
   unite_saisie: modeVente(),
   facteur_applique: FacteurConversion,
+  // Compartiment du stock (migration 009). Défaut 'gros' : les mouvements
+  // d'avant la migration sont tous en réserve.
+  compartiment: z.preprocess((v) => (v === "detail" ? "detail" : "gros"), Compartiment),
 });
 export type Mouvement = z.infer<typeof Mouvement>;
 
@@ -140,6 +158,56 @@ export interface ProduitAvecStock extends Produit {
   /** jours restants avant péremption (négatif = périmé) */
   joursAvantPeremption: number | null;
 }
+
+/**
+ * Stock d'un lot ventilé par compartiment (migration 009). Une entrée par
+ * (produit, lot). Utilisé par l'allocation FEFO : le stock disponible d'un
+ * produit est la somme de ces buckets. Quantités en unités de base.
+ */
+export interface StockLot {
+  lotId: string;
+  numeroLot: string;
+  /** "" si le lot n'a pas de date — trié en dernier par le FEFO. */
+  dateExpiration: string;
+  gros: number;
+  detail: number;
+}
+
+/** Entité payeuse d'une prise en charge (migration 009). */
+export const EntitePec = z.object({
+  id: z.string(),
+  nom: txt(),
+  actif: z.preprocess((v) => v !== false && v !== "FALSE" && v !== "false", z.boolean()),
+});
+export type EntitePec = z.infer<typeof EntitePec>;
+
+/** En-tête d'un achat / registre des entrées (migration 009). */
+export const Achat = z.object({
+  id: z.string(),
+  timestamp: txt(),
+  date_facture: txt(),
+  fournisseur: txt(),
+  num_facture: txt(),
+  num_bl: txt(),
+  montant_total: z.coerce.number().default(0),
+  operateur_email: txt(),
+  statut: txt(),
+  note: txt(),
+});
+export type Achat = z.infer<typeof Achat>;
+
+export const AchatLigne = z.object({
+  id: z.string(),
+  achat_id: txt(),
+  produit_id: txt(),
+  designation: txt(),
+  contenance: txt(),
+  quantite: z.coerce.number().default(0),
+  date_expiration: txt(),
+  numero_lot: txt(),
+  montant: z.coerce.number().default(0),
+});
+export type AchatLigne = z.infer<typeof AchatLigne>;
 
 export const STATUT_LABELS: Record<ProduitStatut, { fr: string; it: string }> = {
   actif: { fr: "Actif", it: "Attivo" },
