@@ -287,7 +287,11 @@ export function VenteForm({
             size="sm"
             onClick={() =>
               window.open(
-                `/api/pharmacie/ventes/${done.venteId}/ticket`,
+                // Les espèces reçues n'existent qu'ici (jamais stockées) :
+                // on les passe au ticket pour afficher la monnaie rendue.
+                estPec
+                  ? `/api/pharmacie/ventes/${done.venteId}/ticket`
+                  : `/api/pharmacie/ventes/${done.venteId}/ticket?recu=${Math.max(recu, done.total)}`,
                 "_blank",
                 "noopener",
               )

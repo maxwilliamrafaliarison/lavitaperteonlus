@@ -1,9 +1,12 @@
 import React from "react";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import {
   Document,
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   renderToStream,
   type DocumentProps,
@@ -17,9 +20,29 @@ import type { Lang } from "@/lib/i18n";
    PHARMACIE — Documents de vente
    - Ticket de caisse : rouleau 80 mm (226,77 pt), hauteur dynamique
    - Facture : A4, en-tête légal + tableau + signature
-   Les infos légales (NIF, STAT, adresse, téléphone) viennent de
-   l'onglet `parametres` du Sheet (clés facture_*), avec fallbacks.
+   Les infos légales (NIF, STAT, adresse, téléphone) ont pour défaut les
+   coordonnées réelles du centre, surchargeables par l'onglet `parametres`.
+   La TVA n'apparaît QUE si elle a été activée dans les paramètres (T7).
    ============================================================ */
+
+/**
+ * Logo embarqué en data-URI, lu une seule fois. On lit le fichier plutôt
+ * que d'en dépendre par URL : un PDF ne doit pas partir chercher une image
+ * sur le réseau au moment du rendu. En cas d'échec (fichier absent du
+ * bundle), on renvoie null et le document s'imprime sans logo — jamais
+ * d'erreur au comptoir pour une image manquante.
+ */
+let logoCache: string | null | undefined;
+function logoDataUri(): string | null {
+  if (logoCache !== undefined) return logoCache;
+  try {
+    const p = path.join(process.cwd(), "public", "logo", "lavitaperte.jpg");
+    logoCache = `data:image/jpeg;base64,${readFileSync(p).toString("base64")}`;
+  } catch {
+    logoCache = null;
+  }
+  return logoCache;
+}
 
 export interface OrgInfo {
   nom: string;
@@ -32,20 +55,46 @@ export interface OrgInfo {
   piedDePage: string;
 }
 
+/** Régime de TVA lu des paramètres (option réservée admin, T7). */
+export interface FiscalInfo {
+  tvaActive: boolean;
+  tvaTaux: number;
+}
+
 export function orgInfoFromParams(params: Map<string, string>): OrgInfo {
   return {
     nom: params.get("org_nom") || "La Vita Per Te",
     sousTitre:
       params.get("org_sous_titre") || "ONG-ODV Alfeo Corassori · Centre REX",
-    adresse: params.get("facture_adresse") || "Fianarantsoa, Madagascar",
-    tel: params.get("facture_tel") || "",
+    adresse: params.get("facture_adresse") || "IN 34 Ambatolahikisoa, Fianarantsoa",
+    tel: params.get("facture_tel") || "032 11 515 04",
     email: params.get("facture_email") || "informatique.lavitaperte@gmail.com",
-    nif: params.get("facture_nif") || "",
-    stat: params.get("facture_stat") || "",
+    nif: params.get("facture_nif") || "5001978624",
+    stat: params.get("facture_stat") || "94111212015000569",
     piedDePage:
       params.get("facture_pied") ||
       "Misaotra betsaka ! Merci de votre confiance.",
   };
+}
+
+export function fiscalFromParams(params: Map<string, string>): FiscalInfo {
+  return {
+    tvaActive: params.get("tva_active") === "1",
+    tvaTaux: Number(params.get("tva_taux") ?? "0") || 0,
+  };
+}
+
+/**
+ * Décompose un montant en HT / TVA / TTC. Le montant de référence est
+ * TOUJOURS considéré TTC (c'est ce que le client paie) ; on en extrait la
+ * part de TVA. Sans TVA active, HT = TTC et la part est nulle.
+ */
+function decomposerTva(montantTtc: number, fiscal: FiscalInfo) {
+  if (!fiscal.tvaActive || fiscal.tvaTaux <= 0) {
+    return { ht: montantTtc, tva: 0, ttc: montantTtc };
+  }
+  const ht = Math.round(montantTtc / (1 + fiscal.tvaTaux / 100));
+  return { ht, tva: montantTtc - ht, ttc: montantTtc };
 }
 
 const L = {
@@ -68,6 +117,15 @@ const L = {
     factureNo: "Facture N°",
     signature: "Signature et cachet",
     annulee: "VENTE ANNULÉE",
+    priseEnCharge: "PRISE EN CHARGE",
+    pecPar: "Pris en charge par",
+    aPayer: "À payer",
+    valeur: "Valeur des produits",
+    especesRecu: "Espèces reçu",
+    rendu: "Monnaie rendue",
+    ht: "Montant HT",
+    tva: "TVA",
+    ttc: "Total TTC",
   },
   it: {
     ticket: "SCONTRINO",
@@ -88,6 +146,15 @@ const L = {
     factureNo: "Fattura N°",
     signature: "Firma e timbro",
     annulee: "VENDITA ANNULLATA",
+    priseEnCharge: "PRESA IN CARICO",
+    pecPar: "Preso in carico da",
+    aPayer: "Da pagare",
+    valeur: "Valore dei prodotti",
+    especesRecu: "Contanti ricevuti",
+    rendu: "Resto reso",
+    ht: "Imponibile",
+    tva: "IVA",
+    ttc: "Totale IVA incl.",
   },
 } as const;
 
@@ -97,6 +164,7 @@ const TICKET_WIDTH = 226.77; // 80 mm
 const tk = StyleSheet.create({
   page: { paddingVertical: 14, paddingHorizontal: 12, fontSize: 8.5, color: "#000" },
   center: { textAlign: "center" },
+  logo: { width: 46, height: 46, alignSelf: "center", marginBottom: 4 },
   orgName: { fontSize: 12, fontWeight: 700, textAlign: "center" },
   orgSub: { fontSize: 7.5, textAlign: "center", marginTop: 2, color: "#333" },
   hr: { borderBottomWidth: 1, borderBottomColor: "#000", borderStyle: "dashed", marginVertical: 6 },
@@ -104,6 +172,7 @@ const tk = StyleSheet.create({
   line: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
   lineName: { flex: 1, paddingRight: 6 },
   lineAmount: { textAlign: "right", fontVariant: "tabular-nums" },
+  subRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 2, fontSize: 8 },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -113,6 +182,16 @@ const tk = StyleSheet.create({
     borderTopColor: "#000",
   },
   totalText: { fontSize: 12, fontWeight: 700 },
+  pecBox: {
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderWidth: 1,
+    borderColor: "#000",
+    borderStyle: "dashed",
+    textAlign: "center",
+  },
+  pecTitle: { fontSize: 9.5, fontWeight: 700 },
   footer: { marginTop: 10, textAlign: "center", fontSize: 7.5, color: "#333" },
   cancel: {
     marginTop: 6,
@@ -126,19 +205,31 @@ const tk = StyleSheet.create({
 function TicketDoc({
   vente,
   org,
+  fiscal,
   lang,
+  recu,
 }: {
   vente: VenteComplete;
   org: OrgInfo;
+  fiscal: FiscalInfo;
   lang: Lang;
+  recu?: number;
 }) {
   const t = L[lang];
-  // Hauteur dynamique : entête ~120pt + 14pt par ligne + pied ~90pt
-  const height = Math.max(300, 210 + vente.lignes.length * 14);
+  const logo = logoDataUri();
+  const estPec = vente.typeVente === "pec";
+  const valeur = estPec ? vente.valeurPec : vente.total;
+  const { ht, tva } = decomposerTva(valeur, fiscal);
+  const montreTva = fiscal.tvaActive && fiscal.tvaTaux > 0 && !estPec;
+  const montreEspeces = !estPec && typeof recu === "number" && recu > 0;
+  // Hauteur dynamique : socle + lignes + suppléments (PEC / TVA / espèces).
+  const extra = (estPec ? 34 : 0) + (montreTva ? 24 : 0) + (montreEspeces ? 24 : 0);
+  const height = Math.max(300, 230 + vente.lignes.length * 14 + extra);
 
   return (
     <Document title={`Ticket ${vente.id}`}>
       <Page size={[TICKET_WIDTH, height]} style={tk.page}>
+        {logo ? <Image src={logo} style={tk.logo} /> : null}
         <Text style={tk.orgName}>{org.nom.toUpperCase()}</Text>
         <Text style={tk.orgSub}>{org.sousTitre}</Text>
         <Text style={tk.orgSub}>{org.adresse}</Text>
@@ -166,8 +257,8 @@ function TicketDoc({
             <Text>{vente.operateurEmail.split("@")[0]}</Text>
           </View>
           <View style={tk.meta}>
-            <Text>{t.client}</Text>
-            <Text>{vente.clientNom || t.clientComptant}</Text>
+            <Text>{estPec ? t.pecPar : t.client}</Text>
+            <Text>{estPec ? vente.pecPayeur || "—" : vente.clientNom || t.clientComptant}</Text>
           </View>
         </View>
 
@@ -182,11 +273,57 @@ function TicketDoc({
           </View>
         ))}
 
-        <View style={tk.totalRow}>
-          <Text style={tk.totalText}>{t.total}</Text>
-          <Text style={tk.totalText}>{fmtAriary(vente.total)}</Text>
-        </View>
-        <Text style={[tk.center, { marginTop: 4, fontSize: 8 }]}>{t.paiement}</Text>
+        {/* Décomposition TVA (seulement si activée, ventes payantes) */}
+        {montreTva ? (
+          <View style={{ marginTop: 6, paddingTop: 4, borderTopWidth: 1, borderTopColor: "#000" }}>
+            <View style={tk.subRow}>
+              <Text>{t.ht}</Text>
+              <Text>{fmtAriary(ht)}</Text>
+            </View>
+            <View style={tk.subRow}>
+              <Text>{t.tva} {fiscal.tvaTaux}%</Text>
+              <Text>{fmtAriary(tva)}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        {estPec ? (
+          <>
+            <View style={tk.subRow}>
+              <Text>{t.valeur}</Text>
+              <Text>{fmtAriary(valeur)}</Text>
+            </View>
+            <View style={tk.totalRow}>
+              <Text style={tk.totalText}>{t.aPayer}</Text>
+              <Text style={tk.totalText}>{fmtAriary(0)}</Text>
+            </View>
+            <View style={tk.pecBox}>
+              <Text style={tk.pecTitle}>{t.priseEnCharge}</Text>
+              <Text style={{ marginTop: 2 }}>{vente.pecPayeur || "—"}</Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={tk.totalRow}>
+              <Text style={tk.totalText}>{montreTva ? t.ttc : t.total}</Text>
+              <Text style={tk.totalText}>{fmtAriary(vente.total)}</Text>
+            </View>
+            {montreEspeces ? (
+              <>
+                <View style={tk.subRow}>
+                  <Text>{t.especesRecu}</Text>
+                  <Text>{fmtAriary(recu!)}</Text>
+                </View>
+                <View style={tk.subRow}>
+                  <Text>{t.rendu}</Text>
+                  <Text>{fmtAriary(Math.max(0, recu! - vente.total))}</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={[tk.center, { marginTop: 4, fontSize: 8 }]}>{t.paiement}</Text>
+            )}
+          </>
+        )}
 
         {vente.statut === "annulee" && <Text style={tk.cancel}>{t.annulee}</Text>}
 
@@ -200,11 +337,25 @@ function TicketDoc({
 
 const fa = StyleSheet.create({
   page: { padding: 46, fontSize: 10, color: COLORS.text },
-  headerRow: { flexDirection: "row", justifyContent: "space-between" },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logo: { width: 52, height: 52 },
   brand: { fontSize: 18, fontWeight: 700, color: COLORS.brand },
   brandSub: { fontSize: 9, color: COLORS.textMuted, marginTop: 2 },
   facTitle: { fontSize: 22, fontWeight: 700, textAlign: "right" },
   facMeta: { fontSize: 9.5, textAlign: "right", marginTop: 3, color: COLORS.textMuted },
+  pecTag: {
+    marginTop: 6,
+    alignSelf: "flex-end",
+    fontSize: 9,
+    fontWeight: 700,
+    color: COLORS.brand,
+    borderWidth: 1,
+    borderColor: COLORS.brand,
+    borderRadius: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+  },
   blocks: { flexDirection: "row", gap: 16, marginTop: 26 },
   block: {
     flex: 1,
@@ -242,11 +393,18 @@ const fa = StyleSheet.create({
   cQte: { flex: 1, textAlign: "right" },
   cPu: { flex: 2, textAlign: "right" },
   cMontant: { flex: 2, textAlign: "right" },
-  totalBox: {
-    marginTop: 14,
-    alignSelf: "flex-end",
+  totals: { marginTop: 14, alignSelf: "flex-end", width: 240 },
+  totalLine: {
     flexDirection: "row",
-    gap: 24,
+    justifyContent: "space-between",
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+    fontSize: 10,
+  },
+  totalBox: {
+    marginTop: 6,
+    flexDirection: "row",
+    justifyContent: "space-between",
     backgroundColor: COLORS.bgAccent,
     borderWidth: 1,
     borderColor: COLORS.brand,
@@ -287,21 +445,32 @@ const fa = StyleSheet.create({
 function FactureDoc({
   vente,
   org,
+  fiscal,
   lang,
 }: {
   vente: VenteComplete;
   org: OrgInfo;
+  fiscal: FiscalInfo;
   lang: Lang;
 }) {
   const t = L[lang];
+  const logo = logoDataUri();
+  const estPec = vente.typeVente === "pec";
+  const valeur = estPec ? vente.valeurPec : vente.total;
+  const { ht, tva } = decomposerTva(valeur, fiscal);
+  const montreTva = fiscal.tvaActive && fiscal.tvaTaux > 0;
+
   return (
     <Document title={`Facture ${vente.id}`}>
       <Page size="A4" style={fa.page}>
         {/* En-tête */}
         <View style={fa.headerRow}>
-          <View>
-            <Text style={fa.brand}>{org.nom}</Text>
-            <Text style={fa.brandSub}>{org.sousTitre}</Text>
+          <View style={fa.brandRow}>
+            {logo ? <Image src={logo} style={fa.logo} /> : null}
+            <View>
+              <Text style={fa.brand}>{org.nom}</Text>
+              <Text style={fa.brandSub}>{org.sousTitre}</Text>
+            </View>
           </View>
           <View>
             <Text style={fa.facTitle}>{t.facture}</Text>
@@ -313,6 +482,8 @@ function FactureDoc({
             </Text>
           </View>
         </View>
+
+        {estPec && <Text style={fa.pecTag}>{t.priseEnCharge}</Text>}
 
         {vente.statut === "annulee" && (
           <Text style={fa.cancelBanner}>{t.annulee}</Text>
@@ -335,9 +506,11 @@ function FactureDoc({
             ) : null}
           </View>
           <View style={fa.block}>
-            <Text style={fa.blockTitle}>{t.client}</Text>
+            <Text style={fa.blockTitle}>{estPec ? t.pecPar : t.client}</Text>
             <Text style={[fa.blockLine, { fontWeight: 700 }]}>
-              {vente.clientNom || t.clientComptant}
+              {estPec
+                ? vente.pecPayeur || "—"
+                : vente.clientNom || t.clientComptant}
             </Text>
             <Text style={fa.blockLine}>
               {t.caissier} : {vente.operateurEmail}
@@ -366,9 +539,40 @@ function FactureDoc({
           ))}
         </View>
 
-        <View style={fa.totalBox}>
-          <Text style={fa.totalLabel}>{t.total}</Text>
-          <Text style={fa.totalValue}>{fmtAriary(vente.total)}</Text>
+        {/* Totaux : décomposition TVA si active, puis total encadré. Pour une
+            prise en charge, le total à payer est 0 et la valeur est indiquée. */}
+        <View style={fa.totals}>
+          {montreTva ? (
+            <>
+              <View style={fa.totalLine}>
+                <Text>{t.ht}</Text>
+                <Text>{fmtAriary(ht)}</Text>
+              </View>
+              <View style={fa.totalLine}>
+                <Text>
+                  {t.tva} {fiscal.tvaTaux}%
+                </Text>
+                <Text>{fmtAriary(tva)}</Text>
+              </View>
+            </>
+          ) : null}
+          {estPec ? (
+            <>
+              <View style={fa.totalLine}>
+                <Text>{t.valeur}</Text>
+                <Text>{fmtAriary(valeur)}</Text>
+              </View>
+              <View style={fa.totalBox}>
+                <Text style={fa.totalLabel}>{t.aPayer}</Text>
+                <Text style={fa.totalValue}>{fmtAriary(0)}</Text>
+              </View>
+            </>
+          ) : (
+            <View style={fa.totalBox}>
+              <Text style={fa.totalLabel}>{montreTva ? t.ttc : t.total}</Text>
+              <Text style={fa.totalValue}>{fmtAriary(vente.total)}</Text>
+            </View>
+          )}
         </View>
 
         <View style={fa.signRow}>
@@ -392,13 +596,15 @@ export async function renderVentePdf(
   doc: "ticket" | "facture",
   vente: VenteComplete,
   org: OrgInfo,
+  fiscal: FiscalInfo,
   lang: Lang,
+  recu?: number,
 ): Promise<NodeJS.ReadableStream> {
   const element =
     doc === "ticket" ? (
-      <TicketDoc vente={vente} org={org} lang={lang} />
+      <TicketDoc vente={vente} org={org} fiscal={fiscal} lang={lang} recu={recu} />
     ) : (
-      <FactureDoc vente={vente} org={org} lang={lang} />
+      <FactureDoc vente={vente} org={org} fiscal={fiscal} lang={lang} />
     );
   // Même cast que src/lib/reports/index.ts (typage renderToStream)
   return await renderToStream(

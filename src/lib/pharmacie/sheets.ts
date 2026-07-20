@@ -336,6 +336,10 @@ export interface VenteComplete {
   clientNom: string;
   typeVente: string;
   total: number;
+  /** Entité payeuse si prise en charge ("" sinon). */
+  pecPayeur: string;
+  /** Valeur réelle des produits en prise en charge (0 pour une vente cash). */
+  valeurPec: number;
   operateurEmail: string;
   statut: string;
   lignes: Array<{
@@ -383,6 +387,8 @@ export async function getVenteComplete(
     clientNom: String(vente.client_nom ?? ""),
     typeVente: String(vente.type_vente ?? "cash"),
     total: Number(vente.total ?? 0),
+    pecPayeur: String(vente.pec_payeur ?? ""),
+    valeurPec: Number(vente.valeur_pec ?? 0),
     operateurEmail: String(vente.operateur_email ?? ""),
     statut: String(vente.statut ?? "active"),
     lignes: venteLignes,

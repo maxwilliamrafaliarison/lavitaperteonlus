@@ -6,6 +6,7 @@ import { getVenteComplete, listParametres } from "@/lib/pharmacie/sheets";
 import {
   renderVentePdf,
   orgInfoFromParams,
+  fiscalFromParams,
 } from "@/lib/pharmacie/pdf/documents";
 import { isLang } from "@/lib/i18n";
 
@@ -20,7 +21,7 @@ export const runtime = "nodejs"; // @react-pdf/renderer nécessite Node
  * ré-imprimable à tout moment (la vente est relue depuis le Sheet).
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; doc: string }> },
 ) {
   const session = await auth();
@@ -50,11 +51,19 @@ export async function GET(
       return NextResponse.json({ error: "Vente introuvable" }, { status: 404 });
     }
 
+    // Espèces reçues : détail du moment de la vente, passé en query par
+    // l'écran de confirmation. Absent lors d'une réimpression → on n'affiche
+    // alors que « paiement : espèces », sans montant inventé.
+    const recuRaw = Number(req.nextUrl.searchParams.get("recu"));
+    const recu = Number.isFinite(recuRaw) && recuRaw > 0 ? recuRaw : undefined;
+
     const stream = await renderVentePdf(
       doc,
       vente,
       orgInfoFromParams(parametres),
+      fiscalFromParams(parametres),
       lang,
+      recu,
     );
 
     const webStream = new ReadableStream({
