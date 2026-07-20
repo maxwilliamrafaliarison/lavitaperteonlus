@@ -8,6 +8,7 @@ import {
   Trash2,
   ShoppingCart,
   PackagePlus,
+  ArrowLeftRight,
   History,
 } from "lucide-react";
 
@@ -117,6 +118,14 @@ export default async function PharmaciePage() {
               <GlassButton variant="glass" size="md">
                 <PackagePlus className="size-4" aria-hidden="true" />
                 {t("pharmacie.reception_cta")}
+              </GlassButton>
+            </Link>
+          )}
+          {can(session.user.role, "pharmacie:stock") && (
+            <Link href="/pharmacie/transfert">
+              <GlassButton variant="glass" size="md">
+                <ArrowLeftRight className="size-4" aria-hidden="true" />
+                {t("pharmacie.transfert_cta")}
               </GlassButton>
             </Link>
           )}
