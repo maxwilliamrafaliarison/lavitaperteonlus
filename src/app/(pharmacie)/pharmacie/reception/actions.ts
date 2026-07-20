@@ -10,10 +10,12 @@ import {
   listProduits,
   PHARMA_SHEETS,
 } from "@/lib/pharmacie/sheets";
+import { facteur } from "@/lib/pharmacie/fractionnement";
 import { getT, isLang } from "@/lib/i18n";
 
 const ReceptionInput = z.object({
   produitId: z.string().min(1),
+  // Quantité reçue en BOÎTES (l'unité d'une livraison fournisseur).
   quantite: z.number().int().positive().max(100_000),
   numeroLot: z.string().trim().max(60).default(""),
   dateExpiration: z
@@ -22,6 +24,8 @@ const ReceptionInput = z.object({
     .or(z.literal(""))
     .default(""),
   prixUnitaire: z.number().nonnegative().default(0),
+  // Contenance (boîte, flacon, tube, autre) — pour le registre des entrées.
+  contenance: z.string().trim().max(30).default(""),
   note: z.string().trim().max(200).default(""),
 });
 
@@ -60,23 +64,34 @@ export async function recevoirStockAction(raw: unknown): Promise<ReceptionResult
   const timestamp = new Date().toISOString();
   const email = session.user.email ?? "";
   const mouvementId = genId("MVT");
+  const f = facteur(produit);
+
+  // Une réception se compte en BOÎTES. Le mouvement de stock est toujours en
+  // unités de base : recevoir 10 boîtes d'un produit à 30 comprimés ajoute
+  // 300 comprimés, pas 10. (Avant ce correctif, on écrivait la quantité
+  // brute — invisible tant que tous les produits ont un facteur de 1, faux
+  // dès le premier produit fractionné.)
+  const quantiteBase = input.quantite * f;
 
   try {
-    // Nouveau lot si numéro ou péremption fournis
-    let lotId = "";
-    if (input.numeroLot || input.dateExpiration) {
-      lotId = genId("LOT");
-      await appendRows(PHARMA_SHEETS.lots, [
-        [
-          lotId,
-          produit.id,
-          input.numeroLot || lotId,
-          input.dateExpiration,
-          timestamp.slice(0, 10),
-        ],
-      ]);
-    }
+    // On crée TOUJOURS un lot, même sans numéro ni péremption : c'est le lot
+    // qui porte le stock (compartiment GROS) et que le FEFO consommera. Une
+    // entrée sans lot laisserait du stock flottant, non alloué.
+    const lotId = genId("LOT");
+    await appendRows(PHARMA_SHEETS.lots, [
+      [
+        lotId,
+        produit.id,
+        input.numeroLot || lotId,
+        input.dateExpiration,
+        timestamp.slice(0, 10),
+        input.contenance,
+      ],
+    ]);
 
+    // Mouvement d'entrée en GROS (réserve, boîtes fermées). unite_saisie et
+    // facteur_applique sont l'AUDIT de ce qui a été saisi ; quantite est la
+    // seule source du stock, en unités de base.
     await appendRows(PHARMA_SHEETS.mouvements, [
       [
         mouvementId,
@@ -84,11 +99,14 @@ export async function recevoirStockAction(raw: unknown): Promise<ReceptionResult
         produit.id,
         lotId,
         "entree",
-        input.quantite,
+        quantiteBase,
         input.prixUnitaire,
         "reception",
         email,
         input.note || `Réception fournisseur`,
+        "boite",
+        f,
+        "gros",
       ],
     ]);
   } catch (e) {

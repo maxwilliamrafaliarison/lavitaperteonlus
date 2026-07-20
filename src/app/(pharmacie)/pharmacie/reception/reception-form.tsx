@@ -10,6 +10,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { getT, type Lang } from "@/lib/i18n";
 import type { ProduitAvecStock } from "@/lib/pharmacie/types";
+import { estFractionnable, facteur } from "@/lib/pharmacie/fractionnement";
 
 import { recevoirStockAction } from "./actions";
 
@@ -163,8 +164,20 @@ export function ReceptionForm({
                 required
                 value={quantite}
                 onChange={(e) => setQuantite(Math.max(1, Number(e.target.value)))}
+                aria-describedby="reception-conv"
                 className="w-full rounded-xl glass border px-3.5 h-11 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40"
               />
+              {/* Sur un produit vendu à l'unité, la réception se compte en
+                  boîtes : on montre l'équivalent en unités de base pour lever
+                  toute ambiguïté. */}
+              {estFractionnable(selection) && (
+                <span id="reception-conv" className="mt-1 block text-[11px] text-muted-foreground">
+                  {t("pharmacie.reception_conv", {
+                    n: quantite * facteur(selection),
+                    u: selection.unite_detail || t("pharmacie.vente_mode_detail"),
+                  })}
+                </span>
+              )}
             </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
