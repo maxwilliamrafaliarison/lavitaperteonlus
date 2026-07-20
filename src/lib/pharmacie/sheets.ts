@@ -5,6 +5,9 @@ import {
   Lot,
   Mouvement,
   EntitePec,
+  Fournisseur,
+  Achat,
+  AchatLigne,
   type ProduitAvecStock,
   type StockLot,
 } from "./types";
@@ -622,6 +625,63 @@ export async function listEntitesPec(): Promise<EntitePec[]> {
     .filter((p) => p.success)
     .map((p) => p.data)
     .filter((e) => e.actif);
+}
+
+/** Fournisseurs de référence (liste suggérée à la saisie d'un achat). */
+export async function listFournisseurs(): Promise<Fournisseur[]> {
+  const rows = await readTab(PHARMA_SHEETS.fournisseurs);
+  return rows
+    .map((r) => Fournisseur.safeParse(r))
+    .filter((p) => p.success)
+    .map((p) => p.data);
+}
+
+/** Registre des achats (en-têtes), le plus récent d'abord. */
+export async function listAchats(): Promise<Achat[]> {
+  const rows = await readTab(PHARMA_SHEETS.achats);
+  return rows
+    .map((r) => Achat.safeParse(r))
+    .filter((p) => p.success)
+    .map((p) => p.data)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+/** Lignes d'un achat donné (détail du registre). */
+export async function listAchatsLignes(achatId: string): Promise<AchatLigne[]> {
+  const rows = await readTab(PHARMA_SHEETS.achatsLignes);
+  return rows
+    .map((r) => AchatLigne.safeParse(r))
+    .filter((p) => p.success)
+    .map((p) => p.data)
+    .filter((l) => l.achat_id === achatId);
+}
+
+/**
+ * Enregistre un achat COMPLET (en-tête + lignes + lots + mouvements d'entrée)
+ * de façon atomique. Sur Supabase via la RPC enregistrer_achat (tout ou
+ * rien, idempotent sur achats.id) ; sur Sheets (filet de secours), quatre
+ * appends séquentiels — les mouvements en premier, pour que le stock ne
+ * puisse jamais exister sans sa trace comptable.
+ */
+export async function enregistrerAchat(input: {
+  achatRow: unknown[];
+  lignesRows: unknown[][];
+  lotsRows: unknown[][];
+  mouvementsRows: unknown[][];
+}): Promise<void> {
+  if (backend() === "supabase") {
+    await sbRpc<string>(SCHEMA, "enregistrer_achat", {
+      p_achat: versObjet(PHARMA_SHEETS.achats, input.achatRow),
+      p_lignes: input.lignesRows.map((r) => versObjet(PHARMA_SHEETS.achatsLignes, r)),
+      p_lots: input.lotsRows.map((r) => versObjet(PHARMA_SHEETS.lots, r)),
+      p_mouvements: input.mouvementsRows.map((r) => versObjet(PHARMA_SHEETS.mouvements, r)),
+    });
+    return;
+  }
+  await appendRows(PHARMA_SHEETS.mouvements, input.mouvementsRows);
+  await appendRows(PHARMA_SHEETS.lots, input.lotsRows);
+  await appendRows(PHARMA_SHEETS.achats, [input.achatRow]);
+  await appendRows(PHARMA_SHEETS.achatsLignes, input.lignesRows);
 }
 
 /**

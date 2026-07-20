@@ -9,6 +9,7 @@ import {
   ShoppingCart,
   PackagePlus,
   ArrowLeftRight,
+  ClipboardList,
   History,
 } from "lucide-react";
 
@@ -118,6 +119,14 @@ export default async function PharmaciePage() {
               <GlassButton variant="glass" size="md">
                 <PackagePlus className="size-4" aria-hidden="true" />
                 {t("pharmacie.reception_cta")}
+              </GlassButton>
+            </Link>
+          )}
+          {can(session.user.role, "pharmacie:stock") && (
+            <Link href="/pharmacie/achats">
+              <GlassButton variant="glass" size="md">
+                <ClipboardList className="size-4" aria-hidden="true" />
+                {t("pharmacie.achats_cta")}
               </GlassButton>
             </Link>
           )}

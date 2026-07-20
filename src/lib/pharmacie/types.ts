@@ -181,6 +181,16 @@ export const EntitePec = z.object({
 });
 export type EntitePec = z.infer<typeof EntitePec>;
 
+/** Fournisseur de référence (table existante depuis 003, alimentée en 009). */
+export const Fournisseur = z.object({
+  id: z.string(),
+  nom: txt(),
+  telephone: txt(),
+  email: txt(),
+  adresse: txt(),
+});
+export type Fournisseur = z.infer<typeof Fournisseur>;
+
 /** En-tête d'un achat / registre des entrées (migration 009). */
 export const Achat = z.object({
   id: z.string(),
