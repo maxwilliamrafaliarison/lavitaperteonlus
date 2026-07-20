@@ -48,14 +48,6 @@ function fmtAr(n: number): string {
   );
 }
 
-// 1 Ariary = 5 FMG (francs malgaches) — beaucoup de clients comptent encore en FMG
-function fmtFmg(ariary: number): string {
-  return (
-    new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(ariary * 5) +
-    " FMG"
-  );
-}
-
 export function VenteForm({
   produits,
   lang,
@@ -210,9 +202,6 @@ export function VenteForm({
           <p className="mt-3 flex justify-between border-t border-glass-border pt-3 font-semibold">
             <span>{t("pharmacie.vente_total")}</span>
             <span className="font-mono tabular-nums">{fmtAr(done.total)}</span>
-          </p>
-          <p className="flex justify-end text-xs text-muted-foreground">
-            <span className="font-mono tabular-nums">= {fmtFmg(done.total)}</span>
           </p>
         </div>
 
@@ -514,9 +503,6 @@ export function VenteForm({
               <p className="flex items-center justify-between text-lg font-semibold">
                 <span>{t("pharmacie.vente_total")}</span>
                 <span className="font-mono tabular-nums">{fmtAr(total)}</span>
-              </p>
-              <p className="flex justify-end text-xs text-muted-foreground">
-                <span className="font-mono tabular-nums">= {fmtFmg(total)}</span>
               </p>
             </div>
 
