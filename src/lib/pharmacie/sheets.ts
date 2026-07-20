@@ -419,6 +419,11 @@ export interface VenteResume {
   operateurEmail: string;
   statut: string;
   nbArticles: number;
+  /** 'cash' | 'pec' — pour séparer ventes payantes et prises en charge. */
+  typeVente: string;
+  pecPayeur: string;
+  /** Valeur réelle des produits en PEC (0 pour une vente cash). */
+  valeurPec: number;
 }
 
 export async function listVentes(): Promise<VenteResume[]> {
@@ -444,6 +449,9 @@ export async function listVentes(): Promise<VenteResume[]> {
       operateurEmail: String(v.operateur_email ?? ""),
       statut: String(v.statut ?? "active"),
       nbArticles: articlesParVente.get(String(v.id)) ?? 0,
+      typeVente: String(v.type_vente ?? "cash"),
+      pecPayeur: String(v.pec_payeur ?? ""),
+      valeurPec: Number(v.valeur_pec ?? 0),
     }))
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 }

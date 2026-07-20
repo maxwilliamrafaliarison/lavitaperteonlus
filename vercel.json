@@ -5,6 +5,10 @@
     {
       "path": "/api/pharmacie/rapport-quotidien",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/pharmacie/rapport-mensuel",
+      "schedule": "0 5 1 * *"
     }
   ]
 }
