@@ -8,7 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import {
   enregistrerVente,
   listProduitsAvecStock,
-  listLots,
+  listStockParLot,
 } from "@/lib/pharmacie/sheets";
 import { ModeVente } from "@/lib/pharmacie/types";
 import {
@@ -18,6 +18,7 @@ import {
   versUnitesBase,
   formaterQuantite,
 } from "@/lib/pharmacie/fractionnement";
+import { allouer } from "@/lib/pharmacie/fefo";
 import { getT, isLang } from "@/lib/i18n";
 
 const LigneInput = z.object({
@@ -63,13 +64,9 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   }
   const { clientNom, lignes } = parsed.data;
 
-  // Contrôle de stock best-effort : on lit l'état courant. L'append-only
-  // garantit qu'aucune écriture concurrente n'est perdue ; au pire un
-  // passage simultané rend un stock négatif, visible et ajustable.
-  const [produits, lots] = await Promise.all([
-    listProduitsAvecStock(),
-    listLots(),
-  ]);
+  // On lit l'état courant du catalogue (pour valider produit, statut, prix).
+  // Le stock ventilé par lot est lu juste avant l'allocation FEFO.
+  const produits = await listProduitsAvecStock();
   const parId = new Map(produits.map((p) => [p.id, p]));
 
   // Contrôles ligne par ligne : existence, statut, prix du mode choisi.
@@ -103,115 +100,74 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
     }
   }
 
-  // Contrôle de stock APRÈS agrégation par produit. Avec le fractionnement,
-  // un même produit peut apparaître sur deux lignes (2 boîtes + 5 comprimés) :
-  // les vérifier séparément laisserait passer un panier qui, au total, dépasse
-  // le stock. On somme d'abord, en unités de base, puis on compare une fois.
-  const besoinParProduit = new Map<string, number>();
-  for (const ligne of lignes) {
+  const venteId = genId("VTE");
+  const timestamp = new Date().toISOString();
+  const heure = timestamp.slice(11, 19);
+  const email = session.user.email ?? "";
+  const libelle = clientNom ? `Vente à ${clientNom} (${heure})` : `Vente comptoir (${heure})`;
+
+  // Stock ventilé par lot, MUTABLE entre les lignes : le FEFO d'une ligne voit
+  // déjà ce que les lignes précédentes ont consommé (invariant I6).
+  const stockParLot = await listStockParLot();
+
+  // Répartition FEFO, ligne par ligne. L'ÉCHEC de l'allocation EST le contrôle
+  // de stock : on refuse si l'ensemble des lots ne couvre pas le besoin,
+  // jamais un lot testé isolément. Le prix ET la quantité déduite viennent
+  // TOUJOURS du catalogue, jamais du navigateur (dette d'Eugenio évitée).
+  const mouvementsRows: unknown[][] = [];
+  const lignesRows: unknown[][] = [];
+  let nMvt = 0;
+  let total = 0;
+
+  for (let i = 0; i < lignes.length; i++) {
+    const ligne = lignes[i];
     const produit = parId.get(ligne.produitId)!;
-    const base = versUnitesBase(produit, ligne.quantite, ligne.mode);
-    besoinParProduit.set(
-      ligne.produitId,
-      (besoinParProduit.get(ligne.produitId) ?? 0) + base,
-    );
-  }
-  for (const [produitId, besoin] of besoinParProduit) {
-    const produit = parId.get(produitId)!;
-    if (produit.stockBase < besoin) {
+    const prixUnitaire = prixPour(produit, ligne.mode);
+    const sousTotal = ligne.quantite * prixUnitaire;
+    const besoinBase = versUnitesBase(produit, ligne.quantite, ligne.mode);
+    const f = facteur(produit);
+
+    const buckets = stockParLot.get(ligne.produitId) ?? [];
+    const res = allouer(f, besoinBase, ligne.mode, buckets);
+    if (!res.ok) {
+      const dispo = buckets.reduce((s, b) => s + b.gros + b.detail, 0);
       return {
         ok: false,
         error: t("pharmacie.vente_error_stock", {
           p: produit.designation,
-          stock: formaterQuantite(produit, produit.stockBase),
+          stock: formaterQuantite(produit, dispo),
         }),
       };
     }
-  }
+    total += sousTotal;
 
-  // FEFO simplifié : lot à la péremption la plus proche pour chaque produit
-  const lotPourProduit = new Map<string, string>();
-  for (const lot of lots) {
-    const current = lotPourProduit.get(lot.produit_id);
-    if (!current) {
-      lotPourProduit.set(lot.produit_id, lot.id);
-      continue;
+    const note =
+      ligne.mode === "detail"
+        ? `${libelle} — ${ligne.quantite} ${produit.unite_detail || "unité"}`
+        : libelle;
+
+    // Ouverture d'une boîte = 2 mouvements 'transfert' (net nul sur le produit) :
+    // −q en GROS, +q en DÉTAIL du même lot, la péremption est conservée.
+    for (const o of res.ouvertures) {
+      mouvementsRows.push([`MVT-${venteId}-${++nMvt}`, timestamp, ligne.produitId, o.lotId, "transfert", -o.quantite, 0, venteId, email, `Ouverture boîte (${venteId})`, ligne.mode, f, "gros"]);
+      mouvementsRows.push([`MVT-${venteId}-${++nMvt}`, timestamp, ligne.produitId, o.lotId, "transfert", o.quantite, 0, venteId, email, `Ouverture boîte (${venteId})`, ligne.mode, f, "detail"]);
     }
-    const currentLot = lots.find((l) => l.id === current);
-    if (
-      lot.date_expiration &&
-      (!currentLot?.date_expiration ||
-        lot.date_expiration < currentLot.date_expiration)
-    ) {
-      lotPourProduit.set(lot.produit_id, lot.id);
+    // Sorties de vente : un mouvement négatif par (lot, compartiment) alloué.
+    for (const a of res.allocations) {
+      mouvementsRows.push([`MVT-${venteId}-${++nMvt}`, timestamp, ligne.produitId, a.lotId, "vente", -a.quantite, prixUnitaire, venteId, email, note, ligne.mode, f, a.compartiment]);
     }
+
+    // Ligne de vente : quantité dans l'unité DU MODE (ce que le ticket montre) ;
+    // lot affiché = premier lot alloué ; qte_stock_deduire = besoin en base.
+    lignesRows.push([`${venteId}-L${i + 1}`, venteId, ligne.produitId, res.allocations[0]?.lotId ?? "", ligne.quantite, prixUnitaire, sousTotal, ligne.mode, besoinBase]);
   }
-
-  const venteId = genId("VTE");
-  const now = new Date();
-  const timestamp = now.toISOString();
-  const heure = timestamp.slice(11, 19);
-  const email = session.user.email ?? "";
-
-  // Le prix ET la quantité déduite viennent TOUJOURS du catalogue, jamais du
-  // navigateur : une page restée ouverte pendant un changement de tarif, ou
-  // un client modifié, ne décident ni du montant encaissé ni de ce qui sort
-  // du stock. C'est précisément la dette relevée dans l'app d'Eugenio, où
-  // `qte_stock_deduire` était calculé à l'écran et gobé tel quel.
-  const lignesTarifees = lignes.map((l) => {
-    const produit = parId.get(l.produitId)!;
-    const prixUnitaire = prixPour(produit, l.mode);
-    return {
-      ...l,
-      prixUnitaire,
-      sousTotal: l.quantite * prixUnitaire,
-      // Ce qui sort réellement du stock, en unités de base.
-      qteBase: versUnitesBase(produit, l.quantite, l.mode),
-      facteur: facteur(produit),
-      unite: produit.unite_detail,
-    };
-  });
-  const total = lignesTarifees.reduce((s, l) => s + l.sousTotal, 0);
-
-  const libelle = clientNom ? `Vente à ${clientNom} (${heure})` : `Vente comptoir (${heure})`;
 
   try {
     await enregistrerVente({
-      venteRow: [venteId, timestamp, clientNom, "cash", total, email, "active"],
-      lignesRows: lignesTarifees.map((l, i) => [
-        `${venteId}-L${i + 1}`,
-        venteId,
-        l.produitId,
-        lotPourProduit.get(l.produitId) ?? "",
-        // `quantite` reste dans l'unité DU MODE (2 = 2 boîtes ou 2 comprimés) :
-        // c'est ce que le ticket doit montrer. `qte_stock_deduire` porte la
-        // conversion. Les confondre fausserait l'un ou l'autre.
-        l.quantite,
-        l.prixUnitaire,
-        l.sousTotal,
-        l.mode,
-        l.qteBase,
-      ]),
-      mouvementsRows: lignesTarifees.map((l, i) => [
-        `MVT-${venteId}-${i + 1}`,
-        timestamp,
-        l.produitId,
-        lotPourProduit.get(l.produitId) ?? "",
-        "vente",
-        // Le mouvement est TOUJOURS en unités de base : c'est l'invariant du
-        // stock, et la somme des mouvements doit rester juste.
-        -l.qteBase,
-        l.prixUnitaire,
-        venteId,
-        email,
-        l.mode === "detail"
-          ? `${libelle} — ${l.quantite} ${l.unite || "unité"}`
-          : libelle,
-        // Audit seulement : ce qui a été saisi à l'écran, pour que le kardex
-        // reste vrai même après un changement de facteur.
-        l.mode,
-        l.facteur,
-      ]),
+      // pec_payeur='' et valeur_pec=0 : vente cash (la PEC arrive en T6).
+      venteRow: [venteId, timestamp, clientNom, "cash", total, email, "active", "", 0],
+      lignesRows,
+      mouvementsRows,
     });
   } catch (e) {
     return {

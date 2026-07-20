@@ -8,6 +8,7 @@ import {
   appendRows,
   getVenteComplete,
   marquerVenteAnnulee,
+  listMouvementsDeVente,
   PHARMA_SHEETS,
 } from "@/lib/pharmacie/sheets";
 import { getT, isLang } from "@/lib/i18n";
@@ -53,22 +54,42 @@ export async function annulerVenteAction(
       return { ok: false, error: t("pharmacie.annul_error_introuvable") };
     }
 
-    // 2. Remise en stock compensatoire (quantités positives)
-    await appendRows(
-      PHARMA_SHEETS.mouvements,
-      vente.lignes.map((l, i) => [
-        `MVT-ANNUL-${venteId}-${i + 1}`,
-        timestamp,
-        l.produitId,
-        l.lotId,
-        "retour",
-        l.quantite,
-        l.prixUnitaire,
-        `ANNUL-${venteId}`,
-        email,
-        `Annulation de ${venteId}`,
-      ]),
-    );
+    // 2. Remise en stock : MIROIR EXACT des mouvements de vente, lot par lot
+    //    ET compartiment par compartiment. On relit les mouvements 'vente' de
+    //    la vente (chacun porte son lot, son compartiment et sa quantité de
+    //    base) et on les inverse. On ne reverse PAS les 'transfert' : la boîte
+    //    reste physiquement ouverte, les unités reviennent simplement en
+    //    DÉTAIL — le total produit est exact, la répartition honnêtement
+    //    différente. (Avant, on repostait la quantité en unité DU MODE :
+    //    annuler 2 boîtes d'un produit à 30 rendait +2 comprimés au lieu de
+    //    +60 — du stock s'évaporait.)
+    //
+    //    IDs déterministes 'MVT-ANNUL-<id du mouvement source>' : une double
+    //    annulation (course réseau) ne double-restocke pas — la clé primaire
+    //    rejette le doublon.
+    const mouvements = await listMouvementsDeVente(venteId);
+    const aRestaurer = mouvements.filter((m) => m.type === "vente");
+    if (aRestaurer.length > 0) {
+      await appendRows(
+        PHARMA_SHEETS.mouvements,
+        aRestaurer.map((m) => [
+          `MVT-ANNUL-${m.id}`,
+          timestamp,
+          m.produit_id,
+          m.lot_id,
+          "retour",
+          // Le mouvement de vente était négatif (unités de base) ; on inverse.
+          -m.quantite,
+          m.prix_unitaire,
+          `ANNUL-${venteId}`,
+          email,
+          `Annulation de ${venteId}`,
+          m.unite_saisie,
+          m.facteur_applique,
+          m.compartiment,
+        ]),
+      );
+    }
   } catch (e) {
     return {
       ok: false,
