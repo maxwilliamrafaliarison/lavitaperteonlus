@@ -35,6 +35,14 @@ const LigneInput = z.object({
 
 const VenteInput = z.object({
   clientNom: z.string().trim().max(120).default(""),
+  /**
+   * "cash" : le client paie. "pec" (prise en charge) : le stock est déduit
+   * normalement mais le client ne paie rien — c'est une entité (Miaraka,
+   * Ilena, une personne…) qui prend la dépense en charge.
+   */
+  typeVente: z.enum(["cash", "pec"]).default("cash"),
+  /** Entité payeuse de la prise en charge (obligatoire si typeVente='pec'). */
+  pecPayeur: z.string().trim().max(120).default(""),
   lignes: z.array(LigneInput).min(1).max(50),
 });
 
@@ -62,7 +70,13 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   if (!parsed.success) {
     return { ok: false, error: t("pharmacie.vente_error_invalid") };
   }
-  const { clientNom, lignes } = parsed.data;
+  const { clientNom, typeVente, pecPayeur, lignes } = parsed.data;
+
+  // Une prise en charge sans payeur ne serait pas vérifiable dans les
+  // rapports : on refuse une vente à 0 Ar dont personne n'assume la dépense.
+  if (typeVente === "pec" && pecPayeur.trim() === "") {
+    return { ok: false, error: t("pharmacie.vente_error_pec_payeur") };
+  }
 
   // On lit l'état courant du catalogue (pour valider produit, statut, prix).
   // Le stock ventilé par lot est lu juste avant l'allocation FEFO.
@@ -104,7 +118,11 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   const timestamp = new Date().toISOString();
   const heure = timestamp.slice(11, 19);
   const email = session.user.email ?? "";
-  const libelle = clientNom ? `Vente à ${clientNom} (${heure})` : `Vente comptoir (${heure})`;
+  const nomAffiche = typeVente === "pec" ? pecPayeur.trim() : clientNom;
+  const prefixe = typeVente === "pec" ? "PEC" : "Vente";
+  const libelle = nomAffiche
+    ? `${prefixe} — ${nomAffiche} (${heure})`
+    : `Vente comptoir (${heure})`;
 
   // Stock ventilé par lot, MUTABLE entre les lignes : le FEFO d'une ligne voit
   // déjà ce que les lignes précédentes ont consommé (invariant I6).
@@ -162,10 +180,27 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
     lignesRows.push([`${venteId}-L${i + 1}`, venteId, ligne.produitId, res.allocations[0]?.lotId ?? "", ligne.quantite, prixUnitaire, sousTotal, ligne.mode, besoinBase]);
   }
 
+  // En prise en charge, le client ne paie rien : le total ENCAISSÉ est 0, et
+  // la valeur réelle des produits délivrés est portée par valeur_pec — ce qui
+  // rend ces ventes à 0 Ar vérifiables dans les rapports (cash vs PEC). Les
+  // lignes gardent leur prix réel : on sait toujours ce qui a été dispensé.
+  const estPec = typeVente === "pec";
+  const totalEncaisse = estPec ? 0 : total;
+  const valeurPec = estPec ? total : 0;
+
   try {
     await enregistrerVente({
-      // pec_payeur='' et valeur_pec=0 : vente cash (la PEC arrive en T6).
-      venteRow: [venteId, timestamp, clientNom, "cash", total, email, "active", "", 0],
+      venteRow: [
+        venteId,
+        timestamp,
+        nomAffiche,
+        typeVente,
+        totalEncaisse,
+        email,
+        "active",
+        estPec ? pecPayeur.trim() : "",
+        valeurPec,
+      ],
       lignesRows,
       mouvementsRows,
     });

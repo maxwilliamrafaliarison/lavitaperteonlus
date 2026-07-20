@@ -21,7 +21,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { getT, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { ProduitAvecStock, ModeVente } from "@/lib/pharmacie/types";
+import type { ProduitAvecStock, ModeVente, EntitePec } from "@/lib/pharmacie/types";
 import {
   estFractionnable,
   prixPour,
@@ -50,9 +50,11 @@ function fmtAr(n: number): string {
 
 export function VenteForm({
   produits,
+  entites,
   lang,
 }: {
   produits: ProduitAvecStock[];
+  entites: EntitePec[];
   lang: Lang;
 }) {
   const router = useRouter();
@@ -60,9 +62,13 @@ export function VenteForm({
   const [query, setQuery] = React.useState("");
   const [panier, setPanier] = React.useState<LignePanier[]>([]);
   const [clientNom, setClientNom] = React.useState("");
+  const [typeVente, setTypeVente] = React.useState<"cash" | "pec">("cash");
+  const [pecPayeur, setPecPayeur] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [done, setDone] = React.useState<{ venteId: string; total: number } | null>(null);
   const [recu, setRecu] = React.useState<number>(0);
+
+  const estPec = typeVente === "pec";
 
   const vendables = React.useMemo(
     () => produits.filter((p) => p.statut === "actif" && p.stockBase > 0),
@@ -130,10 +136,16 @@ export function VenteForm({
 
   async function encaisser() {
     if (panier.length === 0) return;
+    if (estPec && pecPayeur.trim() === "") {
+      toast.warning(t("pharmacie.vente_error_pec_payeur"));
+      return;
+    }
     setLoading(true);
     try {
       const result = await creerVenteAction({
         clientNom,
+        typeVente,
+        pecPayeur,
         lignes: panier.map((l) => ({
           produitId: l.produit.id,
           quantite: l.quantite,
@@ -171,10 +183,18 @@ export function VenteForm({
         <p className="mt-1 text-sm text-muted-foreground font-mono">{done.venteId}</p>
 
         <div className="mt-6 rounded-2xl glass border p-4 text-left text-sm print:border-black">
-          {clientNom && (
-            <p className="mb-2 text-muted-foreground">
-              {t("pharmacie.vente_client")} : <span className="text-foreground">{clientNom}</span>
+          {estPec ? (
+            <p className="mb-2 rounded-lg bg-primary/10 px-2.5 py-1.5 text-primary">
+              {t("pharmacie.vente_type_pec")} :{" "}
+              <span className="font-medium">{pecPayeur || "—"}</span>
             </p>
+          ) : (
+            clientNom && (
+              <p className="mb-2 text-muted-foreground">
+                {t("pharmacie.vente_client")} :{" "}
+                <span className="text-foreground">{clientNom}</span>
+              </p>
+            )
           )}
           <ul role="list" className="divide-y divide-glass-border">
             {panier.map((l) => (
@@ -200,12 +220,23 @@ export function VenteForm({
             ))}
           </ul>
           <p className="mt-3 flex justify-between border-t border-glass-border pt-3 font-semibold">
-            <span>{t("pharmacie.vente_total")}</span>
-            <span className="font-mono tabular-nums">{fmtAr(done.total)}</span>
+            <span>{estPec ? t("pharmacie.vente_pec_valeur") : t("pharmacie.vente_total")}</span>
+            <span className={cn("font-mono tabular-nums", estPec && "line-through text-muted-foreground")}>
+              {fmtAr(done.total)}
+            </span>
           </p>
+          {estPec && (
+            <p className="mt-1 flex justify-between font-semibold">
+              <span>{t("pharmacie.vente_a_payer")}</span>
+              <span className="font-mono tabular-nums text-[oklch(0.75_0.18_150)]">
+                {fmtAr(0)}
+              </span>
+            </p>
+          )}
         </div>
 
-        {/* Monnaie à rendre (espèces) */}
+        {/* Monnaie à rendre (espèces) — sans objet en prise en charge. */}
+        {!estPec && (
         <div className="mt-4 rounded-2xl glass border p-4 text-left text-sm print:hidden">
           <div className="flex items-center justify-between gap-3">
             <label
@@ -247,6 +278,7 @@ export function VenteForm({
             </span>
           </p>
         </div>
+        )}
 
         <div className="mt-6 flex flex-wrap justify-center gap-2 print:hidden">
           <GlassButton
@@ -286,6 +318,8 @@ export function VenteForm({
             onClick={() => {
               setPanier([]);
               setClientNom("");
+              setTypeVente("cash");
+              setPecPayeur("");
               setDone(null);
               setRecu(0);
             }}
@@ -486,24 +520,75 @@ export function VenteForm({
           )}
 
           <div className="mt-5 space-y-3 border-t border-glass-border pt-4">
-            <label className="block">
-              <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
-                {t("pharmacie.vente_client")} ({t("common.optional")})
-              </span>
-              <input
-                type="text"
-                value={clientNom}
-                onChange={(e) => setClientNom(e.target.value)}
-                placeholder={t("pharmacie.vente_client_placeholder")}
-                className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            {/* Type de vente : comptant ou prise en charge (client à 0 Ar). */}
+            <div className="grid grid-cols-2 gap-2">
+              <TypeBtn
+                actif={!estPec}
+                onClick={() => setTypeVente("cash")}
+                label={t("pharmacie.vente_type_cash")}
               />
-            </label>
+              <TypeBtn
+                actif={estPec}
+                onClick={() => setTypeVente("pec")}
+                label={t("pharmacie.vente_type_pec")}
+              />
+            </div>
+
+            {!estPec ? (
+              <label className="block">
+                <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                  {t("pharmacie.vente_client")} ({t("common.optional")})
+                </span>
+                <input
+                  type="text"
+                  value={clientNom}
+                  onChange={(e) => setClientNom(e.target.value)}
+                  placeholder={t("pharmacie.vente_client_placeholder")}
+                  className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </label>
+            ) : (
+              <label className="block">
+                <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                  {t("pharmacie.vente_pec_payeur")}{" "}
+                  <span aria-label={t("a11y.required_indicator")} className="text-primary">*</span>
+                </span>
+                <input
+                  type="text"
+                  list="pec-entites"
+                  value={pecPayeur}
+                  onChange={(e) => setPecPayeur(e.target.value)}
+                  placeholder={t("pharmacie.vente_pec_placeholder")}
+                  className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                />
+                <datalist id="pec-entites">
+                  {entites.map((e) => (
+                    <option key={e.id} value={e.nom} />
+                  ))}
+                </datalist>
+              </label>
+            )}
 
             <div>
-              <p className="flex items-center justify-between text-lg font-semibold">
-                <span>{t("pharmacie.vente_total")}</span>
-                <span className="font-mono tabular-nums">{fmtAr(total)}</span>
-              </p>
+              {estPec ? (
+                <>
+                  <p className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span>{t("pharmacie.vente_pec_valeur")}</span>
+                    <span className="font-mono tabular-nums line-through">{fmtAr(total)}</span>
+                  </p>
+                  <p className="mt-1 flex items-center justify-between text-lg font-semibold">
+                    <span>{t("pharmacie.vente_a_payer")}</span>
+                    <span className="font-mono tabular-nums text-[oklch(0.75_0.18_150)]">
+                      {fmtAr(0)}
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <p className="flex items-center justify-between text-lg font-semibold">
+                  <span>{t("pharmacie.vente_total")}</span>
+                  <span className="font-mono tabular-nums">{fmtAr(total)}</span>
+                </p>
+              )}
             </div>
 
             <GlassButton
@@ -515,12 +600,40 @@ export function VenteForm({
               onClick={encaisser}
             >
               {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-              {t("pharmacie.vente_encaisser")}
+              {estPec ? t("pharmacie.vente_valider_pec") : t("pharmacie.vente_encaisser")}
             </GlassButton>
           </div>
         </GlassCard>
       </div>
     </div>
+  );
+}
+
+/** Bascule Comptant / Prise en charge, au-dessus du bouton d'encaissement. */
+function TypeBtn({
+  actif,
+  onClick,
+  label,
+}: {
+  actif: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={actif}
+      className={cn(
+        "rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        actif
+          ? "border-primary/40 bg-primary/12 text-primary"
+          : "border-glass-border text-muted-foreground hover:bg-white/5",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 

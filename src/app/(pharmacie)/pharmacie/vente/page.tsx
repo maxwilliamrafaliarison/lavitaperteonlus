@@ -5,11 +5,11 @@ import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
-import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
+import { listProduitsAvecStock, listEntitesPec } from "@/lib/pharmacie/sheets";
 import { safe } from "@/lib/sheets/safe";
 import { PanneBanner } from "@/components/layout/panne-banner";
 import { getT } from "@/lib/i18n";
-import type { ProduitAvecStock } from "@/lib/pharmacie/types";
+import type { ProduitAvecStock, EntitePec } from "@/lib/pharmacie/types";
 
 import { VenteForm } from "./vente-form";
 
@@ -24,7 +24,10 @@ export default async function VentePage() {
   const lang = session.user.lang;
   const t = getT(lang);
 
-  const res = await safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []);
+  const [res, entitesRes] = await Promise.all([
+    safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []),
+    safe<EntitePec[]>(() => listEntitesPec(), []),
+  ]);
 
   return (
     <main id="main-content" className="mx-auto max-w-7xl flex-1 p-4 md:p-10 space-y-6">
@@ -45,7 +48,7 @@ export default async function VentePage() {
       </div>
 
       {res.ok ? (
-        <VenteForm produits={res.data} lang={lang} />
+        <VenteForm produits={res.data} entites={entitesRes.data} lang={lang} />
       ) : (
         // Le catalogue est injoignable : on n'affiche PAS la caisse. Un
         // formulaire vide inviterait à composer un panier qui ne pourrait
