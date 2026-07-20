@@ -10,6 +10,7 @@ import {
   PackagePlus,
   ArrowLeftRight,
   ClipboardList,
+  Settings,
   History,
 } from "lucide-react";
 
@@ -135,6 +136,14 @@ export default async function PharmaciePage() {
               <GlassButton variant="glass" size="md">
                 <ArrowLeftRight className="size-4" aria-hidden="true" />
                 {t("pharmacie.transfert_cta")}
+              </GlassButton>
+            </Link>
+          )}
+          {can(session.user.role, "pharmacie:config") && (
+            <Link href="/pharmacie/parametres">
+              <GlassButton variant="glass" size="md">
+                <Settings className="size-4" aria-hidden="true" />
+                {t("pharmacie.param_cta")}
               </GlassButton>
             </Link>
           )}

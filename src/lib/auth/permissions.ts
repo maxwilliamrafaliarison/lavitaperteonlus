@@ -36,6 +36,10 @@ export const PERMISSIONS = {
   // Pharmacie — écriture (la direction reste en lecture seule)
   "pharmacie:vendre": ["admin", "pharmacien"],
   "pharmacie:stock": ["admin", "pharmacien"],
+  // Pharmacie — configuration (TVA…) : administrateur uniquement. Le
+  // pharmacien vend et gère le stock mais ne touche pas au paramétrage
+  // comptable, réservé à la direction/administration.
+  "pharmacie:config": ["admin"],
 } as const satisfies Record<string, UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;
