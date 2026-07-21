@@ -7,12 +7,6 @@ import {
   Banknote,
   Trash2,
   ShoppingCart,
-  PackagePlus,
-  ArrowLeftRight,
-  ClipboardList,
-  FileBarChart,
-  Settings,
-  History,
 } from "lucide-react";
 
 import { auth } from "@/auth";
@@ -109,62 +103,16 @@ export default async function PharmaciePage() {
             {t("pharmacie.subtitle", { n: actifs.length })}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/pharmacie/ventes">
-            <GlassButton variant="glass" size="md">
-              <History className="size-4" aria-hidden="true" />
-              {t("pharmacie.ventes_cta")}
+        {/* La navigation vit désormais dans la sidebar. On ne garde ici que
+            l'action de comptoir la plus fréquente : ouvrir une vente. */}
+        {can(session.user.role, "pharmacie:vendre") && (
+          <Link href="/pharmacie/vente">
+            <GlassButton variant="brand" size="md" shimmer>
+              <ShoppingCart className="size-4" aria-hidden="true" />
+              {t("pharmacie.vente_cta")}
             </GlassButton>
           </Link>
-          {can(session.user.role, "pharmacie:stock") && (
-            <Link href="/pharmacie/reception">
-              <GlassButton variant="glass" size="md">
-                <PackagePlus className="size-4" aria-hidden="true" />
-                {t("pharmacie.reception_cta")}
-              </GlassButton>
-            </Link>
-          )}
-          {can(session.user.role, "pharmacie:stock") && (
-            <Link href="/pharmacie/achats">
-              <GlassButton variant="glass" size="md">
-                <ClipboardList className="size-4" aria-hidden="true" />
-                {t("pharmacie.achats_cta")}
-              </GlassButton>
-            </Link>
-          )}
-          {can(session.user.role, "pharmacie:stock") && (
-            <Link href="/pharmacie/transfert">
-              <GlassButton variant="glass" size="md">
-                <ArrowLeftRight className="size-4" aria-hidden="true" />
-                {t("pharmacie.transfert_cta")}
-              </GlassButton>
-            </Link>
-          )}
-          {can(session.user.role, "pharmacie:stock") && (
-            <Link href="/pharmacie/rapports">
-              <GlassButton variant="glass" size="md">
-                <FileBarChart className="size-4" aria-hidden="true" />
-                {t("pharmacie.rapports_cta")}
-              </GlassButton>
-            </Link>
-          )}
-          {can(session.user.role, "pharmacie:config") && (
-            <Link href="/pharmacie/parametres">
-              <GlassButton variant="glass" size="md">
-                <Settings className="size-4" aria-hidden="true" />
-                {t("pharmacie.param_cta")}
-              </GlassButton>
-            </Link>
-          )}
-          {can(session.user.role, "pharmacie:vendre") && (
-            <Link href="/pharmacie/vente">
-              <GlassButton variant="brand" size="md" shimmer>
-                <ShoppingCart className="size-4" aria-hidden="true" />
-                {t("pharmacie.vente_cta")}
-              </GlassButton>
-            </Link>
-          )}
-        </div>
+        )}
       </div>
 
       {panne ? (
