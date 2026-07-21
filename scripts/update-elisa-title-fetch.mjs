@@ -11,6 +11,11 @@ import crypto from "node:crypto";
 
 config({ path: ".env.local" });
 
+// Garde bascule : ce script parle Google Sheets en direct — refus si
+// l'onglet visé est servi par Supabase (écriture invisible pour l'app).
+const { exigerSheets } = await import("./lib/backend-logistique.mjs");
+exigerSheets("users", "update-elisa-title-fetch.mjs");
+
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 const SA_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const SA_KEY = (process.env.GOOGLE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");

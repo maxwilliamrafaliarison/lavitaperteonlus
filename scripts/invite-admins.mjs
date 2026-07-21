@@ -64,32 +64,46 @@ function genUserId() {
   return `usr_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Le magasin des comptes suit la bascule : Supabase si l'onglet users est
+// dans LOGISTIQUE_SUPABASE_TABS, sinon Google Sheets. Créer un compte dans
+// le mauvais magasin = un invité qui ne pourra JAMAIS se connecter, avec
+// des identifiants imprimés et un email prêt à partir.
+const { surSupabase, sbLire, sbInserer } = await import("./lib/backend-logistique.mjs");
+const USERS_SUR_SUPABASE = surSupabase("users");
+
 const sheetId = process.env.GOOGLE_SHEET_ID;
 const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
 const key = (process.env.GOOGLE_PRIVATE_KEY ?? "").replace(/\\n/g, "\n");
-if (!sheetId || !email || !key) {
+if (!USERS_SUR_SUPABASE && (!sheetId || !email || !key)) {
   console.error("❌ .env.local incomplet");
   process.exit(1);
 }
 
-const auth = new google.auth.JWT({
-  email,
-  key,
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
-const sheets = google.sheets({ version: "v4", auth });
+const sheets = USERS_SUR_SUPABASE
+  ? null
+  : google.sheets({
+      version: "v4",
+      auth: new google.auth.JWT({
+        email,
+        key,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+      }),
+    });
 
-// 1. Lit les emails existants pour éviter les doublons
+// 1. Lit les emails existants pour éviter les doublons — dans le magasin ACTIF
 console.log("📂 Vérification des utilisateurs existants...");
-const existing = await sheets.spreadsheets.values.get({
-  spreadsheetId: sheetId,
-  range: "users!B:B",
-});
+let listeEmails;
+if (USERS_SUR_SUPABASE) {
+  listeEmails = (await sbLire("users?select=email")).map((u) => u.email);
+} else {
+  const existing = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: "users!B:B",
+  });
+  listeEmails = (existing.data.values ?? []).flat();
+}
 const existingEmails = new Set(
-  (existing.data.values ?? [])
-    .flat()
-    .filter(Boolean)
-    .map((e) => String(e).toLowerCase()),
+  listeEmails.filter(Boolean).map((e) => String(e).toLowerCase()),
 );
 
 const toCreate = [];
@@ -121,29 +135,49 @@ for (const u of toCreate) {
   createdUsers.push({ ...u, password, hash });
 }
 
-// 3. Build rows pour le Sheet
+// 3. Écrit les comptes dans le magasin ACTIF
 const now = new Date().toISOString();
-const rows = createdUsers.map((u) => [
-  genUserId(),             // id
-  u.email,                 // email
-  u.hash,                  // passwordHash
-  u.name,                  // name
-  u.role,                  // role
-  u.lang,                  // lang
-  "TRUE",                  // active
-  now,                     // createdAt
-  "",                      // lastLoginAt
-  "u_admin_001",           // invitedBy (Max)
-]);
+if (USERS_SUR_SUPABASE) {
+  console.log("\n📤 Écriture dans Supabase (logistique.users)...");
+  await sbInserer(
+    "users",
+    createdUsers.map((u) => ({
+      id: genUserId(),
+      email: u.email,
+      passwordHash: u.hash,
+      name: u.name,
+      role: u.role,
+      lang: u.lang,
+      active: true,
+      createdAt: now,
+      lastLoginAt: "",
+      invitedBy: "u_admin_001",
+    })),
+  );
+  console.log(`✅ ${createdUsers.length} utilisateur(s) ajouté(s).`);
+} else {
+  const rows = createdUsers.map((u) => [
+    genUserId(),             // id
+    u.email,                 // email
+    u.hash,                  // passwordHash
+    u.name,                  // name
+    u.role,                  // role
+    u.lang,                  // lang
+    "TRUE",                  // active
+    now,                     // createdAt
+    "",                      // lastLoginAt
+    "u_admin_001",           // invitedBy (Max)
+  ]);
 
-console.log("\n📤 Écriture dans le Sheet...");
-await sheets.spreadsheets.values.append({
-  spreadsheetId: sheetId,
-  range: "users!A1",
-  valueInputOption: "USER_ENTERED",
-  requestBody: { values: rows },
-});
-console.log(`✅ ${rows.length} utilisateur(s) ajouté(s).`);
+  console.log("\n📤 Écriture dans le Sheet...");
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId,
+    range: "users!A1",
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: rows },
+  });
+  console.log(`✅ ${rows.length} utilisateur(s) ajouté(s).`);
+}
 
 // 4. Output credentials + templates emails
 console.log("\n" + "=".repeat(72));

@@ -42,7 +42,14 @@ export async function setupAdminAction(
       user = await getUserByEmail(email);
     } catch (e) {
       const msg = String(e);
-      if (msg.includes("Google Sheets non configuré") || msg.includes("DECODER")) {
+      // « Supabase non configuré » : même cas depuis que l'onglet users peut
+      // être servi par Supabase — sans ce motif, l'utilisateur recevrait le
+      // message générique avec le détail technique brut.
+      if (
+        msg.includes("Google Sheets non configuré") ||
+        msg.includes("Supabase non configuré") ||
+        msg.includes("DECODER")
+      ) {
         return { ok: false, error: t("setup.error_sheet_config") };
       }
       return { ok: false, error: t("setup.error_sheet_read", { detail: msg }) };

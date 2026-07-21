@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { readSheet, SHEETS } from "@/lib/sheets/client";
+import { readSheet, SHEETS, estSurSupabase } from "@/lib/sheets/client";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("health");
@@ -31,7 +31,13 @@ export async function GET() {
      */
     region: { code: string; dansUE: boolean };
     env: { sheetId: boolean; serviceAccount: boolean; privateKey: boolean; authSecret: boolean; encryptionSecret: boolean; pharmacieSheetId: boolean; patientsUrl: boolean; patientsKey: boolean };
-    sheets: { reachable: boolean; userCount?: number; error?: string };
+    /**
+     * Joignabilité du MAGASIN D'AUTHENTIFICATION (lecture de l'onglet
+     * users via la couche routée). `backend` dit qui a réellement répondu :
+     * depuis la bascule logistique, ce peut être Supabase — la clé garde
+     * son nom historique pour ne pas casser un moniteur existant.
+     */
+    sheets: { reachable: boolean; backend: "sheets" | "supabase"; userCount?: number; error?: string };
     patients?: { reachable: boolean; error?: string };
     pharmacie?: { backend: "sheets" | "supabase"; reachable?: boolean; error?: string };
     logistique?: { tabsSupabase: string[]; reachable?: boolean; error?: string };
@@ -63,10 +69,12 @@ export async function GET() {
       patientsUrl: Boolean(process.env.PATIENTS_SUPABASE_URL),
       patientsKey: Boolean(process.env.PATIENTS_SUPABASE_SERVICE_KEY),
     },
-    sheets: { reachable: false },
+    sheets: { reachable: false, backend: "sheets" },
   };
 
-  // Teste la connexion au Sheet
+  // Teste la connexion au magasin d'authentification (couche ROUTÉE : selon
+  // LOGISTIQUE_SUPABASE_TABS, c'est Google Sheets ou Supabase qui répond).
+  result.sheets.backend = estSurSupabase(SHEETS.users) ? "supabase" : "sheets";
   try {
     const rows = await readSheet<{ id: string }>(SHEETS.users);
     result.sheets.reachable = true;

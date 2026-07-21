@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 
 import { readSheet, SHEETS, type SheetName } from "@/lib/sheets/client";
 import { readTabSupabase } from "@/lib/sheets/supabase-backend";
-import { COLUMN_ORDER, PRIMARY_KEY } from "@/lib/sheets/columns";
+import { COLUMN_ORDER, PRIMARY_KEY, NUMERIC_COLS } from "@/lib/sheets/columns";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -38,16 +38,22 @@ const empreinte = (v: unknown): string =>
  * mêmes valeurs de la même façon (booléen vs "TRUE", nombre vs texte, null
  * vs ""). On compare le SENS, pas la représentation — sinon tout diffère.
  */
-function normaliser(v: unknown): string {
+function normaliser(v: unknown, estNumerique: boolean): string {
   if (v === null || v === undefined || v === "") return "";
   if (typeof v === "boolean") return v ? "true" : "false";
   const s = String(v).trim();
   const maj = s.toUpperCase();
   if (maj === "TRUE") return "true";
   if (maj === "FALSE") return "false";
-  const n = Number(s);
-  // Un nombre : "1500" et 1500 doivent être vus comme identiques.
-  if (s !== "" && Number.isFinite(n)) return String(n);
+  // Repli numérique RÉSERVÉ aux colonnes déclarées numériques : "1500" et
+  // 1500 y sont bien la même valeur. L'appliquer aux colonnes TEXTE
+  // masquerait précisément la divergence qu'on cherche ("03" vs 3 — un id
+  // à zéro de tête aplati serait déclaré identique alors que l'app
+  // afficherait autre chose après bascule).
+  if (estNumerique) {
+    const n = Number(s);
+    if (s !== "" && Number.isFinite(n)) return String(n);
+  }
   return s;
 }
 
@@ -87,8 +93,9 @@ export async function GET(req: NextRequest) {
       const ligneSupa = parSupa.get(id);
       if (!id || !ligneSupa) continue;
       for (const col of COLUMN_ORDER[tab]) {
-        const a = normaliser(ligneSheets[col]);
-        const b = normaliser(ligneSupa[col]);
+        const estNum = NUMERIC_COLS[tab]?.has(col) ?? false;
+        const a = normaliser(ligneSheets[col], estNum);
+        const b = normaliser(ligneSupa[col], estNum);
         if (a === b) continue;
         divergences.push({
           id,

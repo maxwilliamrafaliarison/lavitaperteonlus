@@ -14,6 +14,11 @@ import { google } from "googleapis";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
+// Garde bascule : ce script parle Google Sheets en direct — refus si
+// l'onglet visé est servi par Supabase (écriture invisible pour l'app).
+const { exigerSheets } = await import("./lib/backend-logistique.mjs");
+exigerSheets("materials", "add-biosdate-column.mjs");
+
 const COMMIT = process.argv.includes("--commit");
 
 const sheetId = process.env.GOOGLE_SHEET_ID;

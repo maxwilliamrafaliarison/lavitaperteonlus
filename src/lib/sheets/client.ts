@@ -147,6 +147,14 @@ export async function updateRow(
   rowIndex: number, // 1-based (2 = première ligne de données si la ligne 1 = headers)
   values: unknown[],
 ): Promise<void> {
+  // Un numéro de ligne n'a AUCUN sens côté Supabase : écrire ici sur un
+  // onglet migré modifierait le Sheet gelé, que plus personne ne lit —
+  // une écriture qui « réussit » mais n'existe pas. On refuse fort.
+  if (estSurSupabase(sheet)) {
+    throw new Error(
+      `"${sheet}" est servi par Supabase : updateRow(rowIndex) est une primitive Sheets — passer par updateRowById`,
+    );
+  }
   const client = getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
   await client.spreadsheets.values.update({
@@ -258,6 +266,12 @@ export async function deleteRow(
   sheet: SheetName,
   rowIndex: number, // 1-based (même convention que updateRow)
 ): Promise<void> {
+  // Même garde que updateRow : pas de numéro de ligne côté Supabase.
+  if (estSurSupabase(sheet)) {
+    throw new Error(
+      `"${sheet}" est servi par Supabase : deleteRow(rowIndex) est une primitive Sheets — passer par deleteRowById`,
+    );
+  }
   const client = getSheetsClient();
   const spreadsheetId = getSpreadsheetId();
 

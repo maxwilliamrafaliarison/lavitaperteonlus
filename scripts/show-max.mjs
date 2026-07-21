@@ -1,12 +1,32 @@
 #!/usr/bin/env node
 /**
- * Affiche la ligne utilisateur de Max dans le Sheet.
+ * Affiche la ligne utilisateur de Max — depuis le magasin que l'app lit
+ * VRAIMENT (Supabase si l'onglet users est basculé, sinon le Sheet). Un outil
+ * de diagnostic qui lirait l'ancien magasin induirait en erreur exactement
+ * quand on en a besoin.
  */
 
 import { config } from "dotenv";
 import crypto from "node:crypto";
 
 config({ path: ".env.local" });
+
+const { surSupabase, sbLire } = await import("./lib/backend-logistique.mjs");
+
+if (surSupabase("users")) {
+  const [max] = await sbLire("users?id=eq.u_admin_001&select=*");
+  if (!max) {
+    console.error("❌ Max introuvable (id u_admin_001) dans logistique.users");
+    process.exit(1);
+  }
+  console.log("\n👤 Ligne de Max dans Supabase (logistique.users) :\n");
+  for (const [h, v] of Object.entries(max)) {
+    let val = v ?? "";
+    if (h === "passwordHash" && val) val = String(val).slice(0, 12) + "…(masqué)";
+    console.log(`  ${h.padEnd(15)} : ${val}`);
+  }
+  process.exit(0);
+}
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 const SA_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;

@@ -53,7 +53,10 @@ const TABS = {
   // Ordre volontaire : le référentiel d'abord, `users` en DERNIER — c'est
   // lui qui porte l'authentification, on ne le touche qu'une fois le reste
   // passé sans encombre.
-  sites: { pk: "id", bools: { active: false }, nums: [] },
+  // boolVide : que vaut une cellule booléenne VIDE. Pour sites.active, le
+  // lecteur de l'app considère vide = actif (sites.ts : `?? "TRUE"`) — la
+  // copie doit préserver ce sens, pas le défaut technique false.
+  sites: { pk: "id", bools: { active: false }, nums: [], boolVide: { active: true } },
   rooms: { pk: "id", bools: {}, nums: [] },
   materials: {
     pk: "id",
@@ -66,7 +69,10 @@ const TABS = {
   config: { pk: "key", bools: {}, nums: [] },
   trash: { pk: "id", bools: {}, nums: [] },
   network: { pk: "id", bools: {}, nums: [] },
-  users: { pk: "id", bools: { active: false }, nums: [] },
+  // users.active vide = REFUS de copier : deviner si un compte est actif
+  // serait décider silencieusement qui peut se connecter (le schéma SQL le
+  // déclare d'ailleurs not null SANS default, exprès pour échouer fort).
+  users: { pk: "id", bools: { active: false }, nums: [], boolVide: { active: "refus" } },
 };
 
 // --- Google : JWT signé à la main + fetch (motif éprouvé sur la pharmacie)
@@ -126,8 +132,13 @@ if (!tok.access_token) {
 }
 
 async function lireOnglet(tab) {
+  // MÊMES options de lecture que l'application (src/lib/sheets/client.ts) :
+  // sans elles, l'API renvoie les valeurs FORMATÉES (chaînes d'affichage,
+  // locale du classeur) — les nombres deviendraient des chaînes que
+  // Number() ne parse pas, convertirait en null, et Supabase servirait
+  // des valeurs différentes de celles que l'app lit aujourd'hui.
   const res = await fetchRetry(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!A1:ZZ`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(tab)}!A1:ZZ?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`,
     { headers: { Authorization: `Bearer ${tok.access_token}` } },
   );
   if (!res.ok) throw new Error(`lecture ${tab} : HTTP ${res.status}`);
@@ -158,7 +169,13 @@ function convertir(tab, row) {
     if (k in bools) {
       const nullable = bools[k];
       if (v === "" || v === null || v === undefined) {
-        out[k] = nullable ? null : false;
+        const defautVide = TABS[tab].boolVide?.[k];
+        if (defautVide === "refus") {
+          throw new Error(
+            `${tab}.${k} vide (${TABS[tab].pk}=${row[TABS[tab].pk]}) : refus de deviner — corriger la cellule avant de copier`,
+          );
+        }
+        out[k] = defautVide ?? (nullable ? null : false);
       } else if (typeof v === "boolean") {
         out[k] = v;
       } else {
@@ -175,7 +192,14 @@ function convertir(tab, row) {
       if (v === "" || v === null || v === undefined) out[k] = null;
       else {
         const n = Number(v);
-        out[k] = Number.isFinite(n) ? n : null;
+        // Une valeur imparsable copiée en null serait une PERTE silencieuse
+        // (la leçon des 18 produits pharmacie) : on refuse et on la montre.
+        if (!Number.isFinite(n)) {
+          throw new Error(
+            `${tab}.${k} = ${JSON.stringify(v)} (${TABS[tab].pk}=${row[TABS[tab].pk]}) : pas un nombre — copie refusée plutôt que null silencieux`,
+          );
+        }
+        out[k] = n;
       }
     } else {
       // Texte : le vide s'écrit "" et jamais null (colonnes NOT NULL).

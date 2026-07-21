@@ -14,6 +14,12 @@ import { google } from "googleapis";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
+// Garde bascule : ce script parle Google Sheets en direct — refus si
+// l'onglet visé est servi par Supabase (écriture invisible pour l'app).
+const { exigerSheets } = await import("./lib/backend-logistique.mjs");
+exigerSheets("rooms", "rename-rooms.mjs");
+exigerSheets("materials", "rename-rooms.mjs");
+
 const COMMIT = process.argv.includes("--commit");
 
 // Nouvelle référence officielle (Max, 2026-04-21)

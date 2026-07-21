@@ -42,6 +42,11 @@ import xlsx from "xlsx";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
+// Garde bascule : ce script parle Google Sheets en direct — refus si
+// l'onglet visé est servi par Supabase (écriture invisible pour l'app).
+const { exigerSheets } = await import("./lib/backend-logistique.mjs");
+exigerSheets("materials", "import-inventory.mjs");
+
 const COMMIT = process.argv.includes("--commit");
 const FILE = process.argv.find((a) => a.startsWith("--file="))?.slice(7)
   ?? "data/inventory.xls";
