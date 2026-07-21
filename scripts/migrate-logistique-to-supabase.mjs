@@ -297,4 +297,4 @@ for (const tab of aFaire) {
   total += lignes.length;
 }
 console.log(`\n✅ ${total} ligne(s) copiées. L'application lit TOUJOURS Google Sheets.`);
-console.log("   Vérifiez la parité (/api/_parity/logistique?tab=…) avant toute bascule.");
+console.log("   Vérifiez la parité (/api/parity/logistique?tab=…) avant toute bascule.");

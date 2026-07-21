@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * GET /api/_parity/logistique?tab=materials
+ * GET /api/parity/logistique?tab=materials
  *
  * Compare Google Sheets et Supabase, onglet par onglet, AVANT de basculer.
  *

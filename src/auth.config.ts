@@ -74,11 +74,13 @@ export const authConfig: NextAuthConfig = {
         // Routes qui portent leur PROPRE authentification (secret vérifié
         // dans la route, qui répond 404/401 sans lui) : le middleware doit
         // les laisser passer, il n'a pas les moyens de vérifier ces secrets.
-        // - _parity : x-parity-secret (contrôle Sheets↔Supabase)
+        // - parity : x-parity-secret (contrôle Sheets↔Supabase). NB : le
+        //   dossier ne peut pas s'appeler `_parity` — l'App Router EXCLUT
+        //   du routage tout segment préfixé `_` (la route n'existait pas).
         // - rapports cron : Bearer CRON_SECRET (le cron Vercel n'a pas de
         //   session — bloqué ici, il serait redirigé vers /login et
         //   « réussirait » en HTTP sans jamais envoyer d'email).
-        pathname.startsWith("/api/_parity") ||
+        pathname.startsWith("/api/parity") ||
         pathname.startsWith("/api/pharmacie/rapport-quotidien") ||
         pathname.startsWith("/api/pharmacie/rapport-mensuel") ||
         pathname.startsWith("/_next") ||
