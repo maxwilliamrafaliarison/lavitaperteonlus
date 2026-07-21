@@ -363,7 +363,10 @@
     "mvt_ajustement": "Rettifica",
     "mvt_retour": "Reso",
     "mvt_perte": "Perdita",
-    "mvt_destruction": "Distruzione"
+    "mvt_destruction": "Distruzione",
+    "rapport_bilan_titre": "Bilancio mensile",
+    "rapport_bilan_desc": "Documento di gestione completo per la Direzione : attività, margine, stock, prese in carico, scheda dettagliata.",
+    "rapports_mois": "Mese"
   },
   "nav": {
     "aria_label": "Navigazione principale",

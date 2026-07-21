@@ -9,7 +9,8 @@ import {
 } from "@/lib/pharmacie/sheets";
 import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
 import { buildRapportData, type VentesData } from "@/lib/pharmacie/reports/data";
-import { renderPharmacieRapport } from "@/lib/pharmacie/reports/documents";
+import { buildBilanMensuel } from "@/lib/pharmacie/reports/bilan";
+import { renderBilanMensuel } from "@/lib/pharmacie/reports/bilan-pdf";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -149,14 +150,17 @@ export async function GET(req: NextRequest) {
   }
 
   <p style="margin-top:28px;font-size:11px;color:#999">
-    Rapport automatique du mois écoulé. Le PDF détaillé des ventes est joint.
+    Bilan mensuel automatique du mois écoulé. Le document de gestion complet
+    (activité, marge, stock, prises en charge, fiche détaillée) est joint en PDF.
     <a href="https://lavitaperteonlus.vercel.app/pharmacie/rapports" style="color:#E30613">Ouvrir les rapports</a>.
   </p>
 </div>`;
 
-    // PDF détaillé des ventes du mois, en pièce jointe pour la comptabilité.
-    const pdfVentes = await streamToBuffer(
-      await renderPharmacieRapport(ventes, {
+    // Bilan mensuel complet (document de gestion pluri-sections) en pièce
+    // jointe à la Direction — l'objet même du rapport mensuel.
+    const bilan = await buildBilanMensuel(from, to);
+    const pdfBilan = await streamToBuffer(
+      await renderBilanMensuel(bilan, {
         lang: "fr",
         generatedBy: "Rapport automatique",
         generatedAt: new Date().toISOString(),
@@ -171,10 +175,10 @@ export async function GET(req: NextRequest) {
     await transporter.sendMail({
       from: `"Pharmacie — La Vita Per Te" <${gmailUser}>`,
       to: destinataires.join(", "),
-      subject: `Pharmacie · Rapport mensuel ${moisLabel} — ${fmtAr(ventes.totalCash)} encaissés`,
+      subject: `Pharmacie · Bilan mensuel ${moisLabel} — ${fmtAr(ventes.totalCash)} encaissés, marge ${bilan.tauxMarge.toFixed(0)} %`,
       html,
       attachments: [
-        { filename: `ventes-${from}_${to}.pdf`, content: pdfVentes, contentType: "application/pdf" },
+        { filename: `bilan-mensuel-${from.slice(0, 7)}.pdf`, content: pdfBilan, contentType: "application/pdf" },
       ],
     });
 

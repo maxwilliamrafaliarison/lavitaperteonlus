@@ -363,7 +363,10 @@
     "mvt_ajustement": "Ajustement",
     "mvt_retour": "Retour",
     "mvt_perte": "Perte",
-    "mvt_destruction": "Destruction"
+    "mvt_destruction": "Destruction",
+    "rapport_bilan_titre": "Bilan mensuel",
+    "rapport_bilan_desc": "Document de gestion complet à l’attention de la Direction : activité, marge, stock, prises en charge, fiche détaillée.",
+    "rapports_mois": "Mois"
   },
   "nav": {
     "aria_label": "Navigation principale",

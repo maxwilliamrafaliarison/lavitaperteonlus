@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FileText, Calendar } from "lucide-react";
+import { FileText, Calendar, FileBarChart2 } from "lucide-react";
 
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
@@ -22,6 +22,7 @@ export function RapportsCatalogue({ lang }: { lang: Lang }) {
   const def = React.useMemo(moisCourant, []);
   const [from, setFrom] = React.useState(def.from);
   const [to, setTo] = React.useState(def.to);
+  const [mois, setMois] = React.useState(def.from.slice(0, 7));
 
   function ouvrir(type: RapportType) {
     const qs =
@@ -31,12 +32,52 @@ export function RapportsCatalogue({ lang }: { lang: Lang }) {
     window.open(`/api/pharmacie/rapports/${type}${qs}`, "_blank", "noopener");
   }
 
+  function ouvrirBilan() {
+    const [a, m] = mois.split("-").map(Number);
+    const dernier = new Date(a, m, 0).getDate(); // dernier jour du mois
+    const f = `${mois}-01`;
+    const to2 = `${mois}-${String(dernier).padStart(2, "0")}`;
+    window.open(
+      `/api/pharmacie/rapports/bilan?from=${f}&to=${to2}`,
+      "_blank",
+      "noopener",
+    );
+  }
+
   const autres: RapportType[] = ["stock", "a_commander", "expiration", "rupture"];
   const champ =
     "rounded-xl glass border px-3 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40";
 
   return (
     <div className="space-y-5">
+      {/* Bilan mensuel — document de gestion complet */}
+      <GlassCard className="p-6 space-y-4 border-accent/25">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-lg bg-accent/12 p-2 text-accent">
+            <FileBarChart2 className="size-5" aria-hidden="true" />
+          </div>
+          <div className="flex-1">
+            <h2 className="font-display text-lg font-semibold">
+              {t("pharmacie.rapport_bilan_titre")}
+            </h2>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {t("pharmacie.rapport_bilan_desc")}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+              {t("pharmacie.rapports_mois")}
+            </span>
+            <input type="month" value={mois} onChange={(e) => setMois(e.target.value)} className={champ} />
+          </label>
+          <GlassButton type="button" variant="brand" size="md" onClick={ouvrirBilan}>
+            <FileBarChart2 className="size-4" aria-hidden="true" />
+            {t("pharmacie.rapports_generer")}
+          </GlassButton>
+        </div>
+      </GlassCard>
       {/* Ventes — avec période */}
       <GlassCard className="p-6 space-y-4">
         <div className="flex items-start gap-3">

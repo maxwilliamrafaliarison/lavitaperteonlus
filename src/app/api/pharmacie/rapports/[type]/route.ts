@@ -11,7 +11,20 @@ import {
   renderPharmacieRapport,
   titreRapport,
 } from "@/lib/pharmacie/reports/documents";
+import { buildBilanMensuel } from "@/lib/pharmacie/reports/bilan";
+import { renderBilanMensuel } from "@/lib/pharmacie/reports/bilan-pdf";
 import { isLang } from "@/lib/i18n";
+
+/** Emballe un flux Node en flux web pour NextResponse. */
+function toWebStream(stream: NodeJS.ReadableStream): ReadableStream {
+  return new ReadableStream({
+    start(controller) {
+      stream.on("data", (c: Buffer) => controller.enqueue(c));
+      stream.on("end", () => controller.close());
+      stream.on("error", (e: Error) => controller.error(e));
+    },
+  });
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // @react-pdf/renderer nécessite Node
@@ -35,10 +48,6 @@ export async function GET(
   }
 
   const { type } = await params;
-  if (!PHARMA_RAPPORTS.includes(type as PharmaRapportType)) {
-    return NextResponse.json({ error: "Rapport inconnu" }, { status: 404 });
-  }
-  const rapport = type as PharmaRapportType;
   const lang = isLang(session.user.lang) ? session.user.lang : "fr";
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -50,6 +59,33 @@ export async function GET(
   const defTo = now.toISOString().slice(0, 10);
   const from = dateRe.test(qFrom) ? qFrom : defFrom;
   const to = dateRe.test(qTo) ? qTo : defTo;
+
+  // Le BILAN MENSUEL est un document pluri-sections à part (données et rendu
+  // dédiés), servi par le même endpoint pour un point d'entrée unique.
+  if (type === "bilan") {
+    try {
+      const data = await buildBilanMensuel(from, to);
+      const stream = await renderBilanMensuel(data, {
+        lang,
+        generatedBy: session.user.name ?? session.user.email ?? "—",
+        generatedAt: new Date().toISOString(),
+      });
+      return new NextResponse(toWebStream(stream), {
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="bilan-mensuel-${from.slice(0, 7)}.pdf"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch (e) {
+      return NextResponse.json({ error: `Génération impossible : ${String(e).slice(0, 160)}` }, { status: 500 });
+    }
+  }
+
+  if (!PHARMA_RAPPORTS.includes(type as PharmaRapportType)) {
+    return NextResponse.json({ error: "Rapport inconnu" }, { status: 404 });
+  }
+  const rapport = type as PharmaRapportType;
 
   try {
     const data = await buildRapportData(rapport, { from, to });
