@@ -375,7 +375,8 @@
     "users": "Utenti",
     "trash": "Cestino",
     "audit": "Registro audit",
-    "settings": "Impostazioni"
+    "settings": "Impostazioni",
+    "patients_dossiers": "Cartelle pazienti"
   },
   "topbar": {
     "dashboard": "Dashboard",

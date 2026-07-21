@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, Cpu, MapPin } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { auth } from "@/auth";
@@ -40,7 +39,6 @@ export default async function SiteRoomsPage({
 
   return (
     <>
-      <AppTopbar title={site?.name ?? t("topbar.site_detail")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">

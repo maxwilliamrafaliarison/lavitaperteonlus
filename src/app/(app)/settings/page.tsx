@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Settings } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 
 export const metadata: Metadata = { title: "Mes réglages" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
@@ -30,7 +29,6 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <AppTopbar title={t("topbar.settings")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">

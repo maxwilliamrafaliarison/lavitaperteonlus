@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { FileBarChart2 } from "lucide-react";
 
 import { auth } from "@/auth";
-import { AppTopbar } from "@/components/layout/app-topbar";
 
 export const metadata: Metadata = { title: "Rapports" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
@@ -34,7 +33,6 @@ export default async function ReportsPage() {
 
   return (
     <>
-      <AppTopbar title={t("topbar.reports")} />
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

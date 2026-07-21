@@ -7,7 +7,6 @@ import {
 
 export const metadata: Metadata = { title: "Journal d'audit" };
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { listAuditLogs } from "@/lib/sheets/audit";
@@ -75,7 +74,6 @@ export default async function AuditPage({
 
   return (
     <>
-      <AppTopbar title={t("topbar.audit")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">

@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Trash2 } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 
 export const metadata: Metadata = { title: "Corbeille" };
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
@@ -41,7 +40,6 @@ export default async function TrashPage() {
 
   return (
     <>
-      <AppTopbar title={t("topbar.trash")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">

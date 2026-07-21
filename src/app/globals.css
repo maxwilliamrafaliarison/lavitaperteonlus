@@ -182,6 +182,56 @@
 }
 
 /* ============================================================
+   ACCENT PAR APPLICATION — même disposition, repère couleur
+   ============================================================
+   Le shell commun pose data-app="…" sur son wrapper racine. Ici on
+   REDÉFINIT la variable sémantique --accent (et l'anneau + la couleur
+   active de la sidebar) dans ce scope. Comme @theme inline mappe
+   --color-accent → var(--accent) AU POINT D'USAGE, toutes les utilities
+   accent (text-accent, bg-accent/12, ring-accent, border-accent) héritent
+   automatiquement de la couleur de l'app — sans toucher la config Tailwind.
+
+   Disposition, tokens et thème restent STRICTEMENT identiques d'une app à
+   l'autre : seul l'accent change, pour se repérer d'un coup d'œil.
+
+   Chaque app est déclinée light / dark (le thème est piloté par .dark sur
+   <html>) pour rester theme-aware — ce qui corrige au passage le vert
+   pharmacie qui était figé sur sa valeur sombre en clair. */
+
+/* Logistique — rouge de la marque (identité forte du parc). */
+[data-app="logistique"] {
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --ring: var(--primary);
+  --sidebar-primary: var(--primary);
+  --sidebar-ring: var(--primary);
+}
+
+/* Pharmacie — vert (= token success, theme-aware). */
+[data-app="pharmacie"] {
+  --accent: oklch(0.72 0.17 150);
+  --accent-foreground: oklch(0.99 0 0);
+  --ring: oklch(0.72 0.17 150);
+  --sidebar-primary: oklch(0.72 0.17 150);
+  --sidebar-ring: oklch(0.72 0.17 150);
+}
+.dark [data-app="pharmacie"] {
+  --accent: oklch(0.75 0.18 150);
+  --ring: oklch(0.75 0.18 150);
+  --sidebar-primary: oklch(0.75 0.18 150);
+  --sidebar-ring: oklch(0.75 0.18 150);
+}
+
+/* Patients — cyan (= accent par défaut du thème). Redéclaré ici pour que
+   l'app se lise explicitement et que --ring/--sidebar suivent l'accent. */
+[data-app="patients"] {
+  --accent: var(--cyan-brand);
+  --ring: var(--cyan-brand);
+  --sidebar-primary: var(--cyan-brand);
+  --sidebar-ring: var(--cyan-brand);
+}
+
+/* ============================================================
    BASE + ambient background (aurores lumineuses subtiles)
    ============================================================ */
 @layer base {

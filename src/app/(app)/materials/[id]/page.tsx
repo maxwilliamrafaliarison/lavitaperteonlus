@@ -7,7 +7,6 @@ import {
   Hash, Tag, Pencil, ArrowRightLeft, Lock, Eye, AlertCircle,
 } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { ObsolescenceBadge } from "@/components/materials/obsolescence-badge";
@@ -56,7 +55,6 @@ export default async function MaterialDetailPage({
   if (!material) {
     return (
       <>
-        <AppTopbar title={t("topbar.materials_detail")} />
         <main id="main-content" className="flex-1 p-6 md:p-10">
           <div className="rounded-3xl glass border p-10 text-center max-w-2xl mx-auto">
             <AlertCircle className="size-10 mx-auto text-primary mb-4" />
@@ -98,7 +96,6 @@ export default async function MaterialDetailPage({
 
   return (
     <>
-      <AppTopbar title={material.designation || material.ref} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8 max-w-7xl mx-auto w-full">
         {/* Back nav */}

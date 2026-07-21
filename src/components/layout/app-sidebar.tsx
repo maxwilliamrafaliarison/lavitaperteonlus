@@ -3,60 +3,51 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Building2,
-  Cpu,
-  ArrowLeftRight,
-  FileBarChart2,
-  Users,
-  Trash2,
-  ScrollText,
-  Settings,
-  LayoutGrid,
-  type LucideIcon,
-} from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "./brand-logo";
-import type { UserRole } from "@/types";
-import { can } from "@/lib/auth/permissions";
+import { navIcon } from "./nav-icons";
 import { getT, type Lang } from "@/lib/i18n";
+import type { NavItemSpec } from "@/lib/nav/config";
 
-interface NavItem {
-  href: string;
-  labelKey: string;
-  icon: LucideIcon;
-  /** Si défini, l'item n'apparait que pour les rôles autorisés. */
-  visibleFor?: UserRole[];
-}
-
-const NAV: NavItem[] = [
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { href: "/sites", labelKey: "nav.sites", icon: Building2 },
-  { href: "/materials", labelKey: "nav.materials", icon: Cpu },
-  { href: "/movements", labelKey: "nav.movements", icon: ArrowLeftRight },
-  { href: "/reports", labelKey: "nav.reports", icon: FileBarChart2 },
-  { href: "/users", labelKey: "nav.users", icon: Users, visibleFor: ["admin"] },
-  { href: "/trash", labelKey: "nav.trash", icon: Trash2, visibleFor: ["admin"] },
-  { href: "/audit", labelKey: "nav.audit", icon: ScrollText, visibleFor: ["admin"] },
-  { href: "/settings", labelKey: "nav.settings", icon: Settings },
-];
-
-export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang }) {
+/**
+ * Sidebar commune à toutes les applications (desktop ≥ lg).
+ *
+ * Pilotée par données : elle ne connaît aucune app en particulier. Le layout
+ * lui passe l'identité de l'app (nom + icône) et la liste d'items DÉJÀ filtrée
+ * par rôle côté serveur. L'accent (état actif) vient des utilities `accent`,
+ * re-scopées par app via data-app dans globals.css — d'où le repère couleur.
+ */
+export function AppSidebar({
+  nameKey,
+  appIcon,
+  items,
+  lang = "fr",
+}: {
+  nameKey: string;
+  appIcon: string;
+  items: NavItemSpec[];
+  lang?: Lang;
+}) {
   const pathname = usePathname();
   const t = React.useMemo(() => getT(lang), [lang]);
-
-  const items = NAV.filter(
-    (item) => !item.visibleFor || item.visibleFor.includes(role),
-  );
+  const AppIcon = navIcon(appIcon);
 
   return (
-    <aside className="hidden lg:flex w-64 shrink-0 flex-col gap-6 px-5 py-6 border-r border-glass-border bg-sidebar/40 backdrop-blur-2xl">
+    <aside className="hidden lg:flex w-64 shrink-0 flex-col gap-5 px-5 py-6 border-r border-glass-border bg-sidebar/40 backdrop-blur-2xl">
       <div className="px-2">
-        <Link href="/apps">
+        <Link href="/apps" aria-label="La Vita Per Te">
           <BrandLogo size={36} />
         </Link>
+      </div>
+
+      {/* Identité de l'app courante (repère couleur = accent) */}
+      <div className="flex items-center gap-2.5 rounded-xl border border-accent/25 bg-accent/8 px-3 py-2.5">
+        <AppIcon className="size-4 text-accent" aria-hidden="true" />
+        <span className="font-display text-sm font-semibold text-accent">
+          {t(nameKey)}
+        </span>
       </div>
 
       {/* Retour au portail multi-applications */}
@@ -72,7 +63,7 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
         {items.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
-          const Icon = item.icon;
+          const Icon = navIcon(item.icon);
           return (
             <Link
               key={item.href}
@@ -81,11 +72,11 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
               className={cn(
                 "flex items-center gap-3 rounded-xl px-3 h-10 text-sm font-medium transition-all",
                 active
-                  ? "bg-primary/12 text-primary border border-primary/20 shadow-sm"
+                  ? "bg-accent/12 text-accent border border-accent/25 shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/5",
               )}
             >
-              <Icon className={cn("size-4", active && "text-primary")} aria-hidden="true" />
+              <Icon className={cn("size-4", active && "text-accent")} aria-hidden="true" />
               {t(item.labelKey)}
             </Link>
           );
@@ -98,13 +89,3 @@ export function AppSidebar({ role, lang = "fr" }: { role: UserRole; lang?: Lang 
     </aside>
   );
 }
-
-// Helper exporté si besoin de filtrer ailleurs
-export function filterNavForRole(role: UserRole): NavItem[] {
-  return NAV.filter(
-    (item) => !item.visibleFor || item.visibleFor.includes(role),
-  );
-}
-
-// Permissions helper réexporté pour pratique
-export { can };

@@ -3,7 +3,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { History, Filter, ArrowRightLeft } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 
 export const metadata: Metadata = { title: "Mouvements" };
 import { GlassCard } from "@/components/glass/glass-card";
@@ -80,7 +79,6 @@ export default async function MovementsPage({
 
   return (
     <>
-      <AppTopbar title={t("topbar.movements")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">

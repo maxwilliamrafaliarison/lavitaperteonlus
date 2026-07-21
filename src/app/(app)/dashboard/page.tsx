@@ -7,7 +7,6 @@ import {
   ArrowRight, TrendingDown, Activity,
 } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { ObsolescenceBadge } from "@/components/materials/obsolescence-badge";
@@ -80,7 +79,6 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <AppTopbar title={t("topbar.dashboard")} />
 
       <main id="main-content" className="flex-1 p-4 md:p-10 space-y-8 md:space-y-10">
         {/* Hero greeting + export */}

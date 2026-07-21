@@ -3,45 +3,31 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Menu, X,
-  LayoutDashboard, Building2, Cpu, ArrowLeftRight, FileBarChart2,
-  Users, Trash2, ScrollText, Settings, LayoutGrid,
-  type LucideIcon,
-} from "lucide-react";
+import { Menu, X, LayoutGrid } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { BrandLogo } from "./brand-logo";
+import { navIcon } from "./nav-icons";
 import { getT, type Lang } from "@/lib/i18n";
-import type { UserRole } from "@/types";
+import type { NavItemSpec } from "@/lib/nav/config";
 
-interface NavItem {
-  href: string;
-  labelKey: string;
-  icon: LucideIcon;
-  visibleFor?: UserRole[];
-}
-
-const NAV: NavItem[] = [
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { href: "/sites", labelKey: "nav.sites", icon: Building2 },
-  { href: "/materials", labelKey: "nav.materials", icon: Cpu },
-  { href: "/movements", labelKey: "nav.movements", icon: ArrowLeftRight },
-  { href: "/reports", labelKey: "nav.reports", icon: FileBarChart2 },
-  { href: "/users", labelKey: "nav.users", icon: Users, visibleFor: ["admin"] },
-  { href: "/trash", labelKey: "nav.trash", icon: Trash2, visibleFor: ["admin"] },
-  { href: "/audit", labelKey: "nav.audit", icon: ScrollText, visibleFor: ["admin"] },
-  { href: "/settings", labelKey: "nav.settings", icon: Settings },
-];
-
-export function MobileNav({ role, lang = "fr" }: { role: UserRole; lang?: Lang }) {
+/**
+ * Drawer de navigation mobile (< lg), commun à toutes les applications.
+ * Même source de données que la sidebar (items déjà filtrés par rôle), même
+ * accent par app. Bouton hamburger rendu dans la topbar du shell.
+ */
+export function MobileNav({
+  nameKey,
+  items,
+  lang = "fr",
+}: {
+  nameKey: string;
+  items: NavItemSpec[];
+  lang?: Lang;
+}) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
   const t = React.useMemo(() => getT(lang), [lang]);
-
-  const items = NAV.filter(
-    (item) => !item.visibleFor || item.visibleFor.includes(role),
-  );
 
   // Ferme le drawer quand la route change
   React.useEffect(() => {
@@ -64,7 +50,7 @@ export function MobileNav({ role, lang = "fr" }: { role: UserRole; lang?: Lang }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Menu"
+        aria-label={t(nameKey)}
         aria-expanded={open}
         className="inline-flex lg:hidden size-10 items-center justify-center rounded-xl glass border hover:bg-white/8 transition-colors"
       >
@@ -92,7 +78,7 @@ export function MobileNav({ role, lang = "fr" }: { role: UserRole; lang?: Lang }
         aria-hidden={!open}
       >
         <div className="flex items-center justify-between">
-          <Link href="/dashboard" onClick={() => setOpen(false)}>
+          <Link href="/apps" onClick={() => setOpen(false)}>
             <BrandLogo size={36} />
           </Link>
           <button
@@ -119,7 +105,7 @@ export function MobileNav({ role, lang = "fr" }: { role: UserRole; lang?: Lang }
           {items.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
-            const Icon = item.icon;
+            const Icon = navIcon(item.icon);
             return (
               <Link
                 key={item.href}
@@ -128,11 +114,11 @@ export function MobileNav({ role, lang = "fr" }: { role: UserRole; lang?: Lang }
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium transition-all",
                   active
-                    ? "bg-primary/12 text-primary border border-primary/20 shadow-sm"
+                    ? "bg-accent/12 text-accent border border-accent/25 shadow-sm"
                     : "text-muted-foreground hover:text-foreground hover:bg-white/5",
                 )}
               >
-                <Icon className={cn("size-4", active && "text-primary")} aria-hidden="true" />
+                <Icon className={cn("size-4", active && "text-accent")} aria-hidden="true" />
                 {t(item.labelKey)}
               </Link>
             );

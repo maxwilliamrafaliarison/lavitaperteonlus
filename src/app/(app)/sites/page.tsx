@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Building2, Cpu, ArrowRight, MapPin } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 
 export const metadata: Metadata = { title: "Sites et salles" };
@@ -34,7 +33,6 @@ export default async function SitesPage() {
 
   return (
     <>
-      <AppTopbar title={t("topbar.sites")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="max-w-3xl">

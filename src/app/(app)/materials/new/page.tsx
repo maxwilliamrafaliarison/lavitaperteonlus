@@ -3,7 +3,6 @@ import { Plus } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { GlassCard } from "@/components/glass/glass-card";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { MaterialForm } from "@/components/materials/material-form";
@@ -34,7 +33,6 @@ export default async function NewMaterialPage({
 
   return (
     <>
-      <AppTopbar title="Nouveau matériel" />
       <main id="main-content" className="flex-1 p-6 md:p-10 max-w-4xl mx-auto w-full">
         <header className="mb-8">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">

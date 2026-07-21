@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 
 export const metadata: Metadata = { title: "Parc matériel" };
 import { GlassButton } from "@/components/glass/glass-button";
@@ -59,7 +58,6 @@ export default async function MaterialsPage({
 
   return (
     <>
-      <AppTopbar title={t("topbar.materials")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-6">
         <header className="flex items-end justify-between gap-4 flex-wrap">

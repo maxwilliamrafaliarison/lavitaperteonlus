@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Plus } from "lucide-react";
 
-import { AppTopbar } from "@/components/layout/app-topbar";
 import { SheetEmptyState } from "@/components/layout/sheet-empty-state";
 import { MaterialCard } from "@/components/materials/material-card";
 import { GlassButton } from "@/components/glass/glass-button";
@@ -41,7 +40,6 @@ export default async function RoomMaterialsPage({
 
   return (
     <>
-      <AppTopbar title={room?.name ?? t("topbar.room_detail")} />
 
       <main id="main-content" className="flex-1 p-6 md:p-10 space-y-8">
         <header className="flex items-end justify-between gap-4 flex-wrap">

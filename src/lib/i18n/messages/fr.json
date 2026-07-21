@@ -375,7 +375,8 @@
     "users": "Utilisateurs",
     "trash": "Corbeille",
     "audit": "Journal d'audit",
-    "settings": "Réglages"
+    "settings": "Réglages",
+    "patients_dossiers": "Dossiers patients"
   },
   "topbar": {
     "dashboard": "Tableau de bord",
