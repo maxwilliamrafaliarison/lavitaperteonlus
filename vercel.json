@@ -4,7 +4,7 @@
   "crons": [
     {
       "path": "/api/pharmacie/rapport-quotidien",
-      "schedule": "0 4 * * *"
+      "schedule": "0 16 * * *"
     },
     {
       "path": "/api/pharmacie/rapport-mensuel",

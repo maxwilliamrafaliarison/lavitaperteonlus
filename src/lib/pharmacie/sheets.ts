@@ -353,6 +353,20 @@ export interface VenteComplete {
   }>;
 }
 
+/** Toutes les lignes de vente (pour agréger un top produits). */
+export async function listLignesVente(): Promise<
+  Array<{ venteId: string; produitId: string; quantite: number; sousTotal: number; modeVente: string }>
+> {
+  const rows = await readTab<Record<string, unknown>>(PHARMA_SHEETS.lignesVente);
+  return rows.map((l) => ({
+    venteId: String(l.vente_id ?? ""),
+    produitId: String(l.produit_id ?? ""),
+    quantite: Number(l.quantite ?? 0),
+    sousTotal: Number(l.sous_total ?? 0),
+    modeVente: String(l.mode_vente ?? "boite"),
+  }));
+}
+
 export async function getVenteComplete(
   venteId: string,
 ): Promise<VenteComplete | null> {

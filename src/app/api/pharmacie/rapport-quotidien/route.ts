@@ -6,6 +6,7 @@ import { can } from "@/lib/auth/permissions";
 import {
   listProduitsAvecStock,
   listVentes,
+  listLignesVente,
   listParametres,
 } from "@/lib/pharmacie/sheets";
 import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
@@ -53,9 +54,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [produits, ventes, params] = await Promise.all([
+    const [produits, ventes, lignes, params] = await Promise.all([
       listProduitsAvecStock(),
       listVentes(),
+      listLignesVente(),
       listParametres(),
     ]);
 
@@ -98,7 +100,28 @@ export async function GET(req: NextRequest) {
     const ventes24h = ventes.filter(
       (v) => new Date(v.timestamp).getTime() >= depuis && v.statut !== "annulee",
     );
-    const ca24h = ventes24h.reduce((s, v) => s + v.total, 0);
+    // Activité commerciale du jour, vue « responsable des ventes ».
+    const ventesCash = ventes24h.filter((v) => v.typeVente !== "pec");
+    const ventesPec = ventes24h.filter((v) => v.typeVente === "pec");
+    const caComptant = ventesCash.reduce((s, v) => s + v.total, 0);
+    const valeurPec = ventesPec.reduce((s, v) => s + v.valeurPec, 0);
+    const panierMoyen = ventesCash.length > 0 ? caComptant / ventesCash.length : 0;
+
+    // Top produits vendus sur la période (par chiffre d'affaires).
+    const idsJour = new Set(ventes24h.map((v) => v.id));
+    const parProduit = new Map<string, { ca: number; qte: number }>();
+    for (const l of lignes) {
+      if (!idsJour.has(l.venteId)) continue;
+      const agg = parProduit.get(l.produitId) ?? { ca: 0, qte: 0 };
+      agg.ca += l.sousTotal;
+      agg.qte += l.quantite;
+      parProduit.set(l.produitId, agg);
+    }
+    const nomProduit = new Map(actifs.map((p) => [p.id, p.designation]));
+    const topProduits = [...parProduit.entries()]
+      .map(([id, a]) => ({ nom: nomProduit.get(id) ?? id, ...a }))
+      .sort((a, b) => b.ca - a.ca)
+      .slice(0, 5);
 
     const fmtAr = (n: number) =>
       new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n) +
@@ -118,19 +141,40 @@ export async function GET(req: NextRequest) {
 
     const html = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#111">
-  <h1 style="color:#E30613;font-size:20px">Pharmacie — Rapport quotidien</h1>
+  <h1 style="color:#E30613;font-size:20px">Pharmacie — Récapitulatif de fin de journée</h1>
   <p style="color:#666;font-size:13px">${dateStr} · Centre REX, La Vita Per Te</p>
 
-  <h2 style="font-size:15px;margin-top:24px">📊 État du stock</h2>
+  <h2 style="font-size:15px;margin-top:24px">💰 Activité du jour</h2>
+  <table cellspacing="0" style="width:100%">
+    ${rows([
+      ["Chiffre d'affaires (comptant)", `<strong>${fmtAr(caComptant)}</strong>`],
+      ["Ventes comptant", `${ventesCash.length} vente(s) · panier moyen ${fmtAr(panierMoyen)}`],
+      ["Prises en charge (0 Ar)", `${ventesPec.length} · valeur ${fmtAr(valeurPec)}`],
+      ["Total ventes du jour", String(ventes24h.length)],
+    ])}
+  </table>
+
+  ${
+    topProduits.length === 0
+      ? ""
+      : `<h2 style="font-size:15px;margin-top:24px">🏆 Top produits vendus</h2>
+  <table cellspacing="0" style="width:100%">
+    <tr><th ${th}>Produit</th><th ${th}>Qté</th><th ${th}>CA</th></tr>
+    ${rows(topProduits.map((p) => [p.nom, String(p.qte), fmtAr(p.ca)]))}
+  </table>`
+  }
+
+  <h2 style="font-size:15px;margin-top:24px">📦 État du stock</h2>
   <table cellspacing="0" style="width:100%">
     ${rows([
       ["Produits actifs", String(actifs.length)],
       ["Valeur du stock (prix de vente)", fmtAr(valeurStock)],
-      ["Ventes des dernières 24 h", `${ventes24h.length} vente(s) · ${fmtAr(ca24h)}`],
+      ["Produits en rupture", String(actifs.filter((p) => p.stockBase <= 0).length)],
+      ["À commander (sous seuil)", String(stockBas.length)],
     ])}
   </table>
 
-  <h2 style="font-size:15px;margin-top:24px">🧾 Ventes des dernières 24 h</h2>
+  <h2 style="font-size:15px;margin-top:24px">🧾 Ventes du jour</h2>
   ${
     ventes24h.length === 0
       ? '<p style="font-size:13px;color:#666">Aucune vente sur la période.</p>'
@@ -183,8 +227,8 @@ export async function GET(req: NextRequest) {
   }
 
   <p style="margin-top:28px;font-size:11px;color:#999">
-    Rapport automatique — <a href="https://lavitaperteonlus.vercel.app/pharmacie" style="color:#E30613">ouvrir la Pharmacie</a>.
-    Destinataires configurables dans l'onglet parametres du classeur Pharmacie.
+    Récapitulatif automatique de fin de journée — <a href="https://lavitaperteonlus.vercel.app/pharmacie" style="color:#E30613">ouvrir la Pharmacie</a>.
+    Destinataires configurables dans Pharmacie → Paramètres.
   </p>
 </div>`;
 
@@ -196,7 +240,7 @@ export async function GET(req: NextRequest) {
     await transporter.sendMail({
       from: `"Pharmacie — La Vita Per Te" <${gmailUser}>`,
       to: destinataires.join(", "),
-      subject: `Pharmacie · Rapport du ${new Date().toLocaleDateString("fr-FR")} — ${actifs.length} produits, ${ventes24h.length} vente(s)`,
+      subject: `Pharmacie · Fin de journée ${new Date().toLocaleDateString("fr-FR")} — ${ventes24h.length} vente(s), ${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(caComptant)} Ar`,
       html,
     });
 
