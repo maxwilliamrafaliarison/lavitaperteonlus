@@ -27,12 +27,20 @@ quelle brique est tombée.
 ```json
 {
   "ok": true,
-  "sheets":     { "reachable": true },              // Google Sheets
-  "patients":   { "reachable": true },              // Supabase / dossiers
+  "sheets":     { "reachable": true, "backend": "supabase" },  // magasin des comptes (routé)
+  "patients":   { "reachable": true },                         // Supabase / dossiers
   "pharmacie":  { "backend": "supabase", "reachable": true },
-  "logistique": { "tabsSupabase": [], "reachable": null }
+  "logistique": { "tabsSupabase": ["config","users","sites","rooms","materials",
+                  "sessions","movements","trash","audit_log","network"],
+                  "reachable": true }
 }
 ```
+
+Depuis le **21/07/2026**, les DIX onglets logistique (y compris `users`, qui
+porte les comptes de toutes les apps) sont servis par Supabase — parité
+champ par champ vérifiée (853 lignes) le jour de la bascule. Le Google Sheet
+est GELÉ à cette date : il n'est plus qu'un filet de secours, ne plus y
+saisir de données à la main.
 
 | Ce que vous voyez | Ce que ça veut dire | Quoi faire |
 |---|---|---|
