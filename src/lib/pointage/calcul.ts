@@ -35,6 +35,30 @@ export interface HoraireTheorique {
   minutesJour: number;
 }
 
+/**
+ * Règle « LIM » appliquée aux PRESTATAIRES dans les feuilles du centre :
+ * l'heure de début retenue est plafonnée à 7:50 le matin et 13:50
+ * l'après-midi. Un prestataire qui badge à 7:47 est compté à partir de
+ * 7:50 — on ne rémunère pas les quelques minutes d'avance.
+ * Vérifié cellule par cellule sur les fichiers réels (Franco 7:47→7:50,
+ * 7:39→7:50 ; Lucia 13:46→13:50). Le temps travaillé se calcule depuis
+ * cette heure plafonnée, jamais depuis le pointage brut : sans elle, les
+ * totaux de l'application divergeraient de ceux validés par le centre.
+ */
+export const LIM_MATIN = "07:50";
+export const LIM_APREM = "13:50";
+
+/** Applique le plafond LIM à une heure d'ENTRÉE (prestataires uniquement). */
+export function appliquerLim(heure: string): string {
+  const m = versMinutes(heure);
+  if (m === null) return heure;
+  const limMatin = versMinutes(LIM_MATIN)!;
+  const limAprem = versMinutes(LIM_APREM)!;
+  const midi = versMinutes("12:00")!;
+  if (m < midi) return m < limMatin ? LIM_MATIN : heure;
+  return m < limAprem ? LIM_APREM : heure;
+}
+
 /** Correction saisie par le responsable (motif obligatoire côté base). */
 export interface AjustementJour {
   matinDebut?: string;
@@ -134,6 +158,8 @@ export function calculerJournee(
   evenements: EvenementPointage[],
   horaire: HoraireTheorique,
   ajustement?: AjustementJour,
+  /** true pour un prestataire : applique le plafond LIM sur les entrées. */
+  appliquerLimPrestataire = false,
 ): JourneeCalculee {
   const anomalies: string[] = [];
   const jourOuvre = horaire.joursTravailles.includes(jourSemaine(jour));
@@ -154,7 +180,10 @@ export function calculerJournee(
     if (!ajusteMatin && passages.length >= 2) plages.unshift({ debut: passages[0], fin: passages[1] });
   } else {
     for (let i = 0; i < passages.length; i += 2) {
-      plages.push({ debut: passages[i], fin: passages[i + 1] ?? null });
+      // Règle LIM (prestataires) : l'heure d'ENTRÉE est plafonnée à 7:50 /
+      // 13:50. La sortie n'est jamais retouchée.
+      const debut = appliquerLimPrestataire ? appliquerLim(passages[i]) : passages[i];
+      plages.push({ debut, fin: passages[i + 1] ?? null });
     }
   }
 

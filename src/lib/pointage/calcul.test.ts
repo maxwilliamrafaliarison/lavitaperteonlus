@@ -145,6 +145,36 @@ describe("calcul d'une journée", () => {
   });
 });
 
+describe("règle LIM (prestataires)", () => {
+  it("plafonne une entrée matinale trop tôt (cas réel Franco 7:47 → 7:50)", () => {
+    const j = calculerJournee("2026-06-15", ev("07:47:00", "12:00:00"), STD, undefined, true);
+    expect(j.plages[0].debut).toBe("07:50");
+    expect(versHeures(j.minutesTravaillees)).toBe("4:10");
+  });
+
+  it("plafonne l'entrée de l'après-midi (cas réel Lucia 13:46 → 13:50)", () => {
+    const j = calculerJournee("2026-06-03", ev("08:00:00", "12:00:00", "13:46:00", "17:00:00"), STD, undefined, true);
+    expect(j.plages[1].debut).toBe("13:50");
+    expect(versHeures(j.minutesTravaillees)).toBe("7:10"); // 4:00 + 3:10
+  });
+
+  it("ne touche pas une entrée déjà après le plafond", () => {
+    const j = calculerJournee("2026-06-15", ev("08:05:00", "12:00:00"), STD, undefined, true);
+    expect(j.plages[0].debut).toBe("08:05");
+  });
+
+  it("ne s'applique PAS aux salariés (comportement inchangé)", () => {
+    const j = calculerJournee("2026-06-15", ev("07:47:00", "12:00:00"), STD);
+    expect(j.plages[0].debut).toBe("07:47");
+    expect(versHeures(j.minutesTravaillees)).toBe("4:13");
+  });
+
+  it("ne retouche jamais l'heure de sortie", () => {
+    const j = calculerJournee("2026-06-15", ev("07:30:00", "11:45:00"), STD, undefined, true);
+    expect(j.plages[0].fin).toBe("11:45");
+  });
+});
+
 describe("agrégation mensuelle", () => {
   it("totalise le mois d'un agent", () => {
     const jours = [

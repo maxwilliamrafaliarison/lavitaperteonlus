@@ -3,6 +3,7 @@ import {
   Cpu,
   Pill,
   HeartPulse,
+  Fingerprint,
   Globe,
   type LucideIcon,
 } from "lucide-react";
@@ -14,8 +15,8 @@ export interface HubApp {
   title: string;
   description: string;
   href: string;
-  icon: "cpu" | "pill" | "heart-pulse" | "globe";
-  tone: "primary" | "success" | "cyan" | "warning";
+  icon: "cpu" | "pill" | "heart-pulse" | "fingerprint" | "globe";
+  tone: "primary" | "success" | "cyan" | "violet" | "warning";
   visible: boolean;
   status: "live" | "soon" | "external";
 }
@@ -24,6 +25,7 @@ const ICONS: Record<HubApp["icon"], LucideIcon> = {
   cpu: Cpu,
   pill: Pill,
   "heart-pulse": HeartPulse,
+  fingerprint: Fingerprint,
   globe: Globe,
 };
 
@@ -34,6 +36,10 @@ const TONES: Record<HubApp["tone"], { icon: string; glow: string }> = {
     glow: "oklch(0.75 0.18 150 / 0.25)",
   },
   cyan: { icon: "text-accent", glow: "oklch(0.80 0.16 190 / 0.25)" },
+  violet: {
+    icon: "text-[oklch(0.70_0.22_300)]",
+    glow: "oklch(0.70 0.22 300 / 0.25)",
+  },
   warning: {
     icon: "text-[oklch(0.82_0.16_85)]",
     glow: "oklch(0.82 0.16 85 / 0.25)",

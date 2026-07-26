@@ -118,7 +118,9 @@
     "app_patients_desc": "Base de données patients du centre médical",
     "app_site": "Site lavitaperte.org",
     "app_site_desc": "Le site public de l'association",
-    "back_to_hub": "Toutes les applications"
+    "back_to_hub": "Toutes les applications",
+    "app_pointage": "Pointage",
+    "app_pointage_desc": "Temps de travail du personnel : présence, heures, états mensuels"
   },
   "pharmacie": {
     "eyebrow": "Centre REX",
@@ -932,5 +934,38 @@
     "exam_echo": "Échographie",
     "exam_resultat": "Résultat",
     "exam_histo": "Histologie"
+  },
+  "pointage": {
+    "title": "Pointage",
+    "subtitle": "Temps de travail du personnel · centres REX et MIARAKA",
+    "nav_presence": "Présence du jour",
+    "nav_etats": "États mensuels",
+    "nav_agents": "Personnel",
+    "nav_import": "Import des pointages",
+    "presents": "Présents maintenant",
+    "absents": "Absents / repartis",
+    "effectif": "Effectif actif",
+    "dernier_pointage": "Dernier pointage",
+    "aucun_present": "Personne n’est actuellement pointé comme présent.",
+    "col_agent": "Agent",
+    "col_site": "Site",
+    "col_heures": "Heures",
+    "col_jours": "Jours",
+    "col_retard": "Retard",
+    "col_hs": "H. sup.",
+    "col_anomalies": "Anomalies",
+    "import_titre": "Importer un fichier de pointages",
+    "import_aide": "Déposez l’export ZKAccess (.xls ou .xlsx). Toutes les feuilles sont lues, les doublons et lignes techniques sont écartés automatiquement.",
+    "import_site": "Installation d’origine",
+    "import_bouton": "Importer",
+    "import_succes": "Import terminé",
+    "import_resultat": "{lues} lignes lues · {creees} pointages ajoutés · {ignorees} ignorés (doublons ou déjà présents)",
+    "import_vide": "Aucun pointage exploitable dans ce fichier.",
+    "agents_vide": "Aucun agent enregistré. Importez d’abord un fichier de pointages ou le référentiel du personnel.",
+    "statut_salarie": "Salarié",
+    "statut_prestataire": "Prestataire",
+    "periode": "Période",
+    "generer": "Générer le PDF",
+    "aucune_donnee": "Aucune donnée sur la période."
   }
 }

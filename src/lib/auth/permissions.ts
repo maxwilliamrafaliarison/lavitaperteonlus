@@ -32,6 +32,8 @@ export const PERMISSIONS = {
   "app:logistique": ["admin", "informaticien", "direction", "logistique"],
   "app:pharmacie": ["admin", "direction", "pharmacien"],
   "app:patients": ["admin", "direction"],
+  // Pointage : la direction consulte la présence en temps réel, l'admin gère.
+  "app:pointage": ["admin", "direction"],
 
   // Pharmacie — écriture (la direction reste en lecture seule)
   "pharmacie:vendre": ["admin", "pharmacien"],
@@ -40,6 +42,12 @@ export const PERMISSIONS = {
   // pharmacien vend et gère le stock mais ne touche pas au paramétrage
   // comptable, réservé à la direction/administration.
   "pharmacie:config": ["admin"],
+
+  // Pointage — la DIRECTION lit (présence, états mensuels) ; seul l'ADMIN
+  // importe, corrige un pointage ou valide des heures supplémentaires :
+  // ces gestes engagent la paie et doivent rester traçables à une personne.
+  "pointage:lire": ["admin", "direction"],
+  "pointage:gerer": ["admin"],
 } as const satisfies Record<string, UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

@@ -231,6 +231,21 @@
   --sidebar-ring: var(--cyan-brand);
 }
 
+/* Pointage — violet (4e teinte, distincte des trois autres apps). */
+[data-app="pointage"] {
+  --accent: oklch(0.55 0.2 300);
+  --accent-foreground: oklch(0.99 0 0);
+  --ring: oklch(0.55 0.2 300);
+  --sidebar-primary: oklch(0.55 0.2 300);
+  --sidebar-ring: oklch(0.55 0.2 300);
+}
+.dark [data-app="pointage"] {
+  --accent: oklch(0.70 0.22 300);
+  --ring: oklch(0.70 0.22 300);
+  --sidebar-primary: oklch(0.70 0.22 300);
+  --sidebar-ring: oklch(0.70 0.22 300);
+}
+
 /* ============================================================
    BASE + ambient background (aurores lumineuses subtiles)
    ============================================================ */

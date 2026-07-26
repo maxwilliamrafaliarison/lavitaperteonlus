@@ -16,6 +16,9 @@ import {
   Pill,
   HeartPulse,
   LayoutGrid,
+  Fingerprint,
+  UserCheck,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 
@@ -40,6 +43,9 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   Pill,
   HeartPulse,
   LayoutGrid,
+  Fingerprint,
+  UserCheck,
+  Upload,
 };
 
 export function navIcon(name: string): LucideIcon {

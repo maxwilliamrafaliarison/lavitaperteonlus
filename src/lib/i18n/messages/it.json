@@ -118,7 +118,9 @@
     "app_patients_desc": "Base dati pazienti del centro medico",
     "app_site": "Sito lavitaperte.org",
     "app_site_desc": "Il sito pubblico dell'associazione",
-    "back_to_hub": "Tutte le applicazioni"
+    "back_to_hub": "Tutte le applicazioni",
+    "app_pointage": "Presenze",
+    "app_pointage_desc": "Tempo di lavoro del personale: presenza, ore, rendiconti mensili"
   },
   "pharmacie": {
     "eyebrow": "Centro REX",
@@ -932,5 +934,38 @@
     "exam_echo": "Ecografia",
     "exam_resultat": "Risultato",
     "exam_histo": "Istologia"
+  },
+  "pointage": {
+    "title": "Presenze",
+    "subtitle": "Tempo di lavoro del personale · centri REX e MIARAKA",
+    "nav_presence": "Presenza del giorno",
+    "nav_etats": "Rendiconti mensili",
+    "nav_agents": "Personale",
+    "nav_import": "Importa timbrature",
+    "presents": "Presenti ora",
+    "absents": "Assenti / usciti",
+    "effectif": "Organico attivo",
+    "dernier_pointage": "Ultima timbratura",
+    "aucun_present": "Nessuno risulta attualmente presente.",
+    "col_agent": "Agente",
+    "col_site": "Sede",
+    "col_heures": "Ore",
+    "col_jours": "Giorni",
+    "col_retard": "Ritardo",
+    "col_hs": "Straord.",
+    "col_anomalies": "Anomalie",
+    "import_titre": "Importa un file di timbrature",
+    "import_aide": "Carica l’export ZKAccess (.xls o .xlsx). Tutti i fogli vengono letti, i duplicati e le righe tecniche sono scartati automaticamente.",
+    "import_site": "Installazione di origine",
+    "import_bouton": "Importa",
+    "import_succes": "Importazione completata",
+    "import_resultat": "{lues} righe lette · {creees} timbrature aggiunte · {ignorees} ignorate (duplicati o già presenti)",
+    "import_vide": "Nessuna timbratura utilizzabile in questo file.",
+    "agents_vide": "Nessun agente registrato. Importa prima un file di timbrature o l’anagrafica del personale.",
+    "statut_salarie": "Dipendente",
+    "statut_prestataire": "Collaboratore",
+    "periode": "Periodo",
+    "generer": "Genera il PDF",
+    "aucune_donnee": "Nessun dato nel periodo."
   }
 }

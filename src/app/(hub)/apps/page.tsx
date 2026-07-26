@@ -53,6 +53,16 @@ export default async function HubPage() {
       status: "live",
     },
     {
+      key: "pointage",
+      title: t("hub.app_pointage"),
+      description: t("hub.app_pointage_desc"),
+      href: "/pointage",
+      icon: "fingerprint",
+      tone: "violet",
+      visible: can(role, "app:pointage"),
+      status: "live",
+    },
+    {
       key: "site",
       title: t("hub.app_site"),
       description: t("hub.app_site_desc"),

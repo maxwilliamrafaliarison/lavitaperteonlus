@@ -16,7 +16,7 @@ import type { Permission } from "@/lib/auth/permissions";
    Ajouter une application = ajouter une entrée ici + un layout de 3 lignes
    qui rend <AppShell appKey=…>. Rien d'autre. */
 
-export type AppKey = "logistique" | "pharmacie" | "patients";
+export type AppKey = "logistique" | "pharmacie" | "patients" | "pointage";
 
 export interface NavItemSpec {
   href: string;
@@ -75,6 +75,18 @@ export const APP_NAV: Record<AppKey, AppNav> = {
     icon: "HeartPulse",
     items: [
       { href: "/patients", labelKey: "nav.patients_dossiers", icon: "Users", permission: "app:patients" },
+    ],
+  },
+  pointage: {
+    key: "pointage",
+    nameKey: "hub.app_pointage",
+    icon: "Fingerprint",
+    items: [
+      { href: "/pointage", labelKey: "nav.dashboard", icon: "LayoutDashboard" },
+      { href: "/pointage/presence", labelKey: "pointage.nav_presence", icon: "UserCheck" },
+      { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2" },
+      { href: "/pointage/agents", labelKey: "pointage.nav_agents", icon: "Users" },
+      { href: "/pointage/import", labelKey: "pointage.nav_import", icon: "Upload", permission: "pointage:gerer" },
     ],
   },
 };
