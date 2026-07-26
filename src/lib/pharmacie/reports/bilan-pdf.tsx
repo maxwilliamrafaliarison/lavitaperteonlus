@@ -216,6 +216,32 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
           </>
         )}
 
+        {/* 6. Activité du laboratoire galénique */}
+        {data.galeniqueNb > 0 && (
+          <>
+            <SectionHeader
+              title={it ? "6. Attività del laboratorio galenico" : "6. Activité du laboratoire galénique"}
+              meta={`${data.galeniqueNb} ${it ? "preparazioni" : "préparations"} · CA ${fmtAriary(data.galeniqueCaSorties)} · ${it ? "stock" : "stock"} ${fmtAriary(data.galeniqueValeurStock)}`}
+            />
+            {data.galeniqueTop.length > 0 && (
+              <>
+                <View style={styles.tableRowHeader}>
+                  <Th w="64%">{it ? "Preparazione (top)" : "Préparation (top ventes)"}</Th>
+                  <Th w="18%" right>{it ? "Qtà" : "Qté"}</Th>
+                  <Th w="18%" right>CA</Th>
+                </View>
+                {data.galeniqueTop.map((p, i) => (
+                  <Row key={i} i={i}>
+                    <Td w="64%">{p.nom}</Td>
+                    <Td w="18%" right mono>{String(p.qte)}</Td>
+                    <Td w="18%" right mono>{fmtAriary(p.ca)}</Td>
+                  </Row>
+                ))}
+              </>
+            )}
+          </>
+        )}
+
         {/* Observations */}
         <SectionHeader title={it ? "Osservazioni" : "Observations du pharmacien"} />
         <View style={b.note}>

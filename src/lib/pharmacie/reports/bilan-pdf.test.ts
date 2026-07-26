@@ -27,8 +27,8 @@ const data: BilanData = {
   couvertureMois: 4.4,
   rotationAnnuelle: 2.7,
   topProduits: [
-    { nom: "DUPHASTON", ca: 128600, part: 11.6 },
-    { nom: "MAG-2", ca: 122000, part: 11.0 },
+    { nom: "DUPHASTON", ca: 128600, qte: 6, part: 11.6 },
+    { nom: "MAG-2", ca: 122000, qte: 90, part: 11.0 },
   ],
   parClasse: [
     { classe: "ANTIBIOTIQUE", ca: 400000, part: 36 },
@@ -45,6 +45,10 @@ const data: BilanData = {
     { designation: "DUPHASTON", classe: "CONTRACEPTIF", caSorties: 128600, stockLabel: "20 btes", valeurStock: 428480 },
     { designation: "ACIDE FUSIDIQUE", classe: "—", caSorties: 0, stockLabel: "1 bte", valeurStock: 11804 },
   ],
+  galeniqueNb: 3,
+  galeniqueCaSorties: 12000,
+  galeniqueValeurStock: 50000,
+  galeniqueTop: [{ nom: "PARACETAMOL SUPPO 500MG", ca: 9000, qte: 30, part: 75 }],
 };
 
 async function toBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
@@ -67,6 +71,7 @@ describe("bilan mensuel PDF", () => {
       coutVentes: 0, margeBrute: 0, tauxMarge: 0, couvertureMois: null, rotationAnnuelle: null,
       topProduits: [], parClasse: [], entreesMois: 0, entreesParFournisseur: [],
       ruptures: [], aCommander: [], perimes: [], bientot: [], pecParEntite: [],
+      galeniqueNb: 0, galeniqueCaSorties: 0, galeniqueValeurStock: 0, galeniqueTop: [],
     };
     const buf = await toBuffer(await renderBilanMensuel(vide, ctx));
     expect(buf.subarray(0, 5).toString()).toBe("%PDF-");

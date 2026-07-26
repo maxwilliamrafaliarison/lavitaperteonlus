@@ -28,6 +28,7 @@ import type {
   CommandeData,
   ExpirationData,
   RuptureData,
+  GalleniqueData,
 } from "./data";
 
 const TITRES: Record<PharmaRapportType, { fr: string; it: string }> = {
@@ -36,6 +37,7 @@ const TITRES: Record<PharmaRapportType, { fr: string; it: string }> = {
   a_commander: { fr: "À commander", it: "Da ordinare" },
   expiration: { fr: "Péremptions", it: "Scadenze" },
   rupture: { fr: "Ruptures de stock", it: "Rotture di stock" },
+  galenique: { fr: "Laboratoire galénique", it: "Laboratorio galenico" },
 };
 
 export function titreRapport(type: PharmaRapportType, lang: Lang): string {
@@ -349,6 +351,72 @@ function RuptureDoc({ data, ctx }: { data: RuptureData; ctx: ReportContext }) {
   );
 }
 
+/* ================= GALÉNIQUE ================= */
+
+function GalleniqueDoc({ data, ctx }: { data: GalleniqueData; ctx: ReportContext }) {
+  const it = ctx.lang === "it";
+  const l = {
+    produit: it ? "Preparazione" : "Préparation",
+    forme: it ? "Forma" : "Forme",
+    cond: it ? "Conf." : "Cond.",
+    stock: "Stock",
+    pu: it ? "Prezzo" : "Prix",
+    ca: it ? "CA uscite" : "CA sorties",
+    val: it ? "Valore stock" : "Valeur stock",
+    nb: it ? "Preparazioni" : "Préparations",
+    totalCa: it ? "CA del periodo" : "CA de la période",
+    totalVal: it ? "Valore stock" : "Valeur du stock",
+  };
+  const periode = `${data.from || "…"} → ${data.to || "…"}`;
+  return (
+    <Document title={titreRapport("galenique", ctx.lang)} author="La Vita Per Te">
+      <Page size="A4" style={styles.page} wrap>
+        <ReportHeader ctx={ctx} reportNumber="LG" />
+        <ReportFooter lang={ctx.lang} />
+        <TitleBlock
+          title={titreRapport("galenique", ctx.lang)}
+          subtitle={
+            it
+              ? `Preparazioni officinali · ${periode} · Generato da ${ctx.generatedBy}`
+              : `Préparations officinales fabriquées en interne · ${periode} · Édité par ${ctx.generatedBy}`
+          }
+        />
+        <KpiGrid
+          kpis={[
+            { label: l.nb, value: String(data.nb) },
+            { label: l.totalCa, value: fmtAriary(data.totalCaSorties) },
+            { label: l.totalVal, value: fmtAriary(data.totalValeurStock) },
+          ]}
+        />
+        {data.lignes.length === 0 ? (
+          <EmptyState message={it ? "Nessuna preparazione registrata." : "Aucune préparation enregistrée. Importez le tarif du labo galénique."} />
+        ) : (
+          <>
+            <View style={styles.tableRowHeader}>
+              <Th w="34%">{l.produit}</Th>
+              <Th w="18%">{l.forme}</Th>
+              <Th w="12%" right>{l.stock}</Th>
+              <Th w="12%" right>{l.pu}</Th>
+              <Th w="12%" right>{l.ca}</Th>
+              <Th w="12%" right>{l.val}</Th>
+            </View>
+            {data.lignes.map((r, i) => (
+              <View key={i} style={[styles.tableRow, i % 2 ? styles.tableRowAlt : {}]}>
+                <Td w="34%">{r.designation}</Td>
+                <Td w="18%">{r.forme}</Td>
+                <Td w="12%" right mono>{r.stock}</Td>
+                <Td w="12%" right mono>{r.prixVente}</Td>
+                <Td w="12%" right mono>{r.caSortiesLabel}</Td>
+                <Td w="12%" right mono>{r.valeurStockLabel}</Td>
+              </View>
+            ))}
+          </>
+        )}
+      </Page>
+    </Document>
+  );
+}
+
 /* ================= Rendu ================= */
 
 export async function renderPharmacieRapport(
@@ -371,6 +439,9 @@ export async function renderPharmacieRapport(
       break;
     case "rupture":
       element = <RuptureDoc data={data} ctx={ctx} />;
+      break;
+    case "galenique":
+      element = <GalleniqueDoc data={data} ctx={ctx} />;
       break;
   }
   return await renderToStream(

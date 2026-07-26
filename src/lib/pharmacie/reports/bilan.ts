@@ -7,7 +7,7 @@ import {
 } from "../sheets";
 import { prixParUniteBase, facteur, formaterQuantite } from "../fractionnement";
 import { fmtAriary } from "@/lib/reports/theme";
-import type { ProduitAvecStock } from "../types";
+import { estGalenique, type ProduitAvecStock } from "../types";
 
 /* ============================================================
    BILAN MENSUEL DE LA PHARMACIE — agrégation des données
@@ -32,6 +32,7 @@ export interface KpiLigne {
 export interface LigneTop {
   nom: string;
   ca: number;
+  qte: number;
   part: number;
 }
 export interface LigneClasse {
@@ -108,6 +109,11 @@ export interface BilanData {
   bientot: LigneExp[];
   pecParEntite: LignePec[];
   fiche: LigneFiche[];
+  // Activité du laboratoire galénique (préparations officinales internes).
+  galeniqueNb: number;
+  galeniqueCaSorties: number;
+  galeniqueValeurStock: number;
+  galeniqueTop: LigneTop[];
 }
 
 const moisFr = (from: string) => {
@@ -234,6 +240,17 @@ export async function buildBilanMensuel(from: string, to: string): Promise<Bilan
     })
     .sort((a, b) => b.caSorties - a.caSorties || a.designation.localeCompare(b.designation));
 
+  // ── Activité galénique : sous-ensemble des préparations internes ───────────
+  const galeniques = actifs.filter(estGalenique);
+  const galeniqueCaSorties = galeniques.reduce((s, p) => s + (parProduit.get(p.id)?.ca ?? 0), 0);
+  const galeniqueValeurStock = galeniques.reduce((s, p) => s + p.stockBase * prixParUniteBase(p), 0);
+  const galTot = galeniqueCaSorties || 1;
+  const galeniqueTop: LigneTop[] = galeniques
+    .map((p) => ({ nom: p.designation, ca: parProduit.get(p.id)?.ca ?? 0, qte: parProduit.get(p.id)?.qte ?? 0, part: ((parProduit.get(p.id)?.ca ?? 0) / galTot) * 100 }))
+    .filter((x) => x.ca > 0)
+    .sort((a, b) => b.ca - a.ca)
+    .slice(0, 5);
+
   return {
     from,
     to,
@@ -272,6 +289,10 @@ export async function buildBilanMensuel(from: string, to: string): Promise<Bilan
     bientot: bientotProds.map(ligneExp),
     pecParEntite,
     fiche,
+    galeniqueNb: galeniques.length,
+    galeniqueCaSorties,
+    galeniqueValeurStock,
+    galeniqueTop,
   };
 }
 

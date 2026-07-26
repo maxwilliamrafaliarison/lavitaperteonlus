@@ -366,7 +366,9 @@
     "mvt_destruction": "Destruction",
     "rapport_bilan_titre": "Bilan mensuel",
     "rapport_bilan_desc": "Document de gestion complet à l’attention de la Direction : activité, marge, stock, prises en charge, fiche détaillée.",
-    "rapports_mois": "Mois"
+    "rapports_mois": "Mois",
+    "rapport_galenique_titre": "Laboratoire galénique",
+    "rapport_galenique_desc": "Préparations officinales fabriquées en interne : stock, prix et chiffre d’affaires des sorties sur la période."
   },
   "nav": {
     "aria_label": "Navigation principale",

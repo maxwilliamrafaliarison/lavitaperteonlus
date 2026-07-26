@@ -1,7 +1,7 @@
-import { listProduitsAvecStock, listVentes, type VenteResume } from "../sheets";
+import { listProduitsAvecStock, listVentes, listLignesVente, type VenteResume } from "../sheets";
 import { formaterQuantite, prixParUniteBase } from "../fractionnement";
 import { fmtAriary } from "@/lib/reports/theme";
-import type { ProduitAvecStock } from "../types";
+import { estGalenique, type ProduitAvecStock } from "../types";
 
 /* ============================================================
    PHARMACIE — Données des rapports manuels
@@ -16,7 +16,8 @@ export type PharmaRapportType =
   | "stock"
   | "a_commander"
   | "expiration"
-  | "rupture";
+  | "rupture"
+  | "galenique";
 
 export const PHARMA_RAPPORTS: PharmaRapportType[] = [
   "ventes",
@@ -24,6 +25,7 @@ export const PHARMA_RAPPORTS: PharmaRapportType[] = [
   "a_commander",
   "expiration",
   "rupture",
+  "galenique",
 ];
 
 export interface LigneVenteRapport {
@@ -95,12 +97,34 @@ export interface RuptureData {
   lignes: LigneRupture[];
 }
 
+export interface LigneGalenique {
+  designation: string;
+  forme: string;
+  conditionnement: string;
+  stock: string;
+  prixVente: string;
+  valeurStock: number;
+  valeurStockLabel: string;
+  caSorties: number;
+  caSortiesLabel: string;
+}
+export interface GalleniqueData {
+  type: "galenique";
+  from: string;
+  to: string;
+  lignes: LigneGalenique[];
+  nb: number;
+  totalCaSorties: number;
+  totalValeurStock: number;
+}
+
 export type RapportData =
   | VentesData
   | StockData
   | CommandeData
   | ExpirationData
-  | RuptureData;
+  | RuptureData
+  | GalleniqueData;
 
 const parFournisseurPuisNom = (a: ProduitAvecStock, b: ProduitAvecStock) =>
   (a.fournisseur || "￿").localeCompare(b.fournisseur || "￿") ||
@@ -147,6 +171,56 @@ export async function buildRapportData(
       pec: pec.map((v) => mapVente(v, true)),
       totalCash: cash.reduce((s, v) => s + v.total, 0),
       valeurPec: pec.reduce((s, v) => s + v.valeurPec, 0),
+    };
+  }
+
+  // Rapport dédié aux préparations du laboratoire galénique : stock + CA des
+  // sorties sur la période, préparations uniquement.
+  if (type === "galenique") {
+    const from = opts.from ?? "";
+    const to = opts.to ?? "";
+    const toFin = to ? `${to}T23:59:59.999Z` : "";
+    const [tous, ventes, lignes] = await Promise.all([
+      listProduitsAvecStock(),
+      listVentes(),
+      listLignesVente(),
+    ]);
+    const galeniques = tous.filter((p) => p.statut === "actif" && estGalenique(p));
+    const idsPeriode = new Set(
+      ventes
+        .filter((v) => v.statut !== "annulee" && (!from || v.timestamp >= from) && (!toFin || v.timestamp <= toFin))
+        .map((v) => v.id),
+    );
+    const caParProduit = new Map<string, number>();
+    for (const l of lignes) {
+      if (!idsPeriode.has(l.venteId)) continue;
+      caParProduit.set(l.produitId, (caParProduit.get(l.produitId) ?? 0) + l.sousTotal);
+    }
+    const rows: LigneGalenique[] = galeniques
+      .map((p) => {
+        const valeurStock = p.stockBase * prixParUniteBase(p);
+        const caSorties = caParProduit.get(p.id) ?? 0;
+        return {
+          designation: p.designation,
+          forme: p.forme || "—",
+          conditionnement: p.conditionnement || "—",
+          stock: formaterQuantite(p, p.stockBase),
+          prixVente: fmtAriary(p.prix_vente),
+          valeurStock,
+          valeurStockLabel: fmtAriary(valeurStock),
+          caSorties,
+          caSortiesLabel: caSorties > 0 ? fmtAriary(caSorties) : "—",
+        };
+      })
+      .sort((a, b) => b.caSorties - a.caSorties || a.designation.localeCompare(b.designation));
+    return {
+      type: "galenique",
+      from,
+      to,
+      lignes: rows,
+      nb: rows.length,
+      totalCaSorties: rows.reduce((s, r) => s + r.caSorties, 0),
+      totalValeurStock: rows.reduce((s, r) => s + r.valeurStock, 0),
     };
   }
 

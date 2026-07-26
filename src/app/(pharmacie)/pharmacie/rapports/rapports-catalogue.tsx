@@ -7,7 +7,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { getT, type Lang } from "@/lib/i18n";
 
-type RapportType = "ventes" | "stock" | "a_commander" | "expiration" | "rupture";
+type RapportType = "ventes" | "stock" | "a_commander" | "expiration" | "rupture" | "galenique";
 
 function moisCourant(): { from: string; to: string } {
   // Calcul côté client : sert seulement à pré-remplir les champs de date.
@@ -25,8 +25,10 @@ export function RapportsCatalogue({ lang }: { lang: Lang }) {
   const [mois, setMois] = React.useState(def.from.slice(0, 7));
 
   function ouvrir(type: RapportType) {
+    // Ventes et galénique sont des rapports d'ACTIVITÉ sur une période ; les
+    // autres photographient l'état courant du stock.
     const qs =
-      type === "ventes"
+      type === "ventes" || type === "galenique"
         ? `?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
         : "";
     window.open(`/api/pharmacie/rapports/${type}${qs}`, "_blank", "noopener");
@@ -44,7 +46,7 @@ export function RapportsCatalogue({ lang }: { lang: Lang }) {
     );
   }
 
-  const autres: RapportType[] = ["stock", "a_commander", "expiration", "rupture"];
+  const autres: RapportType[] = ["galenique", "stock", "a_commander", "expiration", "rupture"];
   const champ =
     "rounded-xl glass border px-3 h-10 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40";
 

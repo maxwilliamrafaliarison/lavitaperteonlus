@@ -21,7 +21,8 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { getT, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
-import type { ProduitAvecStock, ModeVente, EntitePec } from "@/lib/pharmacie/types";
+import { estGalenique, type ProduitAvecStock, type ModeVente, type EntitePec } from "@/lib/pharmacie/types";
+import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
 import {
   estFractionnable,
   prixPour,
@@ -368,8 +369,9 @@ export function VenteForm({
                 const infos = (
                   <>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm leading-tight truncate">
-                        {p.designation}
+                      <p className="font-medium text-sm leading-tight inline-flex items-center gap-1.5 max-w-full">
+                        <span className="truncate">{p.designation}</span>
+                        {estGalenique(p) && <BadgeGalenique compact />}
                       </p>
                       <p className="text-[11px] text-muted-foreground truncate">
                         {p.dci || p.classe || p.id}
@@ -468,8 +470,9 @@ export function VenteForm({
                   <li key={k} className="rounded-xl glass border p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-tight">
+                        <p className="text-sm font-medium leading-tight inline-flex items-center gap-1.5 flex-wrap">
                           {l.produit.designation}
+                          {estGalenique(l.produit) && <BadgeGalenique compact />}
                         </p>
                         {/* L'unité doit être lisible : deux lignes du même
                             produit ne se distinguent que par elle. */}

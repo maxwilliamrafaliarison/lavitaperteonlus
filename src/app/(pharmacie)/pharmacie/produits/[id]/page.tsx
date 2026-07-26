@@ -11,8 +11,9 @@ import {
   listLots,
   listMouvements,
 } from "@/lib/pharmacie/sheets";
-import type { Mouvement } from "@/lib/pharmacie/types";
+import { estGalenique, type Mouvement } from "@/lib/pharmacie/types";
 import { formaterQuantite } from "@/lib/pharmacie/fractionnement";
+import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
 import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -119,11 +120,14 @@ export default async function ProduitPage({
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-mono">
               {produit.id}
             </p>
-            <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight">
-              {produit.designation}
-              {produit.dosage ? (
-                <span className="text-muted-foreground text-xl"> · {produit.dosage}</span>
-              ) : null}
+            <h1 className="mt-1 font-display text-3xl font-semibold tracking-tight inline-flex items-center gap-3 flex-wrap">
+              <span>
+                {produit.designation}
+                {produit.dosage ? (
+                  <span className="text-muted-foreground text-xl"> · {produit.dosage}</span>
+                ) : null}
+              </span>
+              {estGalenique(produit) && <BadgeGalenique className="text-xs" />}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {[produit.dci, produit.classe, produit.forme, produit.conditionnement]

@@ -268,6 +268,7 @@ function TicketDoc({
             <Text style={tk.lineName}>
               {l.designation}
               {l.dosage ? ` ${l.dosage}` : ""} x{l.quantite}
+              {l.galenique ? <Text style={{ color: "#6d28d9" }}> · prép. LG</Text> : null}
             </Text>
             <Text style={tk.lineAmount}>{fmtAriary(l.sousTotal)}</Text>
           </View>
@@ -531,6 +532,7 @@ function FactureDoc({
               <Text style={fa.cDesignation}>
                 {l.designation}
                 {l.dosage ? ` — ${l.dosage}` : ""}
+                {l.galenique ? <Text style={{ color: "#6d28d9" }}> · prép. LG</Text> : null}
               </Text>
               <Text style={fa.cQte}>{l.quantite}</Text>
               <Text style={fa.cPu}>{fmtAriary(l.prixUnitaire)}</Text>

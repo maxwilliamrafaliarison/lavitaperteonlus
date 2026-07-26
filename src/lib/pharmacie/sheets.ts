@@ -51,7 +51,7 @@ const COLUMN_ORDER: Record<PharmaSheetName, string[]> = {
   // écrites par POSITION (appendRowsSheets envoie un tableau brut) et
   // updateProduitFieldsSheets mappe les colonnes par lettre en dur. Insérer
   // une colonne décalerait tout, sans la moindre erreur.
-  produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt", "facteur_conversion", "unite_detail", "prix_vente_detail"],
+  produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt", "facteur_conversion", "unite_detail", "prix_vente_detail", "origine"],
   mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note", "unite_saisie", "facteur_applique", "compartiment"],
   ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut", "pec_payeur", "valeur_pec"],
   lignes_vente: ["id", "vente_id", "produit_id", "lot_id", "quantite", "prix_unitaire", "sous_total", "mode_vente", "qte_stock_deduire"],
@@ -350,6 +350,7 @@ export interface VenteComplete {
     quantite: number;
     prixUnitaire: number;
     sousTotal: number;
+    galenique: boolean;
   }>;
 }
 
@@ -392,6 +393,7 @@ export async function getVenteComplete(
         quantite: Number(l.quantite ?? 0),
         prixUnitaire: Number(l.prix_unitaire ?? 0),
         sousTotal: Number(l.sous_total ?? 0),
+        galenique: produit?.origine === "galenique",
       };
     });
 

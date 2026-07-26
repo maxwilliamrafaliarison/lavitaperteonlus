@@ -18,7 +18,8 @@ import { PanneBanner } from "@/components/layout/panne-banner";
 import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
 import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
-import { STATUT_LABELS, type ProduitAvecStock } from "@/lib/pharmacie/types";
+import { STATUT_LABELS, estGalenique, type ProduitAvecStock } from "@/lib/pharmacie/types";
+import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -302,8 +303,9 @@ export default async function PharmaciePage() {
                                 href={`/pharmacie/produits/${p.id}`}
                                 className="group/link block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
                               >
-                                <p className="font-medium leading-tight group-hover/link:text-primary transition-colors">
+                                <p className="font-medium leading-tight group-hover/link:text-primary transition-colors inline-flex items-center gap-1.5 flex-wrap">
                                   {p.designation}
+                                  {estGalenique(p) && <BadgeGalenique />}
                                 </p>
                                 <p className="text-[11px] text-muted-foreground font-mono">
                                   {p.id}

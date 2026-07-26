@@ -73,8 +73,17 @@ export const Produit = z.object({
   facteur_conversion: FacteurConversion,
   unite_detail: txt(),
   prix_vente_detail: z.coerce.number().default(0),
+  // Origine (migration 012) : "" = spécialité industrielle, "galenique" =
+  // préparation officinale du laboratoire galénique (fabriquée en interne).
+  // Ne change ni la vente ni le stock ; sert à la pastille et au rapport dédié.
+  origine: txt(),
 });
 export type Produit = z.infer<typeof Produit>;
+
+/** Un produit est une préparation du laboratoire galénique. */
+export function estGalenique(p: Pick<Produit, "origine">): boolean {
+  return p.origine === "galenique";
+}
 
 export const Lot = z.object({
   id: z.string(),
