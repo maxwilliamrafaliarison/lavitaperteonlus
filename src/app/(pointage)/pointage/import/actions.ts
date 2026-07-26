@@ -111,7 +111,7 @@ export async function importerPointagesAction(
           horaire_id: "std",
           taux_horaire: 0,
           actif: true,
-          createdAt: maintenant,
+          createdat: maintenant,
         });
       }
       nouveauxBadges.push({
@@ -129,12 +129,21 @@ export async function importerPointagesAction(
     if (nouveauxBadges.length) await insererBadges(nouveauxBadges);
 
     // 3. Ne garder que les pointages absents de la base (idempotence).
-    const { rows: dejaLa } = await sbSelect<{ id: string }>("pointage", "pointages", {
-      select: "id",
-      order: "id.asc",
-      limit: 100000,
-    });
-    const connus = new Set(dejaLa.map((r) => r.id));
+    //    ⚠️ PostgREST plafonne CHAQUE réponse à 1000 lignes, quel que soit
+    //    le `limit` demandé : sans pagination, la liste des ids connus serait
+    //    silencieusement tronquée et un réimport recréerait des doublons dès
+    //    le 1001e pointage. On pagine donc explicitement.
+    const connus = new Set<string>();
+    for (let offset = 0; ; offset += 1000) {
+      const { rows } = await sbSelect<{ id: string }>("pointage", "pointages", {
+        select: "id",
+        order: "id.asc",
+        limit: 1000,
+        offset,
+      });
+      for (const r of rows) connus.add(r.id);
+      if (rows.length < 1000) break;
+    }
 
     const aInserer = parse.pointages
       .map((p: PointageBrut) => ({
