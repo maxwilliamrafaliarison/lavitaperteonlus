@@ -70,8 +70,15 @@ export default async function PointagePage() {
             />
           </div>
 
-          {/* Collecte directe : réservée à qui gère le pointage. */}
-          {can(session.user.role, "pointage:gerer") && <BoutonCollecte site="REX" />}
+          {/* Collecte directe : réservée à qui gère le pointage. Un bouton
+              par centre — chaque pointeuse a sa propre base de numérotation,
+              et l'agent doit savoir laquelle il interroge. */}
+          {can(session.user.role, "pointage:gerer") && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <BoutonCollecte site="REX" />
+              <BoutonCollecte site="MIARAKA" />
+            </div>
+          )}
 
           <GlassCard className="overflow-hidden p-0">
             <div className="border-b border-glass-border px-5 py-3">

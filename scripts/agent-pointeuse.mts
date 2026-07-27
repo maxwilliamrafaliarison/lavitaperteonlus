@@ -86,7 +86,14 @@ function portOuvert(ip: string, port: number, ms = 3000): Promise<boolean> {
 /** Teste la joignabilité d'une pointeuse, sans rien collecter. */
 async function tester(site: string): Promise<{ joignable: boolean; detail: string; utilisateurs?: number; enMemoire?: number }> {
   const cfg = POINTEUSES[site];
-  if (!cfg?.ip) return { joignable: false, detail: `Aucune adresse configurée pour le centre ${site}.` };
+  if (!cfg?.ip) {
+    return {
+      joignable: false,
+      detail:
+        `L'adresse de la pointeuse du centre ${site} n'est pas encore renseignée. ` +
+        `Ajoutez POINTEUSE_${site}_IP=<adresse> dans le fichier .env.local, puis relancez l'agent.`,
+    };
+  }
 
   if (!(await portOuvert(cfg.ip, cfg.port))) {
     return {
