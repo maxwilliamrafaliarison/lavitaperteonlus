@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Link2, Copy, Check, EyeOff, Send, Plus } from "lucide-react";
+import { Loader2, Link2, Copy, Check, EyeOff, Send, Plus, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 import { GlassCard } from "@/components/glass/glass-card";
@@ -146,6 +146,13 @@ export function PlanningRow({ p, origine }: { p: PlanningLigne; origine: string 
           </p>
         </div>
         <div className="flex gap-2">
+          <a
+            href={`/pointage/planning/${p.id}`}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-glass-border px-3 py-1.5 text-xs hover:bg-white/5 transition-colors"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+            Éditer
+          </a>
           <GlassButton type="button" size="sm" variant={p.statut === "publie" ? "ghost" : "brand"} onClick={() => agir("publier")} disabled={loading !== ""}>
             {loading === "publier" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
             {p.statut === "publie" ? "Republier" : "Publier"}
