@@ -20,6 +20,7 @@ import {
   UserCheck,
   Upload,
   Clock,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +49,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   UserCheck,
   Upload,
   Clock,
+  CalendarDays,
 };
 
 export function navIcon(name: string): LucideIcon {

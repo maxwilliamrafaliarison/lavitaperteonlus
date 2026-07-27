@@ -80,6 +80,10 @@ export const authConfig: NextAuthConfig = {
         // - rapports cron : Bearer CRON_SECRET (le cron Vercel n'a pas de
         //   session — bloqué ici, il serait redirigé vers /login et
         //   « réussirait » en HTTP sans jamais envoyer d'email).
+        // Planning consultable par le personnel sans compte : la protection
+        // tient au jeton secret de 128 bits porté par l'URL, vérifié par la
+        // page elle-même (un jeton inconnu ou non publié rend un 404).
+        pathname.startsWith("/planning/") ||
         pathname.startsWith("/api/parity") ||
         pathname.startsWith("/api/pharmacie/rapport-quotidien") ||
         pathname.startsWith("/api/pharmacie/rapport-mensuel") ||

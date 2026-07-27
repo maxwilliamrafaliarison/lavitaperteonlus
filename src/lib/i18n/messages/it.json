@@ -968,6 +968,7 @@
     "generer": "Genera il PDF",
     "aucune_donnee": "Nessun dato nel periodo.",
     "nav_corrections": "Correzioni",
-    "nav_creneaux": "Fasce orarie"
+    "nav_creneaux": "Fasce orarie",
+    "nav_planning": "Pianificazione"
   }
 }
