@@ -134,11 +134,18 @@ export function parserFeuilleMiaraka(nomFeuille: string, lignes: unknown[][]): M
 
     if (!estLigneJour) {
       const noms = r.slice(2).map((c) => norm(c));
-      // Un en-tête compte au moins deux libellés courts sans chiffre.
-      const candidats = noms.filter((n) => n && n.length <= 20 && !/\d/.test(n));
+      // Un en-tête compte au moins deux libellés courts sans chiffre. Les
+      // noms de mois sont exclus : les blocs portent « JUILLET/AOUT » ou
+      // « DECEMBRE/janvier » en tête, et les prendre pour des agents crée
+      // des colonnes fantômes qui absorbent de vraies affectations.
+      const estMois = (n: string) => {
+        const s = sansAccents(n).replace(/[^a-z]/g, " ").trim();
+        return s.split(/\s+/).every((mot) => mot.length > 2 && mot in MOIS);
+      };
+      const candidats = noms.filter((n) => n && n.length <= 20 && !/\d/.test(n) && !estMois(n));
       if (candidats.length >= 2 && !/total|conge|difference|heure/i.test(sansAccents(noms.join(" ")))) {
-        colonnes = noms;
-        noms.forEach((n) => n && tousAgents.add(n));
+        colonnes = noms.map((n) => (n && !estMois(n) ? n : ""));
+        colonnes.forEach((n) => n && tousAgents.add(n));
       }
       continue;
     }
