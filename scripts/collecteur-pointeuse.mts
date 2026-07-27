@@ -42,12 +42,19 @@ async function pg(method: string, path: string, body?: unknown) {
   return t ? JSON.parse(t) : null;
 }
 
-/** "2026-07-27T08:11:10..." (Date de zklib) → "YYYY-MM-DD HH:MM:SS" local. */
+/**
+ * "2026-07-27T08:11:10.000Z" (Date de zklib) → "2026-07-27 08:11:10".
+ *
+ * ⚠️ PIÈGE VÉRIFIÉ SUR LA MACHINE : la pointeuse stocke l'heure LOCALE du
+ * centre, et node-zklib la restitue dans une Date étiquetée « Z » — un
+ * pointage de 8h33 arrive donc en "08:33:43.000Z". Lire cette date avec
+ * getHours() la reconvertirait vers le fuseau du poste (+3 h à Madagascar)
+ * et décalerait tout le temps de travail. On lit donc les composants UTC,
+ * qui restituent l'heure réellement affichée sur la pointeuse.
+ */
 function horodatageLocal(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
-  // La pointeuse renvoie l'heure locale ; on la garde telle quelle (le
-  // temps de travail se juge à l'heure du centre, pas en UTC).
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 }
 
 console.log(`Connexion à la pointeuse ${IP}:${PORT} (site ${SITE})…`);
@@ -81,7 +88,10 @@ try {
         _idPointeuse: idPointeuse,
       };
     })
-    .filter((p) => p.horodatage && p._idPointeuse);
+    // La lecture renvoie un bloc de mémoire dont la fin est du remplissage :
+    // enregistrements sans agent, horodatés à la date zéro (1999-12-31).
+    // Les retenir créerait des agents fantômes et des journées absurdes.
+    .filter((p) => p._idPointeuse && p.horodatage >= "2020-01-01");
 
   const jours = [...new Set(pointages.map((p) => p.jour))].sort();
   console.log(`Période : ${jours[0] ?? "—"} → ${jours.at(-1) ?? "—"} · ${new Set(pointages.map((p) => p._idPointeuse)).size} agents distincts`);
