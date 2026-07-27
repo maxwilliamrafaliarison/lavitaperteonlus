@@ -10,6 +10,8 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { PanneBanner } from "@/components/layout/panne-banner";
 import { presenceDuJour, type PresenceAgent, type Agent } from "@/lib/pointage/data";
 
+import { BoutonCollecte } from "./bouton-collecte";
+
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Pointage" };
 
@@ -67,6 +69,9 @@ export default async function PointagePage() {
               petit
             />
           </div>
+
+          {/* Collecte directe : réservée à qui gère le pointage. */}
+          {can(session.user.role, "pointage:gerer") && <BoutonCollecte site="REX" />}
 
           <GlassCard className="overflow-hidden p-0">
             <div className="border-b border-glass-border px-5 py-3">
