@@ -62,7 +62,16 @@ export const metadata: Metadata = {
     "Akbaraly Foundation",
   ],
   icons: {
-    icon: "/favicon.svg",
+    // Le SVG passe en premier : les navigateurs qui le gèrent l'utilisent et
+    // restent nets à toute taille. Les PNG servent de repli, notamment pour
+    // l'onglet des versions anciennes et l'écran d'accueil mobile.
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/icons/icon-48.png"],
   },
 };
 
