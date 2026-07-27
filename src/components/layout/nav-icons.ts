@@ -19,6 +19,7 @@ import {
   Fingerprint,
   UserCheck,
   Upload,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   Fingerprint,
   UserCheck,
   Upload,
+  Clock,
 };
 
 export function navIcon(name: string): LucideIcon {

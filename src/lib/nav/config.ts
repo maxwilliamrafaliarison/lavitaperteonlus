@@ -87,6 +87,7 @@ export const APP_NAV: Record<AppKey, AppNav> = {
       { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2" },
       { href: "/pointage/agents", labelKey: "pointage.nav_agents", icon: "Users" },
       { href: "/pointage/corrections", labelKey: "pointage.nav_corrections", icon: "ClipboardList", permission: "pointage:gerer" },
+      { href: "/pointage/creneaux", labelKey: "pointage.nav_creneaux", icon: "Clock", permission: "pointage:gerer" },
       { href: "/pointage/import", labelKey: "pointage.nav_import", icon: "Upload", permission: "pointage:gerer" },
     ],
   },

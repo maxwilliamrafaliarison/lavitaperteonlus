@@ -967,6 +967,7 @@
     "periode": "Période",
     "generer": "Générer le PDF",
     "aucune_donnee": "Aucune donnée sur la période.",
-    "nav_corrections": "Corrections"
+    "nav_corrections": "Corrections",
+    "nav_creneaux": "Créneaux"
   }
 }
