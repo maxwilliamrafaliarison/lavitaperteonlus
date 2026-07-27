@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, FileDown } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
@@ -79,6 +79,17 @@ export default async function EtatsPage({
           </button>
         </form>
       </div>
+
+      {/* Édition à la demande, pour la direction et le service RH. */}
+      <a
+        href={`/api/pointage/rapport-planning?du=${du}&au=${au}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/12 px-4 py-2.5 text-sm font-medium text-accent hover:bg-accent/20 transition-colors"
+      >
+        <FileDown className="size-4" aria-hidden="true" />
+        État planifié / réalisé (PDF)
+      </a>
 
       {totalAnomalies > 0 && (
         <div className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3 text-sm text-warning">
