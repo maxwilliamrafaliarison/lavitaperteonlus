@@ -966,6 +966,7 @@
     "statut_prestataire": "Collaboratore",
     "periode": "Periodo",
     "generer": "Genera il PDF",
-    "aucune_donnee": "Nessun dato nel periodo."
+    "aucune_donnee": "Nessun dato nel periodo.",
+    "nav_corrections": "Correzioni"
   }
 }
