@@ -8,7 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
-import { etatMensuel, type EtatAgentMois } from "@/lib/pointage/data";
+import { etatMensuel, type EtatAgentMois, nomAffiche } from "@/lib/pointage/data";
 import { versHeures } from "@/lib/pointage/calcul";
 
 export const dynamic = "force-dynamic";
@@ -124,9 +124,7 @@ export default async function EtatsPage({
               {etats.map((e) => (
                 <tr key={e.agent.id} className="hover:bg-white/3 transition-colors">
                   <td className="px-5 py-3">
-                    <span className="font-medium">
-                      {e.agent.prenom} {e.agent.nom}
-                    </span>
+                    <span className="font-medium">{nomAffiche(e.agent)}</span>
                     {e.agent.statut === "prestataire" && (
                       <span className="ml-2 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
                         {t("pointage.statut_prestataire")}

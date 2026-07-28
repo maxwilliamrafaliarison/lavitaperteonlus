@@ -66,6 +66,31 @@ export interface Ajustement {
 }
 
 /** Lit une table entière du schéma pointage, en paginant (cap PostgREST 1000). */
+/**
+ * Nom lisible d'un agent, sans répétition.
+ *
+ * Deux champs cohabitent : `prenom` est le prénom usuel enregistré dans la
+ * pointeuse (« Emma »), `nom` l'identité complète issue du registre du
+ * personnel (« RAFENOSOA Emma »). Les concaténer donne « Emma RAFENOSOA
+ * Emma ».
+ *
+ * On ne supprime pas le prénom usuel pour autant : c'est LA clé de
+ * rapprochement avec les badgeages et les plannings, où les gens ne sont
+ * désignés que par lui. Le doublon se règle donc à l'affichage — quand
+ * l'identité complète contient déjà le prénom usuel, elle se suffit.
+ */
+export function nomAffiche(a: Pick<Agent, "prenom" | "nom"> & { id?: string }): string {
+  const prenom = (a.prenom ?? "").trim();
+  const nom = (a.nom ?? "").trim();
+  if (!nom) return prenom || a.id || "";
+  if (!prenom) return nom;
+  // Comparaison insensible à la casse et aux accents : « Hervé » dans
+  // « RAKOTOHAJANIRINA Herve » doit être reconnu.
+  const sansAccents = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const motsDuNom = sansAccents(nom).split(/\s+/);
+  return motsDuNom.includes(sansAccents(prenom)) ? nom : `${prenom} ${nom}`;
+}
+
 async function lireTout<T>(
   table: string,
   ordre: string,

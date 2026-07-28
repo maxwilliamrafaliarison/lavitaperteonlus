@@ -8,7 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
-import { etatMensuel, type EtatAgentMois } from "@/lib/pointage/data";
+import { etatMensuel, type EtatAgentMois, nomAffiche } from "@/lib/pointage/data";
 import { versHeures } from "@/lib/pointage/calcul";
 
 import { CorrectionLigne, BoutonHeuresSup, type AnomalieLigne } from "./correction-form";
@@ -41,7 +41,7 @@ export default async function CorrectionsPage({
   const anomalies: AnomalieLigne[] = [];
   const heuresSup: Array<{ agentId: string; agentNom: string; jour: string; minutes: number }> = [];
   for (const e of res.data) {
-    const nom = `${e.agent.prenom} ${e.agent.nom}`.trim();
+    const nom = nomAffiche(e.agent);
     for (const j of e.journees) {
       if (j.anomalies.length > 0 && !j.ajuste) {
         anomalies.push({

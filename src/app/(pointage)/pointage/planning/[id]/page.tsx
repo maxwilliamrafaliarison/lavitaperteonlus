@@ -8,7 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
 import { GlassCard } from "@/components/glass/glass-card";
 import { BadgeSite } from "@/components/pointage/badge-site";
-import { listAgents, type Agent } from "@/lib/pointage/data";
+import { listAgents, type Agent, nomAffiche } from "@/lib/pointage/data";
 import { listAffectations, listCreneaux, listPlannings, type Planning } from "@/lib/planning/data";
 import { versHeures } from "@/lib/pointage/calcul";
 import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
@@ -51,8 +51,8 @@ export default async function EditionPlanningPage({
   // grille illisible, dont l'essentiel resterait vide.
   const agents = agentsRes.data
     .filter((a) => a.actif && a.site === planning.centre)
-    .sort((a, b) => `${a.prenom} ${a.nom}`.localeCompare(`${b.prenom} ${b.nom}`))
-    .map((a) => ({ id: a.id, nom: `${a.prenom} ${a.nom}`.trim() || a.id, statut: a.statut }));
+    .map((a) => ({ id: a.id, nom: nomAffiche(a), statut: a.statut }))
+    .sort((x, y) => x.nom.localeCompare(y.nom));
 
   const jours: Array<{ date: string; num: string; abrege: string; weekend: boolean }> = [];
   const d = new Date(`${planning.du}T12:00:00Z`);

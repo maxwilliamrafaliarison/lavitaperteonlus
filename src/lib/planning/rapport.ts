@@ -1,4 +1,4 @@
-import { etatMensuel } from "@/lib/pointage/data";
+import { etatMensuel, nomAffiche } from "@/lib/pointage/data";
 import { planifiePourAgents } from "./data";
 import { versHeures } from "@/lib/pointage/calcul";
 
@@ -59,7 +59,7 @@ export async function buildEtatPlanifieRealise(du: string, au: string): Promise<
       const joursPlanifies = p ? [...p.values()].filter((j) => j.minutes > 0).length : 0;
       return {
         agentId: e.agent.id,
-        nom: `${e.agent.prenom} ${e.agent.nom}`.trim() || e.agent.id,
+        nom: nomAffiche(e.agent) || e.agent.id,
         site: e.agent.site,
         statut: e.agent.statut,
         minutesPlanifiees,

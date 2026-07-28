@@ -8,7 +8,7 @@ import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
 import { PanneBanner } from "@/components/layout/panne-banner";
-import { presenceDuJour, type PresenceAgent, type Agent } from "@/lib/pointage/data";
+import { presenceDuJour, type PresenceAgent, type Agent, nomAffiche } from "@/lib/pointage/data";
 
 import { BoutonCollecte } from "./bouton-collecte";
 
@@ -105,9 +105,7 @@ export default async function PointagePage() {
                         <td className="px-5 py-3">
                           <span className="inline-flex items-center gap-2">
                             <span className="size-2 rounded-full bg-accent" aria-hidden="true" />
-                            <span className="font-medium">
-                              {p.agent.prenom} {p.agent.nom}
-                            </span>
+                            <span className="font-medium">{nomAffiche(p.agent)}</span>
                             {p.agent.poste ? (
                               <span className="text-[11px] text-muted-foreground">{p.agent.poste}</span>
                             ) : null}

@@ -8,7 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
-import { listAgents, listHoraires, type Agent, type Horaire } from "@/lib/pointage/data";
+import { listAgents, listHoraires, type Agent, type Horaire, nomAffiche } from "@/lib/pointage/data";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Personnel — Pointage" };
@@ -70,9 +70,7 @@ export default async function AgentsPage() {
               {agents.map((a) => (
                 <tr key={a.id} className="hover:bg-white/3 transition-colors">
                   <td className="px-5 py-3">
-                    <span className="font-medium">
-                      {a.prenom} {a.nom}
-                    </span>
+                    <span className="font-medium">{nomAffiche(a)}</span>
                     <span className="block text-[11px] text-muted-foreground font-mono">{a.id}</span>
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{a.site}</td>

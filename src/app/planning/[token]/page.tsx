@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { planningParToken, listAffectations, listCreneaux, listServices } from "@/lib/planning/data";
-import { listAgents, type Agent } from "@/lib/pointage/data";
+import { listAgents, type Agent, nomAffiche } from "@/lib/pointage/data";
 import { versHeures } from "@/lib/pointage/calcul";
 import { dureeCreneau } from "@/lib/planning/creneau";
 import { formaterDateHeure } from "@/lib/tz";
@@ -59,7 +59,7 @@ export default async function PlanningPublicPage({
   const nomAgent = (id: string) => {
     const a = parAgent.get(id);
     if (!a) return id;
-    return `${a.prenom} ${a.nom}`.trim() || id;
+    return nomAffiche(a) || id;
   };
 
   return (
