@@ -39,7 +39,7 @@ export const FAMILLES: FamilleCreneau[] = [
   { type: "repos", libelle: "Repos, congé, férié", classe: "bg-[oklch(0.85_0_0)] text-[oklch(0.45_0_0)] dark:bg-[oklch(0.32_0_0)] dark:text-[oklch(0.70_0_0)]" },
 ];
 
-const classeDe = (type?: string) =>
+export const classeDe = (type?: string) =>
   FAMILLES.find((f) => f.type === type)?.classe ?? "bg-[oklch(0.75_0_0)] text-[oklch(0.30_0_0)]";
 
 export interface GanttProps {

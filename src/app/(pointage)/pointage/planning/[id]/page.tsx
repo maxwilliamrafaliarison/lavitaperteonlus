@@ -16,6 +16,8 @@ import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
 import { type CreneauOption } from "./grille";
 import { PlanningGantt } from "./gantt";
 import { SelecteurVue, dureeDe, decalerJour, type Vue } from "./selecteur-vue";
+import { PlanningEdt, type BlocEdt } from "./edt";
+import { DupliquerSemaine } from "./dupliquer-semaine";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -34,7 +36,7 @@ export default async function EditionPlanningPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vue?: string; debut?: string }>;
+  searchParams: Promise<{ vue?: string; debut?: string; mode?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -72,6 +74,11 @@ export default async function EditionPlanningPage({
   const finFenetre = decalerJour(debut, dureeDe(vue) - 1);
   const auAffiche = finFenetre > planning.au ? planning.au : finFenetre;
   const densite = vue === "six" ? "minimale" : vue === "mois" ? "compacte" : "large";
+  // Deux représentations (réponse 5) : la grille HORAIRE type EDT pour le
+  // jour et la semaine, les BARRES pour le mois et le semestre — 31 colonnes
+  // d'heures ne se dessinent pas. Le mode vit dans l'URL comme le reste.
+  const edtPossible = vue === "jour" || vue === "semaine";
+  const mode = !edtPossible ? "barres" : sp.mode === "barres" ? "barres" : "edt";
 
   // Onglet de bascule : pour chaque centre, le planning couvrant la période
   // affichée — à défaut le plus proche. La période et l'étendue suivent, si
@@ -130,6 +137,41 @@ export default async function EditionPlanningPage({
       agents: ag,
     }))
     .sort((x, y) => (rangService.get(x.service) ?? 9999) - (rangService.get(y.service) ?? 9999));
+
+  // ── Données de la grille horaire ─────────────────────────────────────────
+  const parCreneauMap = new Map(creneauxRes.data.map((c) => [c.id, c]));
+  const infoAgent = new Map(agents.map((a) => [a.id, a]));
+  const blocsParService: Record<string, BlocEdt[]> = {};
+  const reposParService: Record<string, Array<{ jour: string; agentNom: string; motif: string }>> = {};
+  for (const a of affRes.data) {
+    if (a.jour < debut || a.jour > auAffiche) continue;
+    const agent = infoAgent.get(a.agent_id);
+    if (!agent) continue;
+    const c = parCreneauMap.get(a.creneau_id);
+    if (!c) continue;
+    const sid = parAgentService.get(a.agent_id) ?? a.service_id ?? "";
+    if (c.type === "repos") {
+      (reposParService[sid] ??= []).push({ jour: a.jour, agentNom: agent.nom, motif: c.libelle });
+      continue;
+    }
+    const d0 = a.debut || c.debut;
+    const f0 = a.fin || c.fin;
+    if (!d0 || !f0) continue;
+    // Un horaire libre n'a pas de famille : on la déduit de ses bornes.
+    const type = c.id === "libre" ? (f0 <= d0 ? "garde_nuit" : "journee") : c.type;
+    const base = {
+      affId: a.id, agentId: a.agent_id, agentNom: agent.nom, jour: a.jour,
+      lieu: a.lieu, creneauId: a.creneau_id, surchargeDebut: a.debut, surchargeFin: a.fin,
+    };
+    (blocsParService[sid] ??= []).push({ ...base, debut: d0, fin: f0, type });
+    // Journée coupée : le modèle porte une seconde plage (après-midi).
+    if (!a.debut && c.debut2 && c.fin2) {
+      (blocsParService[sid] ??= []).push({ ...base, debut: c.debut2, fin: c.fin2, type, partie: 2 });
+    }
+  }
+  const tousAgents = agents.map((a) => ({ id: a.id, nom: a.nom }));
+  const semainePrecedente = decalerJour(debut, -7);
+  const peutRecopier = mode === "edt" && vue === "semaine" && semainePrecedente >= planning.du;
 
   const heuresTotal = affRes.data.reduce((s, a) => {
     const c = creneauxRes.data.find((x) => x.id === a.creneau_id);
@@ -191,29 +233,66 @@ export default async function EditionPlanningPage({
         </p>
       </div>
 
-      <SelecteurVue
-        planningId={id}
-        vue={vue}
-        debut={debut}
-        bornes={{ du: planning.du, au: planning.au }}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelecteurVue
+          planningId={id}
+          vue={vue}
+          debut={debut}
+          bornes={{ du: planning.du, au: planning.au }}
+        />
+        <div className="flex items-center gap-2">
+          {peutRecopier && (
+            <DupliquerSemaine planningId={id} source={semainePrecedente} cible={debut} />
+          )}
+          {edtPossible && (
+            <nav className="flex gap-1 rounded-xl border border-glass-border p-1" aria-label="Représentation">
+              {([["edt", "Horaire"], ["barres", "Barres"]] as const).map(([m, l]) => (
+                <Link
+                  key={m}
+                  href={`/pointage/planning/${id}?vue=${vue}&debut=${debut}&mode=${m}`}
+                  aria-current={mode === m ? "page" : undefined}
+                  className={
+                    mode === m
+                      ? "rounded-lg bg-accent/15 px-3 py-1.5 text-xs font-medium text-accent"
+                      : "rounded-lg px-3 py-1.5 text-xs text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                  }
+                >
+                  {l}
+                </Link>
+              ))}
+            </nav>
+          )}
+        </div>
+      </div>
 
       <GlassCard className="p-3">
-        <PlanningGantt
-          planningId={id}
-          jours={jours}
-          groupes={groupes}
-          creneaux={creneaux}
-          affectations={affectations}
-          editable
-          densite={densite}
-        />
+        {mode === "edt" ? (
+          <PlanningEdt
+            planningId={id}
+            editable
+            jours={jours}
+            groupes={groupes}
+            blocs={blocsParService}
+            repos={reposParService}
+            tousAgents={tousAgents}
+          />
+        ) : (
+          <PlanningGantt
+            planningId={id}
+            jours={jours}
+            groupes={groupes}
+            creneaux={creneaux}
+            affectations={affectations}
+            editable
+            densite={densite}
+          />
+        )}
       </GlassCard>
 
       <p className="text-[11px] text-muted-foreground">
-        Chaque modification est enregistrée immédiatement. Choisir « — » retire l&apos;affectation :
-        une cellule vide signifie « non planifié », ce qui n&apos;est pas la même chose
-        qu&apos;un repos — celui-ci se choisit explicitement.
+        Chaque modification est enregistrée immédiatement et reste soumise aux contrôles légaux
+        (repos de 11 h, plafond hebdomadaire). Une cellule vide signifie « non planifié », ce qui
+        n&apos;est pas la même chose qu&apos;un repos — celui-ci se choisit explicitement.
       </p>
     </main>
   );
