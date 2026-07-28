@@ -43,18 +43,22 @@ async function pg(method: string, path: string, body?: unknown) {
 }
 
 /**
- * "2026-07-27T08:11:10.000Z" (Date de zklib) → "2026-07-27 08:11:10".
+ * Horodatage tel qu'AFFICHÉ SUR LA POINTEUSE, en heure des centres.
  *
- * ⚠️ PIÈGE VÉRIFIÉ SUR LA MACHINE : la pointeuse stocke l'heure LOCALE du
- * centre, et node-zklib la restitue dans une Date étiquetée « Z » — un
- * pointage de 8h33 arrive donc en "08:33:43.000Z". Lire cette date avec
- * getHours() la reconvertirait vers le fuseau du poste (+3 h à Madagascar)
- * et décalerait tout le temps de travail. On lit donc les composants UTC,
- * qui restituent l'heure réellement affichée sur la pointeuse.
+ * ⚠️ CORRECTION D'UNE ERREUR COÛTEUSE : ce code lisait auparavant les
+ * composants UTC de la Date rendue par node-zklib, ce qui reculait chaque
+ * badgeage de trois heures — une arrivée à 08h00 était enregistrée à 05h00,
+ * et tout le temps de travail s'en trouvait faussé. La bibliothèque restitue
+ * bien l'INSTANT correct ; il faut donc le formater dans le fuseau des
+ * centres, et non en extraire l'UTC.
+ *
+ * Le fuseau est explicite plutôt que laissé au système : l'agent peut tourner
+ * sur un poste mal réglé, et une heure de pointage ne doit pas dépendre de la
+ * configuration de la machine qui la collecte.
  */
 function horodatageLocal(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+  // "sv-SE" rend nativement le format "YYYY-MM-DD HH:MM:SS".
+  return d.toLocaleString("sv-SE", { timeZone: "Indian/Antananarivo" });
 }
 
 console.log(`Connexion à la pointeuse ${IP}:${PORT} (site ${SITE})…`);
