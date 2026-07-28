@@ -219,6 +219,8 @@ export default async function ProduitPage({
                               month: "short",
                               hour: "2-digit",
                               minute: "2-digit",
+      timeZone: "Indian/Antananarivo",
+
                             },
                           )}
                         </td>

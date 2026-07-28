@@ -389,6 +389,7 @@ function fmtDate(iso?: string): string {
     return new Date(iso).toLocaleString("fr-FR", {
       dateStyle: "short",
       timeStyle: "short",
+      timeZone: "Indian/Antananarivo",
     });
   } catch {
     return iso;

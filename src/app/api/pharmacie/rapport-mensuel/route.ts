@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
     const fin = new Date(now.getFullYear(), now.getMonth(), 0); // jour 0 = dernier du mois préc.
     const from = debut.toISOString().slice(0, 10);
     const to = fin.toISOString().slice(0, 10);
-    const moisLabel = debut.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+    const moisLabel = debut.toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "Indian/Antananarivo", });
 
     const [ventes, produits, params] = await Promise.all([
       buildRapportData("ventes", { from, to }) as Promise<VentesData>,

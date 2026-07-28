@@ -239,6 +239,7 @@ function fmtDayHeader(iso: string, t: TFn, lang: Lang): string {
     if (isYesterday) return t("movements.yesterday");
 
     return d.toLocaleDateString(lang === "it" ? "it-IT" : "fr-FR", {
+      timeZone: "Indian/Antananarivo",
       weekday: "long",
       day: "numeric",
       month: "long",

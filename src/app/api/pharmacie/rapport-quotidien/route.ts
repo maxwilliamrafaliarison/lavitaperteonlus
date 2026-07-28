@@ -127,6 +127,7 @@ export async function GET(req: NextRequest) {
       new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n) +
       " Ar";
     const dateStr = new Date().toLocaleDateString("fr-FR", {
+      timeZone: "Indian/Antananarivo",
       weekday: "long",
       day: "numeric",
       month: "long",

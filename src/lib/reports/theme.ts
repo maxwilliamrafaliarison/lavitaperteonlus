@@ -45,6 +45,9 @@ export function fmtDate(iso: string | undefined, lang: "fr" | "it" = "fr"): stri
       day: "2-digit",
       month: "short",
       year: "numeric",
+      // Les serveurs tournent en UTC : sans fuseau, un document édité à 15h
+      // à Fianarantsoa porterait 12h. Madagascar est à UTC+3 toute l'année.
+      timeZone: "Indian/Antananarivo",
     });
   } catch {
     return iso;
@@ -60,6 +63,7 @@ export function fmtDateTime(iso: string | undefined, lang: "fr" | "it" = "fr"): 
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Indian/Antananarivo",
     });
   } catch {
     return iso;

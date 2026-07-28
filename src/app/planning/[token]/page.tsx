@@ -5,6 +5,7 @@ import { planningParToken, listAffectations, listCreneaux, listServices } from "
 import { listAgents, type Agent } from "@/lib/pointage/data";
 import { versHeures } from "@/lib/pointage/calcul";
 import { dureeCreneau } from "@/lib/planning/creneau";
+import { formaterDateHeure } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ export default async function PlanningPublicPage({
         </p>
         {planning.publie_le && (
           <p className="mt-2 text-xs text-neutral-500">
-            Mis à jour le {planning.publie_le.slice(0, 10)} à {planning.publie_le.slice(11, 16)}
+            Mis à jour le {formaterDateHeure(planning.publie_le)}
           </p>
         )}
       </header>

@@ -247,6 +247,8 @@ function fmtDate(iso: string, lang: Lang): string {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "Indian/Antananarivo",
+
     });
   } catch {
     return iso;
