@@ -10,7 +10,9 @@ export function ThemeToggle({ className }: { className?: string }) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  const isDark = mounted ? theme === "dark" : true;
+  // Avant hydratation, refléter le défaut (clair) : supposer sombre
+  // ferait clignoter l'icône au chargement pour les nouveaux venus.
+  const isDark = mounted ? theme === "dark" : false;
 
   return (
     <button

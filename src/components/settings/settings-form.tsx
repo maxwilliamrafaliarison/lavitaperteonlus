@@ -60,7 +60,7 @@ export function SettingsForm({ user }: Props) {
     }
   }
 
-  const isDark = mounted ? theme === "dark" : true;
+  const isDark = mounted ? theme === "dark" : false;
 
   return (
     <div className="space-y-6 max-w-3xl">

@@ -138,7 +138,10 @@ export default async function RootLayout({
         <SessionProvider>
           <ThemeProvider
             attribute="class"
-            defaultTheme="dark"
+            // Thème CLAIR par défaut (décision du responsable) : c'est ce que
+            // découvre toute personne à sa première connexion. Un choix fait
+            // ensuite via la bascule est conservé par le navigateur et prime.
+            defaultTheme="light"
             enableSystem={false}
             disableTransitionOnChange
           >
