@@ -49,11 +49,20 @@ export interface GanttProps {
   creneaux: CreneauOption[];
   affectations: Record<string, { creneauId: string; debut: string; fin: string; lieu: string }>;
   editable: boolean;
+  /**
+   * Densité d'affichage. Sur six mois, 183 colonnes ne peuvent pas porter le
+   * même détail qu'une semaine : les barres se réduisent à leur couleur, et
+   * l'en-tête ne garde que le numéro de jour. Mieux vaut une vue d'ensemble
+   * lisible qu'un texte illisible répété 183 fois.
+   */
+  densite?: "large" | "compacte" | "minimale";
 }
 
 export function PlanningGantt({
-  planningId, jours, groupes, creneaux, affectations, editable,
+  planningId, jours, groupes, creneaux, affectations, editable, densite = "large",
 }: GanttProps) {
+  const compact = densite !== "large";
+  const mini = densite === "minimale";
   const router = useRouter();
   const [valeurs, setValeurs] = React.useState(affectations);
   const [edition, setEdition] = React.useState<{ agentId: string; jour: string; service: string } | null>(null);
@@ -106,12 +115,19 @@ export function PlanningGantt({
                   key={j.date}
                   scope="col"
                   className={cn(
-                    "min-w-[4.5rem] border-l border-glass-border px-1 py-1.5 text-center",
+                    "border-l border-glass-border py-1.5 text-center",
+                    mini ? "min-w-[1.15rem] px-0" : compact ? "min-w-[2.1rem] px-0.5" : "min-w-[4.5rem] px-1",
                     j.weekend && "bg-black/[0.04] dark:bg-white/[0.04]",
                   )}
                 >
-                  <span className="block text-[10px] capitalize text-muted-foreground">{j.abrege}</span>
-                  <span className="block font-mono text-sm font-medium">{j.num}</span>
+                  {!mini && (
+                    <span className="block text-[10px] capitalize text-muted-foreground">
+                      {compact ? j.abrege.slice(0, 1) : j.abrege}
+                    </span>
+                  )}
+                  <span className={cn("block font-mono font-medium", mini ? "text-[9px]" : "text-sm")}>
+                    {j.num}
+                  </span>
                 </th>
               ))}
             </tr>
@@ -163,12 +179,13 @@ export function PlanningGantt({
                             onClick={() => setEdition({ agentId: a.id, jour: j.date, service: g.service })}
                             title={`${a.nom} · ${j.abrege} ${j.num} · ${c.libelle}${v?.lieu ? ` · ${v.lieu}` : ""}`}
                             className={cn(
-                              "flex h-7 w-full items-center justify-center rounded px-1 text-[10px] font-medium leading-none",
+                              "flex w-full items-center justify-center rounded font-medium leading-none",
+                              mini ? "h-5" : compact ? "h-6" : "h-7 px-1 text-[10px]",
                               classeDe(c.type),
                               editable && "cursor-pointer hover:brightness-110",
                             )}
                           >
-                            {c.type === "repos" ? "—" : (v?.debut || c.debut || "").slice(0, 5)}
+                            {compact ? "" : c.type === "repos" ? "—" : (v?.debut || c.debut || "").slice(0, 5)}
                           </button>
                         ) : (
                           <button
@@ -177,11 +194,12 @@ export function PlanningGantt({
                             onClick={() => setEdition({ agentId: a.id, jour: j.date, service: g.service })}
                             aria-label={`Affecter ${a.nom} le ${j.abrege} ${j.num}`}
                             className={cn(
-                              "h-7 w-full rounded text-muted-foreground/40",
+                              "w-full rounded text-muted-foreground/40",
+                              mini ? "h-5" : compact ? "h-6" : "h-7",
                               editable && "hover:bg-accent/10 hover:text-accent",
                             )}
                           >
-                            {editable ? <Pencil className="mx-auto size-3" aria-hidden="true" /> : ""}
+                            {editable && !compact ? <Pencil className="mx-auto size-3" aria-hidden="true" /> : ""}
                           </button>
                         )}
 

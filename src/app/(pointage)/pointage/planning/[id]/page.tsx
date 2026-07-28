@@ -15,6 +15,7 @@ import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
 
 import { type CreneauOption } from "./grille";
 import { PlanningGantt } from "./gantt";
+import { SelecteurVue, dureeDe, decalerJour, type Vue } from "./selecteur-vue";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -30,8 +31,10 @@ function court(c: Creneau): string {
 
 export default async function EditionPlanningPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ vue?: string; debut?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -56,10 +59,24 @@ export default async function EditionPlanningPage({
     .map((a) => ({ id: a.id, nom: nomAffiche(a), statut: a.statut }))
     .sort((x, y) => x.nom.localeCompare(y.nom));
 
+  // Fenêtre affichée : l'étendue et son point de départ vivent dans l'URL,
+  // ce qui rend chaque vue partageable et navigable avec les flèches du
+  // navigateur.
+  const sp = await searchParams;
+  const VUES_OK = ["jour", "semaine", "mois", "six"];
+  const vue = (VUES_OK.includes(sp.vue ?? "") ? sp.vue : "mois") as Vue;
+  const debut =
+    /^\d{4}-\d{2}-\d{2}$/.test(sp.debut ?? "") && sp.debut! >= planning.du && sp.debut! <= planning.au
+      ? sp.debut!
+      : planning.du;
+  const finFenetre = decalerJour(debut, dureeDe(vue) - 1);
+  const auAffiche = finFenetre > planning.au ? planning.au : finFenetre;
+  const densite = vue === "six" ? "minimale" : vue === "mois" ? "compacte" : "large";
+
   const jours: Array<{ date: string; num: string; abrege: string; weekend: boolean }> = [];
-  const d = new Date(`${planning.du}T12:00:00Z`);
-  const fin = new Date(`${planning.au}T12:00:00Z`);
-  while (d <= fin && jours.length < 62) {
+  const d = new Date(`${debut}T12:00:00Z`);
+  const fin = new Date(`${auAffiche}T12:00:00Z`);
+  while (d <= fin && jours.length < 200) {
     const date = d.toISOString().slice(0, 10);
     const jsem = d.getUTCDay();
     jours.push({
@@ -77,6 +94,7 @@ export default async function EditionPlanningPage({
 
   const affectations: Record<string, { creneauId: string; debut: string; fin: string; lieu: string }> = {};
   for (const a of affRes.data) {
+    if (a.jour < debut || a.jour > auAffiche) continue;
     affectations[`${a.agent_id}|${a.jour}`] = {
       creneauId: a.creneau_id, debut: a.debut, fin: a.fin, lieu: a.lieu,
     };
@@ -123,10 +141,20 @@ export default async function EditionPlanningPage({
           </h1>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          {planning.du} → {planning.au} · {agents.length} agents · {jours.length} jours ·{" "}
-          {affRes.data.length} affectations ({versHeures(heuresTotal)})
+          Affiché : {debut} → {auAffiche} · {jours.length} jours · {agents.length} agents
+          <span className="text-muted-foreground/70">
+            {" "}· planning complet {planning.du} → {planning.au}, {affRes.data.length} affectations
+            ({versHeures(heuresTotal)})
+          </span>
         </p>
       </div>
+
+      <SelecteurVue
+        planningId={id}
+        vue={vue}
+        debut={debut}
+        bornes={{ du: planning.du, au: planning.au }}
+      />
 
       <GlassCard className="p-3">
         <PlanningGantt
@@ -136,6 +164,7 @@ export default async function EditionPlanningPage({
           creneaux={creneaux}
           affectations={affectations}
           editable
+          densite={densite}
         />
       </GlassCard>
 
