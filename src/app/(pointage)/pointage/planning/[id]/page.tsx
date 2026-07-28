@@ -150,8 +150,12 @@ export default async function EditionPlanningPage({
     const c = parCreneauMap.get(a.creneau_id);
     if (!c) continue;
     const sid = parAgentService.get(a.agent_id) ?? a.service_id ?? "";
+    // Sans service (MIARAKA planifie par personne), les blocs se rattachent
+    // à la section de l'AGENT — une grille fourre-tout de 17 personnes sur
+    // 24 h ne se lit pas.
+    const cle = sid || `ag:${a.agent_id}`;
     if (c.type === "repos") {
-      (reposParService[sid] ??= []).push({ jour: a.jour, agentNom: agent.nom, motif: c.libelle });
+      (reposParService[cle] ??= []).push({ jour: a.jour, agentNom: agent.nom, motif: c.libelle });
       continue;
     }
     const d0 = a.debut || c.debut;
@@ -163,12 +167,26 @@ export default async function EditionPlanningPage({
       affId: a.id, agentId: a.agent_id, agentNom: agent.nom, jour: a.jour,
       lieu: a.lieu, creneauId: a.creneau_id, surchargeDebut: a.debut, surchargeFin: a.fin,
     };
-    (blocsParService[sid] ??= []).push({ ...base, debut: d0, fin: f0, type });
+    (blocsParService[cle] ??= []).push({ ...base, debut: d0, fin: f0, type });
     // Journée coupée : le modèle porte une seconde plage (après-midi).
     if (!a.debut && c.debut2 && c.fin2) {
-      (blocsParService[sid] ??= []).push({ ...base, debut: c.debut2, fin: c.fin2, type, partie: 2 });
+      (blocsParService[cle] ??= []).push({ ...base, debut: c.debut2, fin: c.fin2, type, partie: 2 });
     }
   }
+  // Sections de la grille horaire : les services d'abord, puis UNE SECTION
+  // PAR PERSONNE pour les agents sans service — chacune avec sa propre
+  // amplitude (le gardien vit sur 24 h, l'administratif sur 7h-17h).
+  const groupesEdt = [
+    ...groupes
+      .filter((g) => g.service)
+      .map((g) => ({ cle: g.service, service: g.service, libelle: g.libelle, agents: g.agents })),
+    ...groupes
+      .filter((g) => !g.service)
+      .flatMap((g) => g.agents)
+      .sort((x, y) => x.nom.localeCompare(y.nom))
+      .map((a) => ({ cle: `ag:${a.id}`, service: "", libelle: a.nom, agents: [a] })),
+  ];
+
   const tousAgents = agents.map((a) => ({ id: a.id, nom: a.nom }));
   const semainePrecedente = decalerJour(debut, -7);
   const peutRecopier = mode === "edt" && vue === "semaine" && semainePrecedente >= planning.du;
@@ -271,7 +289,7 @@ export default async function EditionPlanningPage({
             planningId={id}
             editable
             jours={jours}
-            groupes={groupes}
+            groupes={groupesEdt}
             blocs={blocsParService}
             repos={reposParService}
             tousAgents={tousAgents}

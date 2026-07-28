@@ -53,6 +53,10 @@ export interface BlocEdt {
 }
 
 export interface GroupeEdt {
+  /** Clé de rattachement des blocs : l'identifiant du service, ou
+   *  « ag:<id> » quand la section représente UNE personne (MIARAKA, qui
+   *  planifie par agent et non par poste). */
+  cle: string;
   service: string;
   libelle: string;
   agents: Array<{ id: string; nom: string; statut: string }>;
@@ -172,11 +176,11 @@ export function PlanningEdt({ planningId, editable, jours, groupes, blocs, repos
       <Legende />
       {groupes.map((g) => (
         <GrilleService
-          key={g.service}
+          key={g.cle}
           groupe={g}
           jours={jours}
-          segments={segmenter(blocs[g.service] ?? [], joursVisibles)}
-          repos={repos[g.service] ?? []}
+          segments={segmenter(blocs[g.cle] ?? [], joursVisibles)}
+          repos={repos[g.cle] ?? []}
           editable={editable}
           onCreer={(jour, dMin, fMin) =>
             setModale({ mode: "creer", service: g.service, jour, debut: hhmm(dMin), fin: hhmm(fMin) })
