@@ -10,7 +10,16 @@ import { GlassButton } from "@/components/glass/glass-button";
 import { BadgeSite } from "@/components/pointage/badge-site";
 import { cn } from "@/lib/utils";
 
-import { creerPlanningAction, publierPlanningAction, revoquerLienAction } from "./actions";
+import { libelleStatut } from "@/lib/planning/validation";
+
+import {
+  creerPlanningAction,
+  publierPlanningAction,
+  revoquerLienAction,
+  soumettreValidationAction,
+  validerPlanningAction,
+  renvoyerBrouillonAction,
+} from "./actions";
 
 export interface PlanningLigne {
   id: string;
@@ -21,6 +30,7 @@ export interface PlanningLigne {
   statut: string;
   token: string;
   publieLe: string;
+  note: string;
   nbAffectations: number;
 }
 
@@ -91,21 +101,38 @@ export function NouveauPlanning() {
 }
 
 /** Ligne de planning : publication, lien de consultation, révocation. */
-export function PlanningRow({ p, origine }: { p: PlanningLigne; origine: string }) {
+export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; origine: string; validateur: boolean }) {
   const router = useRouter();
-  const [loading, setLoading] = React.useState<"" | "publier" | "revoquer">("");
+  const [loading, setLoading] = React.useState<"" | "publier" | "revoquer" | "soumettre" | "valider" | "renvoyer">("");
   const [copie, setCopie] = React.useState(false);
   const lien = p.token ? `${origine}/planning/${p.token}` : "";
 
-  async function agir(quoi: "publier" | "revoquer") {
+  async function agir(quoi: "publier" | "revoquer" | "soumettre" | "valider" | "renvoyer") {
     setLoading(quoi);
     try {
       const fd = new FormData();
       fd.set("id", p.id);
-      if (quoi === "publier") fd.set("token", p.token);
-      const r = quoi === "publier" ? await publierPlanningAction(fd) : await revoquerLienAction(fd);
+      if (quoi === "publier" || quoi === "valider") fd.set("token", p.token);
+      if (quoi === "renvoyer") {
+        const motif = window.prompt("Motif du renvoi en brouillon (transmis au préparateur) :") ?? "";
+        fd.set("motif", motif);
+      }
+      const actions = {
+        publier: publierPlanningAction,
+        revoquer: revoquerLienAction,
+        soumettre: soumettreValidationAction,
+        valider: validerPlanningAction,
+        renvoyer: renvoyerBrouillonAction,
+      } as const;
+      const r = await actions[quoi](fd);
       if (r.ok) {
-        toast.success(quoi === "publier" ? "Planning publié" : "Lien révoqué");
+        toast.success(
+          quoi === "publier" ? "Planning publié"
+          : quoi === "revoquer" ? "Lien révoqué"
+          : quoi === "soumettre" ? "Soumis à la validation de la direction"
+          : quoi === "valider" ? "Validé et publié — le personnel peut consulter"
+          : "Renvoyé en brouillon",
+        );
         router.refresh();
       } else {
         toast.error("Refusé", { description: r.error });
@@ -133,10 +160,12 @@ export function PlanningRow({ p, origine }: { p: PlanningLigne; origine: string 
                 "rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
                 p.statut === "publie"
                   ? "border-accent/40 bg-accent/12 text-accent"
-                  : "border-glass-border text-muted-foreground",
+                  : p.statut === "a_valider"
+                    ? "border-warning/40 bg-warning/10 text-warning"
+                    : "border-glass-border text-muted-foreground",
               )}
             >
-              {p.statut === "publie" ? "Publié" : "Brouillon"}
+              {libelleStatut(p.statut)}
             </span>
           </div>
           <h3 className="mt-1.5 font-display text-base font-semibold">{p.libelle}</h3>
@@ -144,6 +173,7 @@ export function PlanningRow({ p, origine }: { p: PlanningLigne; origine: string 
             {p.du} → {p.au} · {p.nbAffectations} affectation(s)
             {p.publieLe && ` · publié le ${p.publieLe.slice(0, 10)}`}
           </p>
+          {p.note && <p className="mt-0.5 text-[11px] italic text-muted-foreground">{p.note}</p>}
         </div>
         <div className="flex gap-2">
           <a
@@ -153,10 +183,40 @@ export function PlanningRow({ p, origine }: { p: PlanningLigne; origine: string 
             <Pencil className="size-3.5" aria-hidden="true" />
             Éditer
           </a>
-          <GlassButton type="button" size="sm" variant={p.statut === "publie" ? "ghost" : "brand"} onClick={() => agir("publier")} disabled={loading !== ""}>
-            {loading === "publier" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
-            {p.statut === "publie" ? "Republier" : "Publier"}
-          </GlassButton>
+          {/* Circuit : le préparateur SOUMET ; la direction VALIDE et publie. */}
+          {p.statut !== "publie" && p.statut !== "a_valider" && !validateur && (
+            <GlassButton type="button" size="sm" variant="brand" onClick={() => agir("soumettre")} disabled={loading !== ""}>
+              {loading === "soumettre" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
+              Soumettre à validation
+            </GlassButton>
+          )}
+          {p.statut === "a_valider" && !validateur && (
+            <span className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs text-warning">
+              En attente de validation — Dr Elisa SALA
+            </span>
+          )}
+          {p.statut === "a_valider" && validateur && (
+            <>
+              <GlassButton type="button" size="sm" variant="brand" onClick={() => agir("valider")} disabled={loading !== ""}>
+                {loading === "valider" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}
+                Valider et publier
+              </GlassButton>
+              <button
+                type="button"
+                onClick={() => agir("renvoyer")}
+                disabled={loading !== ""}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-glass-border px-3 text-xs text-muted-foreground hover:bg-white/5 transition-colors"
+              >
+                Renvoyer en brouillon
+              </button>
+            </>
+          )}
+          {validateur && p.statut !== "a_valider" && (
+            <GlassButton type="button" size="sm" variant={p.statut === "publie" ? "ghost" : "brand"} onClick={() => agir("publier")} disabled={loading !== ""}>
+              {loading === "publier" ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
+              {p.statut === "publie" ? "Republier" : "Publier"}
+            </GlassButton>
+          )}
           {p.token && (
             <button
               type="button"

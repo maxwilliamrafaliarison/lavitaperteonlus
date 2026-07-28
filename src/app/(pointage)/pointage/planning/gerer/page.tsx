@@ -10,6 +10,7 @@ import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
 import { listPlannings, listAffectations, type Planning } from "@/lib/planning/data";
+import { estValidateur } from "@/lib/planning/validation";
 
 import { NouveauPlanning, PlanningRow, type PlanningLigne } from "../planning-client";
 
@@ -45,6 +46,7 @@ export default async function PlanningPage({
         statut: p.statut,
         token: p.token_public,
         publieLe: p.publie_le,
+        note: p.note,
         nbAffectations: aff.data.length,
       };
     }),
@@ -111,7 +113,7 @@ export default async function PlanningPage({
       ) : (
         <div className="space-y-4">
           {lignes.map((p) => (
-            <PlanningRow key={p.id} p={p} origine={origine} />
+            <PlanningRow key={p.id} p={p} origine={origine} validateur={estValidateur(session.user.role, session.user.email)} />
           ))}
         </div>
       )}

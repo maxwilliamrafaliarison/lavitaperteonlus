@@ -16,9 +16,9 @@ import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
 import { type CreneauOption } from "./grille";
 import { PlanningGantt } from "./gantt";
 import { SelecteurVue, dureeDe, decalerJour, type Vue } from "./selecteur-vue";
-import { PlanningEdt, type BlocEdt } from "./edt";
+import { type BlocEdt } from "./edt";
 import { DupliquerSemaine } from "./dupliquer-semaine";
-import { FiltreAgent } from "./filtre-agent";
+import { EdtSolo } from "./edt-solo";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -179,12 +179,6 @@ export default async function EditionPlanningPage({
   // affectations créées depuis sa section.
   const agentChoisi = /^AG-[A-Z]+-\d+$/.test(sp.agent ?? "") ? sp.agent! : "";
   const groupesEdt = agents
-    .filter((a) =>
-      agentChoisi
-        ? a.id === agentChoisi
-        : (blocsParService[`ag:${a.id}`]?.length ?? 0) > 0 ||
-          (reposParService[`ag:${a.id}`]?.length ?? 0) > 0,
-    )
     .map((a) => {
       const sid = parAgentService.get(a.id) ?? "";
       const svc = sid ? libelleService.get(sid) : "";
@@ -269,15 +263,6 @@ export default async function EditionPlanningPage({
           bornes={{ du: planning.du, au: planning.au }}
         />
         <div className="flex flex-wrap items-center gap-2">
-          {mode === "edt" && (
-            <FiltreAgent
-              planningId={id}
-              vue={vue}
-              debut={debut}
-              agents={tousAgents}
-              selection={agentChoisi}
-            />
-          )}
           {peutRecopier && (
             <DupliquerSemaine planningId={id} source={semainePrecedente} cible={debut} />
           )}
@@ -304,7 +289,7 @@ export default async function EditionPlanningPage({
 
       <GlassCard className="p-3">
         {mode === "edt" ? (
-          <PlanningEdt
+          <EdtSolo
             planningId={id}
             editable
             jours={jours}
@@ -312,6 +297,7 @@ export default async function EditionPlanningPage({
             blocs={blocsParService}
             repos={reposParService}
             tousAgents={tousAgents}
+            selectionInitiale={agentChoisi}
           />
         ) : (
           <PlanningGantt

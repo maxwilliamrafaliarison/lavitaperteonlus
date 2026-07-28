@@ -5,7 +5,32 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { sbInsert, sbUpdate, sbDelete, sbSelect } from "@/lib/supabase-server";
+import { estValidateur } from "@/lib/planning/validation";
 import { listCreneaux, verifierSeuilsAgent } from "./verif";
+
+/**
+ * Un planning PUBLIÉ est visible du personnel en direct : le modifier sans
+ * repasser par la validation contournerait le circuit. Les non-validateurs
+ * doivent donc le faire repasser en brouillon (via la direction) avant
+ * d'éditer ; la direction, elle, édite en connaissance de cause.
+ */
+async function editionAutorisee(
+  planningId: string,
+  role: string | undefined,
+  email: string | null | undefined,
+): Promise<string | null> {
+  if (estValidateur(role, email)) return null;
+  const { rows } = await sbSelect<{ statut: string }>("planning", "plannings", {
+    select: "statut",
+    order: "id.asc",
+    limit: 1,
+    filters: { id: `eq.${planningId}` },
+  });
+  if (rows[0]?.statut === "publie") {
+    return "Ce planning est publié : toute modification doit repasser par la validation de la direction (demandez son renvoi en brouillon).";
+  }
+  return null;
+}
 
 export type AffecterResult =
   | { ok: true; supprime?: boolean; alertes: string[] }
@@ -45,6 +70,9 @@ export async function affecterAction(formData: FormData): Promise<AffecterResult
   if (!planningId || !agentId || !/^\d{4}-\d{2}-\d{2}$/.test(jour)) {
     return { ok: false, error: "Paramètres incomplets." };
   }
+
+  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
+  if (verrou) return { ok: false, error: verrou };
 
   const id = `AFF-${planningId}-${jour.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
 
@@ -123,6 +151,9 @@ export async function deplacerAffectationAction(formData: FormData): Promise<Aff
     return { ok: false, error: "Heure invalide : attendu HH:MM." };
   }
 
+  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
+  if (verrou) return { ok: false, error: verrou };
+
   const idAvant = `AFF-${planningId}-${jourAvant.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
   const idApres = `AFF-${planningId}-${jour.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
   try {
@@ -163,6 +194,9 @@ export async function dupliquerSemaineAction(formData: FormData): Promise<
   if (!planningId || !DATE.test(source) || !DATE.test(cible) || source === cible) {
     return { ok: false, error: "Paramètres incomplets." };
   }
+
+  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
+  if (verrou) return { ok: false, error: verrou };
 
   const decale = (j: string, n: number) => {
     const d = new Date(`${j}T12:00:00Z`);

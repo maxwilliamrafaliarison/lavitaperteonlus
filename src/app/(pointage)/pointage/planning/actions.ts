@@ -5,10 +5,12 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { creerPlanning, majPlanning, genererToken } from "@/lib/planning/data";
+import { estValidateur } from "@/lib/planning/validation";
 
 export type PlanningResult = { ok: true; id: string; token?: string } | { ok: false; error: string };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 
 /** Crée un planning (brouillon) pour un centre et une période. */
 export async function creerPlanningAction(formData: FormData): Promise<PlanningResult> {
@@ -70,6 +72,12 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
   if (!can(session.user.role, "planning:gerer")) {
     return { ok: false, error: "Votre rôle ne permet pas de publier un planning." };
   }
+  if (!estValidateur(session.user.role, session.user.email)) {
+    return {
+      ok: false,
+      error: "La publication requiert la validation de la direction : utilisez « Soumettre à validation ».",
+    };
+  }
 
   const id = String(formData.get("id") ?? "").trim();
   const tokenExistant = String(formData.get("token") ?? "").trim();
@@ -89,6 +97,87 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
     return { ok: true, id, token };
   } catch (e) {
     return { ok: false, error: `Publication impossible : ${String(e).slice(0, 150)}` };
+  }
+}
+
+/** Soumet un brouillon à la validation de la direction. */
+export async function soumettreValidationAction(formData: FormData): Promise<PlanningResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  if (!can(session.user.role, "planning:gerer")) {
+    return { ok: false, error: "Votre rôle ne permet pas de soumettre un planning." };
+  }
+  const id = String(formData.get("id") ?? "").trim();
+  if (!id) return { ok: false, error: "Planning inconnu." };
+  const maintenant = new Date().toISOString();
+  try {
+    await majPlanning(id, {
+      statut: "a_valider",
+      modifie_par: session.user.email ?? "",
+      modifie_le: maintenant,
+      note: `Soumis à validation par ${session.user.email ?? "?"} le ${maintenant.slice(0, 16).replace("T", " ")}`,
+    });
+    revalidatePath("/pointage/planning");
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: `Soumission impossible : ${String(e).slice(0, 150)}` };
+  }
+}
+
+/**
+ * Valide un planning soumis et le PUBLIE dans le même geste : une validation
+ * qui ne publierait pas obligerait la validatrice à deux clics pour un seul
+ * acte, et laisserait exister un état « validé mais invisible » ambigu.
+ */
+export async function validerPlanningAction(formData: FormData): Promise<PlanningResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  if (!estValidateur(session.user.role, session.user.email)) {
+    return { ok: false, error: "Seule la direction désignée peut valider un planning." };
+  }
+  const id = String(formData.get("id") ?? "").trim();
+  const tokenExistant = String(formData.get("token") ?? "").trim();
+  if (!id) return { ok: false, error: "Planning inconnu." };
+  const token = /^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : genererToken();
+  const maintenant = new Date().toISOString();
+  try {
+    await majPlanning(id, {
+      statut: "publie",
+      token_public: token,
+      publie_par: session.user.email ?? "",
+      publie_le: maintenant,
+      modifie_le: maintenant,
+      note: `Validé par ${session.user.email ?? "?"} le ${maintenant.slice(0, 16).replace("T", " ")}`,
+    });
+    revalidatePath("/pointage/planning");
+    return { ok: true, id, token };
+  } catch (e) {
+    return { ok: false, error: `Validation impossible : ${String(e).slice(0, 150)}` };
+  }
+}
+
+/** Renvoie un planning soumis en brouillon, avec le motif du refus. */
+export async function renvoyerBrouillonAction(formData: FormData): Promise<PlanningResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  if (!estValidateur(session.user.role, session.user.email)) {
+    return { ok: false, error: "Seule la direction désignée peut renvoyer un planning." };
+  }
+  const id = String(formData.get("id") ?? "").trim();
+  const motif = String(formData.get("motif") ?? "").trim();
+  if (!id) return { ok: false, error: "Planning inconnu." };
+  const maintenant = new Date().toISOString();
+  try {
+    await majPlanning(id, {
+      statut: "brouillon",
+      modifie_par: session.user.email ?? "",
+      modifie_le: maintenant,
+      note: `Renvoyé en brouillon par ${session.user.email ?? "?"}${motif ? ` — ${motif}` : ""}`,
+    });
+    revalidatePath("/pointage/planning");
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: `Renvoi impossible : ${String(e).slice(0, 150)}` };
   }
 }
 
