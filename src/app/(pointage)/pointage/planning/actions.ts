@@ -5,9 +5,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { creerPlanning, majPlanning, genererToken } from "@/lib/planning/data";
-import { estValidateur } from "@/lib/planning/validation";
+import { estValidateur, VALIDATEURS } from "@/lib/planning/validation";
+import { envoyerMail } from "@/lib/mail";
 
-export type PlanningResult = { ok: true; id: string; token?: string } | { ok: false; error: string };
+export type PlanningResult = { ok: true; id: string; token?: string; avertissement?: string } | { ok: false; error: string };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -118,7 +119,34 @@ export async function soumettreValidationAction(formData: FormData): Promise<Pla
       note: `Soumis à validation par ${session.user.email ?? "?"} le ${maintenant.slice(0, 16).replace("T", " ")}`,
     });
     revalidatePath("/pointage/planning");
-    return { ok: true, id };
+
+    // La validatrice est prévenue par courriel. L'échec d'envoi ne remet pas
+    // en cause la soumission — le planning EST soumis ; on le signale
+    // simplement au préparateur pour qu'il prévienne autrement.
+    const courriel = await envoyerMail({
+      destinataires: VALIDATEURS,
+      sujet: `Planning à valider — ${id}`,
+      expediteurLabel: "Planning — La Vita Per Te",
+      html: `
+        <p>Bonjour,</p>
+        <p><strong>${session.user.name ?? session.user.email ?? "Le responsable administratif"}</strong>
+        vient de soumettre un planning à votre validation :</p>
+        <p style="margin:12px 0;padding:10px 14px;border-left:3px solid #E30613;background:#f7f7f7">
+          <strong>${id}</strong><br/>
+          Soumis le ${maintenant.slice(0, 16).replace("T", " ")} (UTC)
+        </p>
+        <p>Pour l'examiner puis le valider ou le renvoyer :<br/>
+        <a href="https://lavitaperteonlus.vercel.app/pointage/planning/gerer">Gérer les plannings</a></p>
+        <p style="color:#777;font-size:12px">Message automatique — le planning n'est visible du personnel
+        qu'après votre validation.</p>`,
+    });
+    return {
+      ok: true,
+      id,
+      avertissement: courriel.envoye
+        ? undefined
+        : `Soumis, mais la notification à la direction n'est pas partie (${courriel.detail}) — prévenez-la autrement.`,
+    };
   } catch (e) {
     return { ok: false, error: `Soumission impossible : ${String(e).slice(0, 150)}` };
   }

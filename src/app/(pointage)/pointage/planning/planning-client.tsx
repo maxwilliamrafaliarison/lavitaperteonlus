@@ -126,6 +126,9 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
       } as const;
       const r = await actions[quoi](fd);
       if (r.ok) {
+        if ("avertissement" in r && r.avertissement) {
+          toast.warning("Notification non envoyée", { description: r.avertissement, duration: 10000 });
+        }
         toast.success(
           quoi === "publier" ? "Planning publié"
           : quoi === "revoquer" ? "Lien révoqué"
