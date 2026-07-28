@@ -10,7 +10,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { PanneBanner } from "@/components/layout/panne-banner";
 import { presenceDuJour, type PresenceAgent, type Agent, nomAffiche } from "@/lib/pointage/data";
 
-import { BoutonCollecte } from "./bouton-collecte";
+import { BoutonCollecte, ImportMiaraka } from "./bouton-collecte";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Pointage" };
@@ -76,7 +76,7 @@ export default async function PointagePage() {
           {can(session.user.role, "pointage:gerer") && (
             <div className="grid gap-4 sm:grid-cols-2">
               <BoutonCollecte site="REX" />
-              <BoutonCollecte site="MIARAKA" />
+              <ImportMiaraka />
             </div>
           )}
 

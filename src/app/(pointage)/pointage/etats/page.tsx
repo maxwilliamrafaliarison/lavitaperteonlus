@@ -124,7 +124,7 @@ export default async function EtatsPage({
               {etats.map((e) => (
                 <tr key={e.agent.id} className="hover:bg-white/3 transition-colors">
                   <td className="px-5 py-3">
-                    <span className="font-medium">{nomAffiche(e.agent)}</span>
+                    <Link href={`/pointage/agents/${e.agent.id}?mois=${mois}`} className="font-medium hover:text-accent transition-colors">{nomAffiche(e.agent)}</Link>
                     {e.agent.statut === "prestataire" && (
                       <span className="ml-2 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent">
                         {t("pointage.statut_prestataire")}

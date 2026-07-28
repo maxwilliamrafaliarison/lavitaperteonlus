@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, DownloadCloud, WifiOff, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, DownloadCloud, WifiOff, CheckCircle2, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 
 import { GlassButton } from "@/components/glass/glass-button";
@@ -24,6 +25,36 @@ import { cn } from "@/lib/utils";
 const AGENT = "http://localhost:7331";
 
 type Etat = "repos" | "test" | "collecte";
+
+/**
+ * MIARAKA n'est pas joignable par le réseau : ses pointages arrivent par
+ * fichier, comme auparavant. Plutôt qu'un bouton de collecte qui échouerait
+ * toujours, on renvoie directement vers l'import — dire « impossible » sans
+ * indiquer la voie praticable ferait perdre du temps à chaque tentative.
+ */
+export function ImportMiaraka() {
+  return (
+    <div className="space-y-2">
+      <Link
+        href="/pointage/import?site=MIARAKA"
+        className={cn(
+          "inline-flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-medium",
+          "border border-glass-border hover:bg-white/5 transition-colors",
+        )}
+      >
+        <FileSpreadsheet className="size-4" aria-hidden="true" />
+        Importer un fichier — MIARAKA
+      </Link>
+      <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+        <WifiOff className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+        <span>
+          La pointeuse de MIARAKA n&apos;est pas accessible par le réseau : exportez ses
+          pointages depuis ZKAccess, puis déposez le fichier ici.
+        </span>
+      </p>
+    </div>
+  );
+}
 
 export function BoutonCollecte({ site = "REX" }: { site?: string }) {
   const router = useRouter();

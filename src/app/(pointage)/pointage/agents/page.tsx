@@ -70,7 +70,12 @@ export default async function AgentsPage() {
               {agents.map((a) => (
                 <tr key={a.id} className="hover:bg-white/3 transition-colors">
                   <td className="px-5 py-3">
-                    <span className="font-medium">{nomAffiche(a)}</span>
+                    <Link
+                      href={`/pointage/agents/${a.id}`}
+                      className="font-medium hover:text-accent transition-colors"
+                    >
+                      {nomAffiche(a)}
+                    </Link>
                     <span className="block text-[11px] text-muted-foreground font-mono">{a.id}</span>
                   </td>
                   <td className="px-5 py-3 text-muted-foreground">{a.site}</td>
@@ -99,9 +104,8 @@ export default async function AgentsPage() {
       </GlassCard>
 
       <p className="text-[11px] text-muted-foreground">
-        Les agents créés automatiquement à l&apos;import portent le prénom enregistré dans la
-        pointeuse ; complétez leur nom, poste et modèle d&apos;horaire pour des états mensuels
-        exacts.
+        Cliquez sur un nom pour ouvrir sa fiche : emploi du temps de la semaine, heures
+        prévues et réalisées, anomalies de badgeage.
       </p>
     </main>
   );
