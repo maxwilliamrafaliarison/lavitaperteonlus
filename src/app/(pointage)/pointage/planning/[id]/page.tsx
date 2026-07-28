@@ -9,11 +9,12 @@ import { safe } from "@/lib/sheets/safe";
 import { GlassCard } from "@/components/glass/glass-card";
 import { BadgeSite } from "@/components/pointage/badge-site";
 import { listAgents, type Agent, nomAffiche } from "@/lib/pointage/data";
-import { listAffectations, listCreneaux, listPlannings, type Planning } from "@/lib/planning/data";
+import { listAffectations, listCreneaux, listPlannings, listServices, type Planning } from "@/lib/planning/data";
 import { versHeures } from "@/lib/pointage/calcul";
 import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
 
-import { GrillePlanning, LegendeGrille, type CreneauOption } from "./grille";
+import { type CreneauOption } from "./grille";
+import { PlanningGantt } from "./gantt";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -41,10 +42,11 @@ export default async function EditionPlanningPage({
   const planning = plannings.data.find((p) => p.id === id);
   if (!planning) notFound();
 
-  const [agentsRes, creneauxRes, affRes] = await Promise.all([
+  const [agentsRes, creneauxRes, affRes, servicesRes] = await Promise.all([
     safe<Agent[]>(() => listAgents(), []),
     safe<Creneau[]>(() => listCreneaux(), []),
     safe(() => listAffectations(id), []),
+    safe(() => listServices(), []),
   ]);
 
   // Seuls les agents du centre concerné : afficher les 66 agents ferait une
@@ -71,10 +73,33 @@ export default async function EditionPlanningPage({
 
   const creneaux: CreneauOption[] = creneauxRes.data
     // Le catalogue est déjà filtré côté base ; on garde tous les modèles.
-    .map((c) => ({ id: c.id, libelle: c.libelle, type: c.type, court: court(c) }));
+    .map((c) => ({ id: c.id, libelle: c.libelle, type: c.type, court: court(c), debut: c.debut, fin: c.fin }));
 
-  const affectations: Record<string, string> = {};
-  for (const a of affRes.data) affectations[`${a.agent_id}|${a.jour}`] = a.creneau_id;
+  const affectations: Record<string, { creneauId: string; debut: string; fin: string; lieu: string }> = {};
+  for (const a of affRes.data) {
+    affectations[`${a.agent_id}|${a.jour}`] = {
+      creneauId: a.creneau_id, debut: a.debut, fin: a.fin, lieu: a.lieu,
+    };
+  }
+
+  // Regroupement par service, à la manière d'un planning de chantier : on
+  // lit d'abord « qui couvre la réception », pas « où est Untel ».
+  const parAgentService = new Map<string, string>();
+  for (const a of affRes.data) if (a.service_id) parAgentService.set(a.agent_id, a.service_id);
+  const libelleService = new Map(servicesRes.data.map((s2) => [s2.id, s2.libelle]));
+  const rangService = new Map(servicesRes.data.map((s2) => [s2.id, s2.rang]));
+  const groupesMap = new Map<string, typeof agents>();
+  for (const a of agents) {
+    const sid = parAgentService.get(a.id) ?? "";
+    groupesMap.set(sid, [...(groupesMap.get(sid) ?? []), a]);
+  }
+  const groupes = [...groupesMap.entries()]
+    .map(([service, ag]) => ({
+      service,
+      libelle: libelleService.get(service) ?? "Sans service assigné",
+      agents: ag,
+    }))
+    .sort((x, y) => (rangService.get(x.service) ?? 9999) - (rangService.get(y.service) ?? 9999));
 
   const heuresTotal = affRes.data.reduce((s, a) => {
     const c = creneauxRes.data.find((x) => x.id === a.creneau_id);
@@ -103,15 +128,14 @@ export default async function EditionPlanningPage({
         </p>
       </div>
 
-      <LegendeGrille />
-
-      <GlassCard className="p-2">
-        <GrillePlanning
+      <GlassCard className="p-3">
+        <PlanningGantt
           planningId={id}
           jours={jours}
-          agents={agents}
+          groupes={groupes}
           creneaux={creneaux}
           affectations={affectations}
+          editable
         />
       </GlassCard>
 
