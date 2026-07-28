@@ -22,7 +22,7 @@ if not exist config.txt (
   exit /b 1
 )
 
-echo [1/3] Installation de la bibliotheque de la pointeuse...
+echo [1/4] Installation de la bibliotheque de la pointeuse...
 call npm install --no-audit --no-fund
 if errorlevel 1 (
   echo [ERREUR] npm install a echoue. Verifiez la connexion Internet.
@@ -30,21 +30,28 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/3] Creation des taches planifiees (12h15 et 17h45)...
-schtasks /create /f /tn "LaVitaPerTe - Collecte pointage midi" ^
+echo [2/4] Creation des taches planifiees (9h00 et 15h00)...
+schtasks /create /f /tn "LaVitaPerTe - Collecte pointage matin" ^
   /tr "cmd /c cd /d \"%~dp0\" && node collecte.mjs" ^
-  /sc daily /st 12:15
-schtasks /create /f /tn "LaVitaPerTe - Collecte pointage soir" ^
+  /sc daily /st 09:00
+schtasks /create /f /tn "LaVitaPerTe - Collecte pointage apres-midi" ^
   /tr "cmd /c cd /d \"%~dp0\" && node collecte.mjs" ^
-  /sc daily /st 17:45
+  /sc daily /st 15:00
 
-echo [3/3] Premiere collecte de verification...
+echo [3/4] Agent du bouton (demarre a chaque ouverture de session)...
+schtasks /create /f /tn "LaVitaPerTe - Agent pointage" ^
+  /tr "wscript.exe \"%~dp0demarrer-agent.vbs\"" ^
+  /sc onlogon
+start "" wscript.exe "%~dp0demarrer-agent.vbs"
+
+echo [4/4] Premiere collecte de verification...
 node collecte.mjs
 
 echo.
 echo ============================================================
-echo  Termine. Les pointages remonteront chaque jour a 12h15
-echo  et 17h45, tant que ce poste est allume et sur le reseau.
+echo  Termine. Les pointages remontent chaque jour a 9h00 et
+echo  15h00, et le bouton "Recuperer les pointages" de
+echo  l'application fonctionne depuis ce poste.
 echo  Journal : collecte.log dans ce dossier.
 echo ============================================================
 pause

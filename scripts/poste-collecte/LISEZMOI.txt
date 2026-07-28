@@ -2,7 +2,7 @@ COLLECTE AUTOMATIQUE DES POINTAGES — poste du responsable administratif
 =======================================================================
 
 Ce dossier installe une tâche planifiée qui lit la pointeuse du centre
-deux fois par jour (12h15 et 17h45) et envoie les badgeages à
+deux fois par jour (9h00 et 15h00) et envoie les badgeages à
 l'application. Relancer ne crée jamais de doublon.
 
 INSTALLATION (une seule fois)
@@ -14,7 +14,9 @@ C'est tout. Le poste doit simplement être allumé et branché au réseau du
 centre aux heures de collecte. Le journal des exécutions s'écrit dans
 « collecte.log ».
 
-POUR COLLECTER MANUELLEMENT : double-cliquer « collecte.bat ».
+POUR COLLECTER MANUELLEMENT : double-cliquer « collecte.bat », ou utiliser
+le bouton « Récupérer les pointages — REX » dans l'application (l'agent du
+poste démarre tout seul à l'ouverture de session).
 
 SÉCURITÉ : ce poste ne détient pas la clé de la base de données. Le secret
 contenu dans config.txt ne permet qu'une chose : déposer des pointages.
