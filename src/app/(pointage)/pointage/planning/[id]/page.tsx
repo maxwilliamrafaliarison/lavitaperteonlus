@@ -18,6 +18,7 @@ import { PlanningGantt } from "./gantt";
 import { SelecteurVue, dureeDe, decalerJour, type Vue } from "./selecteur-vue";
 import { PlanningEdt, type BlocEdt } from "./edt";
 import { DupliquerSemaine } from "./dupliquer-semaine";
+import { FiltreAgent } from "./filtre-agent";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -36,7 +37,7 @@ export default async function EditionPlanningPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vue?: string; debut?: string; mode?: string }>;
+  searchParams: Promise<{ vue?: string; debut?: string; mode?: string; agent?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -149,11 +150,10 @@ export default async function EditionPlanningPage({
     if (!agent) continue;
     const c = parCreneauMap.get(a.creneau_id);
     if (!c) continue;
-    const sid = parAgentService.get(a.agent_id) ?? a.service_id ?? "";
-    // Sans service (MIARAKA planifie par personne), les blocs se rattachent
-    // à la section de l'AGENT — une grille fourre-tout de 17 personnes sur
-    // 24 h ne se lit pas.
-    const cle = sid || `ag:${a.agent_id}`;
+    // La grille horaire est PAR PERSONNE dans les deux centres (demande du
+    // responsable) : les blocs se rattachent à l'agent. Le service, lui,
+    // reste porté par l'affectation — la présentation change, pas la donnée.
+    const cle = `ag:${a.agent_id}`;
     if (c.type === "repos") {
       (reposParService[cle] ??= []).push({ jour: a.jour, agentNom: agent.nom, motif: c.libelle });
       continue;
@@ -173,19 +173,29 @@ export default async function EditionPlanningPage({
       (blocsParService[cle] ??= []).push({ ...base, debut: c.debut2, fin: c.fin2, type, partie: 2 });
     }
   }
-  // Sections de la grille horaire : les services d'abord, puis UNE SECTION
-  // PAR PERSONNE pour les agents sans service — chacune avec sa propre
-  // amplitude (le gardien vit sur 24 h, l'administratif sur 7h-17h).
-  const groupesEdt = [
-    ...groupes
-      .filter((g) => g.service)
-      .map((g) => ({ cle: g.service, service: g.service, libelle: g.libelle, agents: g.agents })),
-    ...groupes
-      .filter((g) => !g.service)
-      .flatMap((g) => g.agents)
-      .sort((x, y) => x.nom.localeCompare(y.nom))
-      .map((a) => ({ cle: `ag:${a.id}`, service: "", libelle: a.nom, agents: [a] })),
-  ];
+  // Grille horaire PAR PERSONNE : une section par agent, avec sa propre
+  // amplitude (le gardien vit sur 24 h, l'administratif sur 7h-17h). Le
+  // service connu de l'agent apparaît en sous-titre et reste attaché aux
+  // affectations créées depuis sa section.
+  const agentChoisi = /^AG-[A-Z]+-\d+$/.test(sp.agent ?? "") ? sp.agent! : "";
+  const groupesEdt = agents
+    .filter((a) =>
+      agentChoisi
+        ? a.id === agentChoisi
+        : (blocsParService[`ag:${a.id}`]?.length ?? 0) > 0 ||
+          (reposParService[`ag:${a.id}`]?.length ?? 0) > 0,
+    )
+    .map((a) => {
+      const sid = parAgentService.get(a.id) ?? "";
+      const svc = sid ? libelleService.get(sid) : "";
+      return {
+        cle: `ag:${a.id}`,
+        service: sid,
+        libelle: svc ? `${a.nom} — ${svc}` : a.nom,
+        agents: [a],
+      };
+    })
+    .sort((x, y) => x.libelle.localeCompare(y.libelle));
 
   const tousAgents = agents.map((a) => ({ id: a.id, nom: a.nom }));
   const semainePrecedente = decalerJour(debut, -7);
@@ -258,7 +268,16 @@ export default async function EditionPlanningPage({
           debut={debut}
           bornes={{ du: planning.du, au: planning.au }}
         />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {mode === "edt" && (
+            <FiltreAgent
+              planningId={id}
+              vue={vue}
+              debut={debut}
+              agents={tousAgents}
+              selection={agentChoisi}
+            />
+          )}
           {peutRecopier && (
             <DupliquerSemaine planningId={id} source={semainePrecedente} cible={debut} />
           )}
