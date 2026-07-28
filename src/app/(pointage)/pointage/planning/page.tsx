@@ -1,126 +1,57 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
-import { getT } from "@/lib/i18n";
-import { GlassCard } from "@/components/glass/glass-card";
-import { listPlannings, listAffectations, type Planning } from "@/lib/planning/data";
-
-import { NouveauPlanning, PlanningRow, type PlanningLigne } from "./planning-client";
+import { listPlannings, type Planning } from "@/lib/planning/data";
+import { aujourdhui } from "@/lib/tz";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Plannings — Pointage" };
 
-export default async function PlanningPage({
+/**
+ * Entrée du module Planning : on arrive DIRECTEMENT sur le tableau.
+ *
+ * L'écran de liste imposait deux clics avant de voir le moindre créneau,
+ * alors que l'usage quotidien est « regarder la semaine en cours ». La liste
+ * n'a pas disparu — elle vit sous /pointage/planning/gerer, pour les gestes
+ * d'administration (créer, publier, révoquer un lien).
+ *
+ * Choix du planning ouvert : celui du centre demandé (?centre=…, REX par
+ * défaut) qui COUVRE LA DATE DU JOUR ; à défaut, le plus récent du centre.
+ * On atterrit sur la semaine courante, pas sur le début du planning — un
+ * planning semestriel s'ouvrirait sinon systématiquement sur janvier.
+ */
+export default async function PlanningEntreePage({
   searchParams,
 }: {
   searchParams: Promise<{ centre?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!can(session.user.role, "pointage:gerer")) redirect("/pointage");
-  const t = getT(session.user.lang);
+  if (!can(session.user.role, "planning:gerer")) redirect("/pointage");
 
   const sp = await searchParams;
-  const filtre = (sp.centre ?? "").toUpperCase();
+  const centre = (sp.centre ?? "REX").toUpperCase() === "MIARAKA" ? "MIARAKA" : "REX";
 
   const res = await safe<Planning[]>(() => listPlannings(), []);
-  const plannings = res.data.filter((p) => !filtre || p.centre === filtre);
+  const duCentre = res.data
+    .filter((p) => p.centre === centre)
+    .sort((a, b) => b.du.localeCompare(a.du));
 
-  // Nombre d'affectations par planning, pour situer l'avancement.
-  const lignes: PlanningLigne[] = await Promise.all(
-    plannings.map(async (p) => {
-      const aff = await safe(() => listAffectations(p.id), []);
-      return {
-        id: p.id,
-        centre: p.centre,
-        du: p.du,
-        au: p.au,
-        libelle: p.libelle,
-        statut: p.statut,
-        token: p.token_public,
-        publieLe: p.publie_le,
-        nbAffectations: aff.data.length,
-      };
-    }),
-  );
+  if (duCentre.length === 0) {
+    // Rien à afficher pour ce centre : la gestion est le seul écran utile.
+    redirect("/pointage/planning/gerer");
+  }
 
-  // Origine réelle de la requête : le lien communiqué au personnel doit
-  // fonctionner tel quel, en production comme en développement.
-  const h = await headers();
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  const host = h.get("host") ?? "";
-  const origine = host ? `${proto}://${host}` : "";
+  const jour = aujourdhui();
+  const courant = duCentre.find((p) => p.du <= jour && jour <= p.au) ?? duCentre[0];
 
-  return (
-    <main id="main-content" className="mx-auto max-w-4xl flex-1 p-4 md:p-10 space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <Link
-            href="/pointage"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="size-4" aria-hidden="true" />
-            {t("pointage.title")}
-          </Link>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
-            Plannings de travail
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {lignes.length} planning(s) · publiez pour obtenir un lien consultable par le personnel
-          </p>
-        </div>
-        <NouveauPlanning />
-      </div>
+  // Semaine courante (lundi), bornée à la période du planning.
+  const d = new Date(`${jour}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  let debut = d.toISOString().slice(0, 10);
+  if (debut < courant.du) debut = courant.du;
+  if (debut > courant.au) debut = courant.au;
 
-      {/* Filtre par centre — conservé dans l'URL, donc partageable. */}
-      <nav className="flex gap-2" aria-label="Filtrer par centre">
-        {[
-          { v: "", l: "Tous les centres" },
-          { v: "REX", l: "REX" },
-          { v: "MIARAKA", l: "MIARAKA" },
-        ].map((f) => (
-          <Link
-            key={f.v}
-            href={f.v ? `/pointage/planning?centre=${f.v}` : "/pointage/planning"}
-            aria-current={filtre === f.v ? "page" : undefined}
-            className={
-              filtre === f.v
-                ? "rounded-xl border border-accent/40 bg-accent/12 px-3 py-1.5 text-sm text-accent"
-                : "rounded-xl border border-glass-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-white/5 transition-colors"
-            }
-          >
-            {f.l}
-          </Link>
-        ))}
-      </nav>
-
-      {lignes.length === 0 ? (
-        <GlassCard className="p-10 text-center">
-          <CalendarDays className="mx-auto size-8 text-muted-foreground" aria-hidden="true" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            Aucun planning enregistré. Créez-en un pour commencer, ou attendez la reprise de vos
-            plannings existants.
-          </p>
-        </GlassCard>
-      ) : (
-        <div className="space-y-4">
-          {lignes.map((p) => (
-            <PlanningRow key={p.id} p={p} origine={origine} />
-          ))}
-        </div>
-      )}
-
-      <p className="text-[11px] text-muted-foreground">
-        Un planning en brouillon n&apos;est accessible par aucune adresse. Le lien n&apos;est
-        engendré qu&apos;à la publication et reste le même en cas de republication, pour que le
-        personnel n&apos;ait jamais à changer de signet.
-      </p>
-    </main>
-  );
+  redirect(`/pointage/planning/${courant.id}?vue=semaine&debut=${debut}`);
 }

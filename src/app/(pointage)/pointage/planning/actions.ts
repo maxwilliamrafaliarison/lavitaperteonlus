@@ -14,7 +14,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export async function creerPlanningAction(formData: FormData): Promise<PlanningResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "planning:gerer")) {
     return { ok: false, error: "Votre rôle ne permet pas de créer un planning." };
   }
 
@@ -67,7 +67,7 @@ export async function creerPlanningAction(formData: FormData): Promise<PlanningR
 export async function publierPlanningAction(formData: FormData): Promise<PlanningResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "planning:gerer")) {
     return { ok: false, error: "Votre rôle ne permet pas de publier un planning." };
   }
 
@@ -99,7 +99,7 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
 export async function revoquerLienAction(formData: FormData): Promise<PlanningResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "planning:gerer")) {
     return { ok: false, error: "Votre rôle ne permet pas de révoquer un lien." };
   }
   const id = String(formData.get("id") ?? "").trim();

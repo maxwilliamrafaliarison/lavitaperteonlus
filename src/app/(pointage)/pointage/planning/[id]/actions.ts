@@ -24,7 +24,7 @@ export type AffecterResult =
 export async function affecterAction(formData: FormData): Promise<AffecterResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "planning:gerer")) {
     return { ok: false, error: "Votre rôle ne permet pas de modifier un planning." };
   }
 

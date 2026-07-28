@@ -48,6 +48,10 @@ export const PERMISSIONS = {
   // ces gestes engagent la paie et doivent rester traçables à une personne.
   "pointage:lire": ["admin", "direction"],
   "pointage:gerer": ["admin"],
+  // Planning — la DIRECTION peut planifier (décision du responsable) : établir
+  // un emploi du temps est un acte d'organisation, pas de paie. Corriger un
+  // pointage ou valider des heures sup reste en revanche réservé à l'admin.
+  "planning:gerer": ["admin", "direction"],
 } as const satisfies Record<string, UserRole[]>;
 
 export type Permission = keyof typeof PERMISSIONS;

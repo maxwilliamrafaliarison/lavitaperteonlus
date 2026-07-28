@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { Settings2 } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
@@ -38,7 +38,7 @@ export default async function EditionPlanningPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!can(session.user.role, "pointage:gerer")) redirect("/pointage");
+  if (!can(session.user.role, "planning:gerer")) redirect("/pointage");
 
   const { id } = await params;
   const plannings = await safe<Planning[]>(() => listPlannings(), []);
@@ -72,6 +72,18 @@ export default async function EditionPlanningPage({
   const finFenetre = decalerJour(debut, dureeDe(vue) - 1);
   const auAffiche = finFenetre > planning.au ? planning.au : finFenetre;
   const densite = vue === "six" ? "minimale" : vue === "mois" ? "compacte" : "large";
+
+  // Onglet de bascule : pour chaque centre, le planning couvrant la période
+  // affichée — à défaut le plus proche. La période et l'étendue suivent, si
+  // bien qu'on compare les deux centres sur la même semaine.
+  const ongletVers = (c: string): string | null => {
+    const cand = plannings.data
+      .filter((p2) => p2.centre === c)
+      .sort((a, b) => b.du.localeCompare(a.du));
+    if (!cand.length) return null;
+    const cible = cand.find((p2) => p2.du <= debut && debut <= p2.au) ?? cand.find((p2) => p2.du <= debut) ?? cand[cand.length - 1];
+    return `/pointage/planning/${cible.id}?vue=${vue}&debut=${debut}`;
+  };
 
   const jours: Array<{ date: string; num: string; abrege: string; weekend: boolean }> = [];
   const d = new Date(`${debut}T12:00:00Z`);
@@ -127,13 +139,43 @@ export default async function EditionPlanningPage({
   return (
     <main id="main-content" className="mx-auto max-w-[1400px] flex-1 p-4 md:p-8 space-y-5">
       <div>
-        <Link
-          href="/pointage/planning"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Plannings
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Bascule de centre : deux onglets permanents, période conservée. */}
+          <nav className="flex gap-1 rounded-xl border border-glass-border p-1" aria-label="Centre affiché">
+            {(["REX", "MIARAKA"] as const).map((c) => {
+              const href = ongletVers(c);
+              const actif = planning.centre === c;
+              if (!href) {
+                return (
+                  <span key={c} className="rounded-lg px-4 py-1.5 text-sm text-muted-foreground/40" title="Aucun planning pour ce centre">
+                    {c}
+                  </span>
+                );
+              }
+              return (
+                <Link
+                  key={c}
+                  href={href}
+                  aria-current={actif ? "page" : undefined}
+                  className={
+                    actif
+                      ? "rounded-lg bg-accent/15 px-4 py-1.5 text-sm font-medium text-accent"
+                      : "rounded-lg px-4 py-1.5 text-sm text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                  }
+                >
+                  {c}
+                </Link>
+              );
+            })}
+          </nav>
+          <Link
+            href="/pointage/planning/gerer"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-glass-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+          >
+            <Settings2 className="size-3.5" aria-hidden="true" />
+            Gérer les plannings
+          </Link>
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <BadgeSite site={planning.centre} />
           <h1 className="font-display text-2xl font-semibold tracking-tight md:text-3xl">
