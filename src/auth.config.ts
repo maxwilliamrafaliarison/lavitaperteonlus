@@ -84,6 +84,9 @@ export const authConfig: NextAuthConfig = {
         // tient au jeton secret de 128 bits porté par l'URL, vérifié par la
         // page elle-même (un jeton inconnu ou non publié rend un 404).
         pathname.startsWith("/planning/") ||
+        // Réception des pointages du poste de collecte : authentifiée par un
+        // secret dédié dans la route elle-même (401 sans lui).
+        pathname.startsWith("/api/pointage/collecte") ||
         pathname.startsWith("/api/parity") ||
         pathname.startsWith("/api/pharmacie/rapport-quotidien") ||
         pathname.startsWith("/api/pharmacie/rapport-mensuel") ||

@@ -1,0 +1,8 @@
+# Configuration de la collecte — recopier en « config.txt » et compléter.
+# Ce fichier ne contient PAS la clé de la base : seulement un secret dédié
+# qui ne permet que de déposer des pointages.
+
+IP_POINTEUSE=192.168.8.21
+SITE=REX
+URL_APPLICATION=https://lavitaperteonlus.vercel.app
+SECRET=<demander au responsable informatique>

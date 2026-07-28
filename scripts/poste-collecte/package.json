@@ -1,0 +1,9 @@
+{
+  "name": "collecte-pointage-lavitaperte",
+  "private": true,
+  "type": "module",
+  "description": "Tâche planifiée : lit la pointeuse ZKTeco et envoie les badgeages à l'application",
+  "dependencies": {
+    "node-zklib": "^1.0.0"
+  }
+}
