@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { can } from "@/lib/auth/permissions";
 import { logAudit, AuditAction } from "@/lib/sheets/audit";
 import { getSite, getRoom } from "@/lib/sheets/sites";
 import { generateReportPdf, reportFilename } from "@/lib/reports";
@@ -38,6 +39,11 @@ export async function POST(
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+  }
+  // Les rapports LOGISTIQUE ne sont pas ouverts à tout compte authentifié :
+  // une dispensatrice n'a rien à faire dans l'inventaire du parc.
+  if (!can(session.user.role, "app:logistique")) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
   }
 
   const { type } = await params;

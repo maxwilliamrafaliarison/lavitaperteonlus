@@ -20,6 +20,19 @@ export async function setupAdminAction(
   const t = getT(lang);
 
   try {
+    // GARDE D'INSTALLATION : cet écran n'existe que pour amorcer une base
+    // vierge. Le contrôle « ce compte a-t-il déjà un mot de passe ? » ne
+    // suffisait pas : un compte créé mais jamais activé restait une porte
+    // ouverte, permettant à un visiteur non authentifié de s'attribuer le
+    // mot de passe — donc le rôle — d'un administrateur en attente.
+    const tous = await listUsers();
+    const dejaActive = tous.some(
+      (u) => u.passwordHash && u.passwordHash !== "TO_SET_IN_PHASE_2",
+    );
+    if (dejaActive) {
+      return { ok: false, error: t("setup.error_deja_installe") };
+    }
+
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
     const confirm = String(formData.get("confirm") ?? "");

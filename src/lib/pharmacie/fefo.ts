@@ -62,13 +62,37 @@ export function cmpFEFO(a: StockLot, b: StockLot): number {
  * @param facteur  unités de base par boîte (1 = produit non fractionnable)
  * @param mode     'boite' (sort du GROS) ou 'detail' (DÉTAIL puis ouverture)
  */
+/**
+ * Un lot est-il périmé au jour donné ?
+ *
+ * ⚠️ La comparaison se fait sur la date des CENTRES (UTC+3) : sur un serveur
+ * en UTC, un lot expirant aujourd'hui basculerait trois heures trop tard.
+ */
+export function estPerime(dateExpiration: string, aujourdHui: string): boolean {
+  return dateExpiration !== "" && dateExpiration < aujourdHui;
+}
+
 export function allouer(
   facteur: number,
   besoinBase: number,
   mode: ModeVente,
   buckets: StockLot[],
+  /**
+   * Jour de référence ("YYYY-MM-DD"). Fourni ⇒ les lots PÉRIMÉS sont EXCLUS
+   * de la vente.
+   *
+   * Sans cette exclusion, le FEFO servait le lot périmé EN PREMIER — c'est
+   * mécanique : il porte la date la plus ancienne, donc il arrive en tête du
+   * tri. Une dispensatrice délivrait ainsi un médicament expiré sans le
+   * moindre signal. Le paramètre est optionnel pour ne pas casser les
+   * simulations de stock qui n'ont pas de notion de date.
+   */
+  aujourdHui?: string,
 ): ResultatAllocation {
-  const ordre = [...buckets].sort(cmpFEFO);
+  const utilisables = aujourdHui
+    ? buckets.filter((b) => !estPerime(b.dateExpiration, aujourdHui))
+    : buckets;
+  const ordre = [...utilisables].sort(cmpFEFO);
   const allocations: Allocation[] = [];
   const ouvertures: OuvertureBoite[] = [];
   let reste = besoinBase;

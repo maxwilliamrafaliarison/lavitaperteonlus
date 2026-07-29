@@ -4,6 +4,7 @@ import { can } from "@/lib/auth/permissions";
 import { getT, type Lang } from "@/lib/i18n";
 import type { UserRole } from "@/types";
 import { APP_NAV, type AppKey } from "@/lib/nav/config";
+import { safe } from "@/lib/sheets/safe";
 
 import { AppSidebar } from "./app-sidebar";
 import { MobileNav } from "./mobile-nav";
@@ -22,7 +23,7 @@ import { navIcon } from "./nav-icons";
  *
  * Nouvelle app = un layout de quelques lignes qui rend <AppShell appKey=…>.
  */
-export function AppShell({
+export async function AppShell({
   appKey,
   user,
   banner,
@@ -40,6 +41,25 @@ export function AppShell({
   );
   const AppIcon = navIcon(nav.icon);
 
+  // Pastilles de la pharmacie : calculées ICI, côté serveur, à chaque
+  // affichage — le menu prévient avant le clic. En cas de panne réseau, on
+  // n'affiche simplement rien : une pastille fausse serait pire qu'absente.
+  let compteurs: Record<string, number> | undefined;
+  if (appKey === "pharmacie") {
+    const res = await safe(async () => {
+      const { listProduitsAvecStock } = await import("@/lib/pharmacie/sheets");
+      const produits = await listProduitsAvecStock();
+      const actifs = produits.filter((p) => p.statut === "actif");
+      return {
+        ruptures: actifs.filter((p) => p.stockBase <= 0).length,
+        peremptions: actifs.filter(
+          (p) => (p.joursAvantPeremption ?? 999) >= 0 && (p.joursAvantPeremption ?? 999) <= 90,
+        ).length,
+      };
+    }, undefined);
+    compteurs = res.ok ? res.data : undefined;
+  }
+
   return (
     <div data-app={appKey} className="relative isolate min-h-screen">
       {/* Fond ambient — teinté par l'accent de l'app (repère couleur) */}
@@ -54,12 +74,13 @@ export function AppShell({
           appIcon={nav.icon}
           items={items}
           lang={user.lang}
+          compteurs={compteurs}
         />
 
         <div className="flex flex-1 flex-col min-w-0">
           <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-glass-border bg-background/60 backdrop-blur-2xl px-4 md:px-8">
             <div className="flex items-center gap-3 min-w-0">
-              <MobileNav nameKey={nav.nameKey} items={items} lang={user.lang} />
+              <MobileNav nameKey={nav.nameKey} items={items} lang={user.lang} compteurs={compteurs} />
               {/* Identité de l'app — mobile seulement (desktop l'a en sidebar) */}
               <span className="lg:hidden inline-flex items-center gap-1.5 rounded-full glass border px-2.5 h-7 text-xs font-medium text-accent">
                 <AppIcon className="size-3.5" aria-hidden="true" />

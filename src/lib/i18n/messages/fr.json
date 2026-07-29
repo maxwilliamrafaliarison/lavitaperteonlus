@@ -90,7 +90,8 @@
     "error_sheet_config": "Connexion au Google Sheet impossible. Vérifiez les variables GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL et GOOGLE_PRIVATE_KEY côté Vercel.",
     "error_sheet_read": "Erreur lecture Sheet : {detail}",
     "error_sheet_write": "Erreur écriture Sheet : {detail}",
-    "error_unexpected": "Erreur inattendue : {detail}"
+    "error_unexpected": "Erreur inattendue : {detail}",
+    "error_deja_installe": "L'application est déjà installée. Cet écran ne sert qu'au tout premier compte — pour un mot de passe oublié, contactez l'administrateur."
   },
   "password_validation": {
     "too_short": "8 caractères minimum requis.",
@@ -370,7 +371,16 @@
     "rapport_bilan_desc": "Document de gestion complet à l’attention de la Direction : activité, marge, stock, prises en charge, fiche détaillée.",
     "rapports_mois": "Mois",
     "rapport_galenique_titre": "Laboratoire galénique",
-    "rapport_galenique_desc": "Préparations officinales fabriquées en interne : stock, prix et chiffre d’affaires des sorties sur la période."
+    "rapport_galenique_desc": "Préparations officinales fabriquées en interne : stock, prix et chiffre d’affaires des sorties sur la période.",
+    "grp_vente": "Vente",
+    "grp_stock": "Stock",
+    "grp_pilotage": "Pilotage",
+    "nav_aide": "Aide",
+    "badge_ruptures": "Produits en rupture de stock",
+    "badge_peremptions": "Produits périmant sous 90 jours",
+    "vente_reseau_titre": "Vente non confirmée",
+    "vente_reseau_aide": "La connexion a été interrompue. NE RECOMMENCEZ PAS la vente : cliquez à nouveau sur « Encaisser » — si elle est déjà enregistrée, elle ne sera pas comptée deux fois. Vérifiez ensuite dans « Ventes ».",
+    "vente_error_perime": "{p} : tout le stock restant est PÉRIMÉ. Ne le délivrez pas — mettez-le de côté et signalez-le."
   },
   "nav": {
     "aria_label": "Navigation principale",
@@ -447,7 +457,9 @@
     "error": "Erreur",
     "failed": "Échec",
     "action_impossible": "Action impossible",
-    "copy_failed": "Impossible de copier"
+    "copy_failed": "Impossible de copier",
+    "reseau_titre": "Connexion interrompue",
+    "reseau_aide": "L'opération n'a peut-être pas abouti. Vérifiez l'écran concerné avant de recommencer — ne saisissez pas deux fois."
   },
   "user_menu": {
     "theme_dark": "Mode sombre",

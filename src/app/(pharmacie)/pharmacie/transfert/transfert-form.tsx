@@ -70,6 +70,10 @@ export function TransfertForm({
       } else {
         toast.error(t("common.failed"), { description: r.error });
       }
+    } catch {
+      // Coupure réseau : sans ce filet, la promesse rejetait en silence — le
+      // spinner s'arrêtait, rien ne s'affichait, et l'opératrice recliquait.
+      toast.error(t("common.reseau_titre"), { description: t("common.reseau_aide"), duration: 10000 });
     } finally {
       setLoading(false);
     }

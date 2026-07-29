@@ -21,6 +21,7 @@ import {
   Upload,
   Clock,
   CalendarDays,
+  CircleHelp,
   type LucideIcon,
 } from "lucide-react";
 
@@ -50,6 +51,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   Upload,
   Clock,
   CalendarDays,
+  CircleHelp,
 };
 
 export function navIcon(name: string): LucideIcon {

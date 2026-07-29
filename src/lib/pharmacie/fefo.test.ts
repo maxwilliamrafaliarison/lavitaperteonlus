@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { cmpFEFO, allouer } from "./fefo";
+import { cmpFEFO, allouer, estPerime } from "./fefo";
 import type { StockLot } from "./types";
 
 /* Ce module décide QUELS lots servent une vente. Une erreur ici vend le
@@ -118,5 +118,43 @@ describe("allouer — vente à l'unité (fractionnable, facteur 30)", () => {
     expect(r.ok).toBe(false);
     expect(buckets[0].gros).toBe(30);
     expect(buckets[0].detail).toBe(5);
+  });
+});
+
+describe("lots périmés — exclusion de la vente (audit de livraison)", () => {
+  const lot = (lotId: string, dateExpiration: string, gros: number, detail = 0) => ({
+    lotId, numeroLot: lotId, dateExpiration, gros, detail,
+  });
+
+  it("ne sert JAMAIS un lot périmé quand le jour est fourni", () => {
+    // Le périmé porte la date la plus ancienne : sans garde, le FEFO le
+    // servait EN PREMIER — un médicament expiré délivré au comptoir.
+    const buckets = [lot("L-PERIME", "2026-01-01", 10), lot("L-BON", "2027-01-01", 10)];
+    const r = allouer(1, 5, "boite", buckets, "2026-07-28");
+    expect(r.ok).toBe(true);
+    expect(r.allocations.every((a) => a.lotId === "L-BON")).toBe(true);
+  });
+
+  it("refuse la vente si TOUT le stock restant est périmé", () => {
+    const r = allouer(1, 1, "boite", [lot("L-PERIME", "2026-01-01", 50)], "2026-07-28");
+    expect(r.ok).toBe(false);
+  });
+
+  it("un lot expirant AUJOURD'HUI reste vendable", () => {
+    const r = allouer(1, 1, "boite", [lot("L-JOUR", "2026-07-28", 5)], "2026-07-28");
+    expect(r.ok).toBe(true);
+  });
+
+  it("sans jour de référence, le comportement d'origine est conservé", () => {
+    // Les simulations de stock n'ont pas de notion de date : elles ne
+    // doivent pas se mettre à échouer.
+    const r = allouer(1, 5, "boite", [lot("L-PERIME", "2020-01-01", 10)]);
+    expect(r.ok).toBe(true);
+  });
+
+  it("estPerime ignore les lots sans date de péremption", () => {
+    expect(estPerime("", "2026-07-28")).toBe(false);
+    expect(estPerime("2026-07-27", "2026-07-28")).toBe(true);
+    expect(estPerime("2026-07-29", "2026-07-28")).toBe(false);
   });
 });

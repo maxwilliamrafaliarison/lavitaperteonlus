@@ -90,7 +90,8 @@
     "error_sheet_config": "Connessione al Google Sheet impossibile. Verifica le variabili GOOGLE_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL e GOOGLE_PRIVATE_KEY su Vercel.",
     "error_sheet_read": "Errore lettura Sheet : {detail}",
     "error_sheet_write": "Errore scrittura Sheet : {detail}",
-    "error_unexpected": "Errore inatteso : {detail}"
+    "error_unexpected": "Errore inatteso : {detail}",
+    "error_deja_installe": "L'applicazione è già installata. Questa pagina serve solo al primissimo account — per una password dimenticata, contatta l'amministratore."
   },
   "password_validation": {
     "too_short": "Almeno 8 caratteri richiesti.",
@@ -370,7 +371,16 @@
     "rapport_bilan_desc": "Documento di gestione completo per la Direzione : attività, margine, stock, prese in carico, scheda dettagliata.",
     "rapports_mois": "Mese",
     "rapport_galenique_titre": "Laboratorio galenico",
-    "rapport_galenique_desc": "Preparazioni officinali fabbricate internamente : stock, prezzi e fatturato delle uscite sul periodo."
+    "rapport_galenique_desc": "Preparazioni officinali fabbricate internamente : stock, prezzi e fatturato delle uscite sul periodo.",
+    "grp_vente": "Vendita",
+    "grp_stock": "Stock",
+    "grp_pilotage": "Gestione",
+    "nav_aide": "Aiuto",
+    "badge_ruptures": "Prodotti esauriti",
+    "badge_peremptions": "Prodotti in scadenza entro 90 giorni",
+    "vente_reseau_titre": "Vendita non confermata",
+    "vente_reseau_aide": "Connessione interrotta. NON rifare la vendita: premi di nuovo « Incassa » — se è già registrata non verrà contata due volte. Poi verifica in « Vendite ».",
+    "vente_error_perime": "{p}: tutto lo stock rimanente è SCADUTO. Non consegnarlo — mettilo da parte e segnalalo."
   },
   "nav": {
     "aria_label": "Navigazione principale",
@@ -447,7 +457,9 @@
     "error": "Errore",
     "failed": "Operazione fallita",
     "action_impossible": "Azione impossibile",
-    "copy_failed": "Impossibile copiare"
+    "copy_failed": "Impossibile copiare",
+    "reseau_titre": "Connessione interrotta",
+    "reseau_aide": "L'operazione potrebbe non essere andata a buon fine. Controlla prima di rifarla — non inserire due volte."
   },
   "user_menu": {
     "theme_dark": "Modalità scura",

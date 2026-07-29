@@ -49,6 +49,15 @@ function fmtAr(n: number): string {
   );
 }
 
+/** « VTE-…​ » unique, engendré par le navigateur à l'ouverture du panier. */
+function nouvelIdPanier(): string {
+  const alea =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()
+      : Math.random().toString(36).slice(2, 14).toUpperCase();
+  return `VTE-${Date.now().toString(36).toUpperCase()}-${alea}`;
+}
+
 export function VenteForm({
   produits,
   entites,
@@ -66,6 +75,13 @@ export function VenteForm({
   const [typeVente, setTypeVente] = React.useState<"cash" | "pec">("cash");
   const [pecPayeur, setPecPayeur] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  /**
+   * Identifiant du panier, engendré une fois et conservé tant que la vente
+   * n'est pas encaissée : réessayer après une coupure renvoie le MÊME
+   * identifiant, que le serveur reconnaît comme un renvoi — la recette n'est
+   * jamais comptée deux fois.
+   */
+  const [idPanier, setIdPanier] = React.useState(() => nouvelIdPanier());
   const [done, setDone] = React.useState<{ venteId: string; total: number } | null>(null);
   const [recu, setRecu] = React.useState<number>(0);
 
@@ -164,7 +180,12 @@ export function VenteForm({
         toast.error(t("common.failed"), { description: result.error });
       }
     } catch (e) {
-      toast.error(t("common.failed"), { description: String(e) });
+      // Jamais le message technique brut au comptoir : la dispensatrice a
+        // besoin d'un geste, pas d'une trace d'exception.
+        toast.error(t("pharmacie.vente_reseau_titre"), {
+          description: t("pharmacie.vente_reseau_aide"),
+          duration: 12000,
+        });
     } finally {
       setLoading(false);
     }
@@ -327,6 +348,10 @@ export function VenteForm({
               setPecPayeur("");
               setDone(null);
               setRecu(0);
+              // Nouveau panier = nouvel identifiant : sans cela, la vente
+              // suivante serait prise pour un renvoi de la précédente et
+              // silencieusement ignorée par la garde d'idempotence.
+              setIdPanier(nouvelIdPanier());
             }}
           >
             {t("pharmacie.vente_new")}

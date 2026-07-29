@@ -18,7 +18,8 @@ import {
   versUnitesBase,
   formaterQuantite,
 } from "@/lib/pharmacie/fractionnement";
-import { allouer } from "@/lib/pharmacie/fefo";
+import { aujourdhui } from "@/lib/tz";
+import { allouer, estPerime } from "@/lib/pharmacie/fefo";
 import { getT, isLang } from "@/lib/i18n";
 
 const LigneInput = z.object({
@@ -34,6 +35,22 @@ const LigneInput = z.object({
 });
 
 const VenteInput = z.object({
+  /**
+   * Identifiant de la vente, engendré par le NAVIGATEUR à l'ouverture du
+   * panier et inchangé tant que la vente n'est pas encaissée.
+   *
+   * ⚠️ C'est ce qui rend l'idempotence réelle. Auparavant l'identifiant
+   * naissait ici, à chaque appel : deux tentatives portaient deux
+   * identifiants, et la garde de la RPC (« un identifiant déjà présent est
+   * un renvoi de formulaire ») ne pouvait jamais se déclencher. Au comptoir,
+   * avec une connexion qui coupe entre le clic et la réponse, la vente était
+   * enregistrée, l'écran affichait « Échec », la dispensatrice recliquait —
+   * et la recette était comptée deux fois, le stock sorti deux fois.
+   */
+  venteId: z
+    .string()
+    .regex(/^VTE-[A-Z0-9-]{4,40}$/, "Identifiant de vente invalide")
+    .optional(),
   clientNom: z.string().trim().max(120).default(""),
   /**
    * "cash" : le client paie. "pec" (prise en charge) : le stock est déduit
@@ -114,7 +131,9 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
     }
   }
 
-  const venteId = genId("VTE");
+  // Identifiant fourni par le panier ; on n'en engendre un que pour les
+  // appels anciens qui n'en portent pas (compatibilité ascendante).
+  const venteId = parsed.data.venteId ?? genId("VTE");
   const timestamp = new Date().toISOString();
   const heure = timestamp.slice(11, 19);
   const email = session.user.email ?? "";
@@ -127,6 +146,9 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   // Stock ventilé par lot, MUTABLE entre les lignes : le FEFO d'une ligne voit
   // déjà ce que les lignes précédentes ont consommé (invariant I6).
   const stockParLot = await listStockParLot();
+  // Jour des centres : un lot expirant aujourd'hui ne doit pas basculer trois
+  // heures trop tard parce que le serveur tourne en UTC.
+  const jour = aujourdhui();
 
   // Répartition FEFO, ligne par ligne. L'ÉCHEC de l'allocation EST le contrôle
   // de stock : on refuse si l'ensemble des lots ne couvre pas le besoin,
@@ -146,9 +168,22 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
     const f = facteur(produit);
 
     const buckets = stockParLot.get(ligne.produitId) ?? [];
-    const res = allouer(f, besoinBase, ligne.mode, buckets);
+    const res = allouer(f, besoinBase, ligne.mode, buckets, jour);
     if (!res.ok) {
-      const dispo = buckets.reduce((s, b) => s + b.gros + b.detail, 0);
+      // Le stock annoncé exclut les lots périmés : afficher le total brut
+      // ferait croire à un bug (« il y en a pourtant 20 ! »).
+      const dispo = buckets
+        .filter((b) => !estPerime(b.dateExpiration, jour))
+        .reduce((s, b) => s + b.gros + b.detail, 0);
+      const perime = buckets
+        .filter((b) => estPerime(b.dateExpiration, jour))
+        .reduce((s, b) => s + b.gros + b.detail, 0);
+      if (perime > 0 && dispo <= 0) {
+        return {
+          ok: false,
+          error: t("pharmacie.vente_error_perime", { p: produit.designation }),
+        };
+      }
       return {
         ok: false,
         error: t("pharmacie.vente_error_stock", {

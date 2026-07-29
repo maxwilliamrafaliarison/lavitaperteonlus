@@ -10,6 +10,7 @@ import { BrandLogo } from "./brand-logo";
 import { navIcon } from "./nav-icons";
 import { getT, type Lang } from "@/lib/i18n";
 import type { NavItemSpec } from "@/lib/nav/config";
+import { Pastilles } from "./app-sidebar";
 
 /**
  * Drawer de navigation mobile (< lg), commun à toutes les applications.
@@ -20,10 +21,12 @@ export function MobileNav({
   nameKey,
   items,
   lang = "fr",
+  compteurs,
 }: {
   nameKey: string;
   items: NavItemSpec[];
   lang?: Lang;
+  compteurs?: Record<string, number>;
 }) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
@@ -102,25 +105,36 @@ export function MobileNav({
         </Link>
 
         <nav className="flex-1 space-y-1" aria-label={t("nav.aria_label")}>
-          {items.map((item) => {
+          {items.map((item, i) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = navIcon(item.icon);
+            const nouveauGroupe =
+              item.groupeKey && item.groupeKey !== items[i - 1]?.groupeKey;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium transition-all",
-                  active
-                    ? "bg-accent/12 text-accent border border-accent/25 shadow-sm"
-                    : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+              <React.Fragment key={item.href}>
+                {nouveauGroupe && (
+                  <p className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                    {t(item.groupeKey!)}
+                  </p>
                 )}
-              >
-                <Icon className={cn("size-4", active && "text-accent")} aria-hidden="true" />
-                {t(item.labelKey)}
-              </Link>
+                <Link
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium transition-all",
+                    item.emphase
+                      ? "bg-accent text-accent-foreground shadow-md"
+                      : active
+                        ? "bg-accent/12 text-accent border border-accent/25 shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                  )}
+                >
+                  <Icon className={cn("size-4", !item.emphase && active && "text-accent")} aria-hidden="true" />
+                  <span className="flex-1 truncate">{t(item.labelKey)}</span>
+                  <Pastilles badges={item.badges} compteurs={compteurs} lang={lang} />
+                </Link>
+              </React.Fragment>
             );
           })}
         </nav>

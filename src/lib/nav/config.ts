@@ -26,6 +26,13 @@ export interface NavItemSpec {
   icon: string;
   /** Permission requise ; absente = visible pour tout utilisateur de l'app. */
   permission?: Permission;
+  /** Clé i18n du groupe : les items d'un même groupe partagent un intitulé
+   *  de section — l'œil retrouve « Stock » sans lire chaque entrée. */
+  groupeKey?: string;
+  /** Entrée dominante de l'app (l'acte du métier), rendue en bouton plein. */
+  emphase?: boolean;
+  /** Pastilles de compte à afficher (alimentées par le shell serveur). */
+  badges?: Array<"ruptures" | "peremptions">;
 }
 
 export interface AppNav {
@@ -59,14 +66,18 @@ export const APP_NAV: Record<AppKey, AppNav> = {
     nameKey: "hub.app_pharmacie",
     icon: "Pill",
     items: [
-      { href: "/pharmacie", labelKey: "nav.dashboard", icon: "LayoutDashboard" },
-      { href: "/pharmacie/vente", labelKey: "pharmacie.vente_cta", icon: "ShoppingCart", permission: "pharmacie:vendre" },
-      { href: "/pharmacie/ventes", labelKey: "pharmacie.ventes_cta", icon: "History" },
-      { href: "/pharmacie/reception", labelKey: "pharmacie.reception_cta", icon: "PackagePlus", permission: "pharmacie:stock" },
-      { href: "/pharmacie/achats", labelKey: "pharmacie.achats_cta", icon: "ClipboardList", permission: "pharmacie:stock" },
-      { href: "/pharmacie/transfert", labelKey: "pharmacie.transfert_cta", icon: "ArrowLeftRight", permission: "pharmacie:stock" },
-      { href: "/pharmacie/rapports", labelKey: "pharmacie.rapports_cta", icon: "FileBarChart2", permission: "pharmacie:stock" },
-      { href: "/pharmacie/parametres", labelKey: "pharmacie.param_cta", icon: "Settings", permission: "pharmacie:config" },
+      // Ordonné par fréquence d'usage au comptoir, pas par ordre de
+      // construction : la vente domine, le stock se regroupe, le pilotage
+      // ferme la marche. Les pastilles préviennent avant le clic.
+      { href: "/pharmacie", labelKey: "nav.dashboard", icon: "LayoutDashboard", badges: ["ruptures", "peremptions"] },
+      { href: "/pharmacie/vente", labelKey: "pharmacie.vente_cta", icon: "ShoppingCart", permission: "pharmacie:vendre", groupeKey: "pharmacie.grp_vente", emphase: true },
+      { href: "/pharmacie/ventes", labelKey: "pharmacie.ventes_cta", icon: "History", groupeKey: "pharmacie.grp_vente" },
+      { href: "/pharmacie/reception", labelKey: "pharmacie.reception_cta", icon: "PackagePlus", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock", badges: ["ruptures"] },
+      { href: "/pharmacie/achats", labelKey: "pharmacie.achats_cta", icon: "ClipboardList", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock" },
+      { href: "/pharmacie/transfert", labelKey: "pharmacie.transfert_cta", icon: "ArrowLeftRight", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock" },
+      { href: "/pharmacie/rapports", labelKey: "pharmacie.rapports_cta", icon: "FileBarChart2", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_pilotage", badges: ["peremptions"] },
+      { href: "/pharmacie/parametres", labelKey: "pharmacie.param_cta", icon: "Settings", permission: "pharmacie:config", groupeKey: "pharmacie.grp_pilotage" },
+      { href: "/pharmacie/aide", labelKey: "pharmacie.nav_aide", icon: "CircleHelp", groupeKey: "pharmacie.grp_pilotage" },
     ],
   },
   patients: {
