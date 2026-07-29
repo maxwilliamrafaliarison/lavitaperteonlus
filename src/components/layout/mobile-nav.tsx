@@ -122,7 +122,8 @@ export function MobileNav({
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 h-11 text-sm font-medium transition-all",
+                    "flex items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all",
+                    item.emphase ? "h-12" : "h-11",
                     item.emphase
                       ? "bg-accent text-accent-foreground shadow-md"
                       : active

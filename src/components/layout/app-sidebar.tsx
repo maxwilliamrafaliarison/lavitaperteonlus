@@ -74,7 +74,15 @@ export function AppSidebar({
           return (
             <React.Fragment key={item.href}>
               {nouveauGroupe && (
-                <p className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                <p
+                  className={cn(
+                    "px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70",
+                    // Filet avant le pilotage : il sépare le travail
+                    // quotidien de ce qu'on ne consulte qu'occasionnellement.
+                    item.groupeKey === "pharmacie.grp_pilotage" &&
+                      "mt-2 border-t border-glass-border pt-4",
+                  )}
+                >
                   {t(item.groupeKey!)}
                 </p>
               )}
@@ -83,11 +91,16 @@ export function AppSidebar({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all",
-                  item.emphase ? "h-11" : "h-10",
+                  item.emphase ? "h-12" : "h-11",
                   // L'acte du métier (la vente) est un bouton plein : il se
                   // voit depuis l'autre bout du comptoir.
                   item.emphase
-                    ? "bg-accent text-accent-foreground shadow-md hover:brightness-110"
+                    ? active
+                      // Sur sa propre page, l'entrée dominante s'entoure d'un
+                      // anneau : sans repère, l'utilisatrice perd le fil de
+                      // sa position dans l'application.
+                      ? "bg-accent text-accent-foreground shadow-lg ring-2 ring-accent/40 ring-offset-2 ring-offset-[var(--background)]"
+                      : "bg-accent text-accent-foreground shadow-md hover:brightness-110"
                     : active
                       ? "bg-accent/12 text-accent border border-accent/25 shadow-sm"
                       : "text-muted-foreground hover:text-foreground hover:bg-white/5",
