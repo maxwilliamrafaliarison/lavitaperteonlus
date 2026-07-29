@@ -380,7 +380,8 @@
     "badge_peremptions": "Prodotti in scadenza entro 90 giorni",
     "vente_reseau_titre": "Vendita non confermata",
     "vente_reseau_aide": "Connessione interrotta. NON rifare la vendita: premi di nuovo « Incassa » — se è già registrata non verrà contata due volte. Poi verifica in « Vendite ».",
-    "vente_error_perime": "{p}: tutto lo stock rimanente è SCADUTO. Non consegnarlo — mettilo da parte e segnalalo."
+    "vente_error_perime": "{p}: tutto lo stock rimanente è SCADUTO. Non consegnarlo — mettilo da parte e segnalalo.",
+    "vente_plus_de_boite": "{p}: nessuna confezione integra — restano solo unità aperte. Vendi all'unità."
   },
   "nav": {
     "aria_label": "Navigazione principale",

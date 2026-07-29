@@ -62,10 +62,19 @@ export function VenteForm({
   produits,
   entites,
   lang,
+  stockParCompartiment,
 }: {
   produits: ProduitAvecStock[];
   entites: EntitePec[];
   lang: Lang;
+  /**
+   * Stock ventilé gros/détail par produit, lots périmés exclus — fourni par
+   * la page. Le total « stockBase » ne suffit pas : une vente À LA BOÎTE
+   * n'est servie que depuis le GROS, si bien qu'un produit à 1 boîte fermée
+   * et 10 unités ouvertes affichait « 2 boîtes disponibles » puis se faisait
+   * refuser à l'encaissement, cliente devant le comptoir.
+   */
+  stockParCompartiment?: Record<string, { gros: number; detail: number }>;
 }) {
   const router = useRouter();
   const t = React.useMemo(() => getT(lang), [lang]);
@@ -120,9 +129,17 @@ export function VenteForm({
     const dejaPris = courant
       .filter((l) => l.produit.id === ligne.produit.id && l.mode !== ligne.mode)
       .reduce((s, l) => s + versUnitesBase(l.produit, l.quantite, l.mode), 0);
-    const dispo = ligne.produit.stockBase - dejaPris;
     const parUnite = versUnitesBase(ligne.produit, 1, ligne.mode);
-    return Math.max(0, Math.floor(dispo / parUnite));
+    const compart = stockParCompartiment?.[ligne.produit.id];
+    if (!compart) {
+      // Repli (ventilation indisponible) : ancien calcul sur le total.
+      return Math.max(0, Math.floor((ligne.produit.stockBase - dejaPris) / parUnite));
+    }
+    // À la boîte : seules les boîtes FERMÉES comptent. Au détail : les unités
+    // déjà ouvertes, plus celles qu'on peut encore ouvrir.
+    const base =
+      ligne.mode === "boite" ? compart.gros : compart.detail + compart.gros;
+    return Math.max(0, Math.floor((base - dejaPris) / parUnite));
   }
 
   function ajouter(p: ProduitAvecStock, mode: ModeVente) {
@@ -130,7 +147,15 @@ export function VenteForm({
       const existante = prev.find((l) => l.produit.id === p.id && l.mode === mode);
       const cible: LignePanier = existante ?? { produit: p, quantite: 0, mode };
       if (cible.quantite + 1 > maxPour(cible, prev)) {
-        toast.warning(t("pharmacie.vente_stock_max", { p: p.designation }));
+        // Distinguer « plus de stock » de « plus de boîte fermée » : le
+        // second se résout en vendant à l'unité, pas en renonçant.
+        const compart = stockParCompartiment?.[p.id];
+        const resteDuDetail = mode === "boite" && (compart?.detail ?? 0) > 0;
+        toast.warning(
+          resteDuDetail
+            ? t("pharmacie.vente_plus_de_boite", { p: p.designation })
+            : t("pharmacie.vente_stock_max", { p: p.designation }),
+        );
         return prev;
       }
       return existante

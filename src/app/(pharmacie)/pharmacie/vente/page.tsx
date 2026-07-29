@@ -5,10 +5,12 @@ import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
-import { listProduitsAvecStock, listEntitesPec } from "@/lib/pharmacie/sheets";
+import { listProduitsAvecStock, listEntitesPec, listStockParLot } from "@/lib/pharmacie/sheets";
 import { safe } from "@/lib/sheets/safe";
 import { PanneBanner } from "@/components/layout/panne-banner";
 import { getT } from "@/lib/i18n";
+import { aujourdhui } from "@/lib/tz";
+import { estPerime } from "@/lib/pharmacie/fefo";
 import type { ProduitAvecStock, EntitePec } from "@/lib/pharmacie/types";
 
 import { VenteForm } from "./vente-form";
@@ -24,9 +26,27 @@ export default async function VentePage() {
   const lang = session.user.lang;
   const t = getT(lang);
 
-  const [res, entitesRes] = await Promise.all([
+  const [res, entitesRes, stockRes] = await Promise.all([
     safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []),
     safe<EntitePec[]>(() => listEntitesPec(), []),
+    // Ventilation par compartiment, lots PÉRIMÉS exclus : le plafond affiché
+    // au comptoir doit refléter ce que le serveur acceptera réellement de
+    // servir — sinon Lida compose un panier refusé à l'encaissement, cliente
+    // devant elle.
+    safe(async () => {
+      const jour = aujourdhui();
+      const parLot = await listStockParLot();
+      const out: Record<string, { gros: number; detail: number }> = {};
+      for (const [produitId, lots] of parLot) {
+        for (const l of lots) {
+          if (estPerime(l.dateExpiration, jour)) continue;
+          const acc = (out[produitId] ??= { gros: 0, detail: 0 });
+          acc.gros += Math.max(0, l.gros);
+          acc.detail += Math.max(0, l.detail);
+        }
+      }
+      return out;
+    }, {} as Record<string, { gros: number; detail: number }>),
   ]);
 
   return (
@@ -48,7 +68,7 @@ export default async function VentePage() {
       </div>
 
       {res.ok ? (
-        <VenteForm produits={res.data} entites={entitesRes.data} lang={lang} />
+        <VenteForm produits={res.data} entites={entitesRes.data} lang={lang} stockParCompartiment={stockRes.data} />
       ) : (
         // Le catalogue est injoignable : on n'affiche PAS la caisse. Un
         // formulaire vide inviterait à composer un panier qui ne pourrait

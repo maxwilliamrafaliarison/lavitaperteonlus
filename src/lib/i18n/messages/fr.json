@@ -380,7 +380,8 @@
     "badge_peremptions": "Produits périmant sous 90 jours",
     "vente_reseau_titre": "Vente non confirmée",
     "vente_reseau_aide": "La connexion a été interrompue. NE RECOMMENCEZ PAS la vente : cliquez à nouveau sur « Encaisser » — si elle est déjà enregistrée, elle ne sera pas comptée deux fois. Vérifiez ensuite dans « Ventes ».",
-    "vente_error_perime": "{p} : tout le stock restant est PÉRIMÉ. Ne le délivrez pas — mettez-le de côté et signalez-le."
+    "vente_error_perime": "{p} : tout le stock restant est PÉRIMÉ. Ne le délivrez pas — mettez-le de côté et signalez-le.",
+    "vente_plus_de_boite": "{p} : plus de boîte fermée — il ne reste que des unités ouvertes. Vendez à l'unité."
   },
   "nav": {
     "aria_label": "Navigation principale",
