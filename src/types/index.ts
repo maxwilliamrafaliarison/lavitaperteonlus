@@ -35,6 +35,9 @@ export const AppUser = z.object({
   createdAt: z.string(),
   lastLoginAt: z.string().optional(),
   invitedBy: z.string().optional(),
+  // Changement de mot de passe imposé à la prochaine connexion (comptes
+  // livrés avec un mot de passe provisoire connu d'un tiers).
+  mustChangePassword: z.boolean().default(false),
 });
 export type AppUser = z.infer<typeof AppUser>;
 

@@ -14,12 +14,14 @@ declare module "next-auth" {
       id: string;
       role: UserRole;
       lang: "fr" | "it";
+      mustChangePassword?: boolean;
     } & DefaultSession["user"];
   }
 
   interface User {
     role?: UserRole;
     lang?: "fr" | "it";
+    mustChangePassword?: boolean;
   }
 }
 
@@ -40,10 +42,11 @@ export const authConfig: NextAuthConfig = {
     jwt: async ({ token, user, trigger, session: updatedSession }) => {
       // À la connexion, `user` est défini → on injecte les champs custom dans le JWT
       if (user) {
-        const u = user as { id?: string; role?: UserRole; lang?: "fr" | "it" };
+        const u = user as { id?: string; role?: UserRole; lang?: "fr" | "it"; mustChangePassword?: boolean };
         if (u.id) (token as Record<string, unknown>).id = u.id;
         if (u.role) (token as Record<string, unknown>).role = u.role;
         if (u.lang) (token as Record<string, unknown>).lang = u.lang;
+        (token as Record<string, unknown>).mustChangePassword = u.mustChangePassword ?? false;
       }
       // Lors d'un `update()` depuis le client, on merge les champs permis
       if (trigger === "update" && updatedSession && typeof updatedSession === "object") {
@@ -61,6 +64,7 @@ export const authConfig: NextAuthConfig = {
         session.user.id = (t.id as string) ?? session.user.id;
         session.user.role = (t.role as UserRole) ?? "logistique";
         session.user.lang = (t.lang as "fr" | "it") ?? "fr";
+        session.user.mustChangePassword = Boolean(t.mustChangePassword);
       }
       return session;
     },
@@ -94,6 +98,16 @@ export const authConfig: NextAuthConfig = {
         pathname.startsWith("/logo");
 
       if (isPublic) return true;
+
+      // Mot de passe provisoire : l'utilisateur est conduit à l'écran de
+      // changement et n'accède à rien d'autre tant qu'il n'a pas choisi le
+      // sien. Sans cette contrainte, « imposé » ne serait qu'un conseil.
+      const doitChanger = Boolean(
+        (auth?.user as { mustChangePassword?: boolean } | undefined)?.mustChangePassword,
+      );
+      if (doitChanger && auth?.user && !pathname.startsWith("/changer-mot-de-passe")) {
+        return Response.redirect(new URL("/changer-mot-de-passe", request.nextUrl));
+      }
 
       // Tout le reste nécessite une session
       return !!auth?.user;

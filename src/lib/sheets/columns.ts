@@ -15,7 +15,7 @@ import type { SheetName } from "./client";
 */
 
 export const COLUMN_ORDER: Record<SheetName, readonly string[]> = {
-  users: ["id", "email", "passwordHash", "name", "role", "lang", "active", "createdAt", "lastLoginAt", "invitedBy"],
+  users: ["id", "email", "passwordHash", "name", "role", "lang", "active", "createdAt", "lastLoginAt", "invitedBy", "mustChangePassword"],
   sites: ["id", "code", "name", "city", "address", "active"],
   rooms: ["id", "siteId", "code", "name", "floor", "service", "ipRange"],
   materials: [

@@ -76,6 +76,10 @@ export async function inviteUserAction(formData: FormData): Promise<UserActionSt
       name,
       role,
       lang,
+      // Le mot de passe initial est connu de l'administrateur qui le
+      // communique : l'utilisateur devra choisir le sien dès sa première
+      // connexion.
+      mustChangePassword: true,
       active: true,
       createdAt: new Date().toISOString(),
       invitedBy: userSession.user.id,

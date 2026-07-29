@@ -50,6 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           role: user.role,
           lang: user.lang,
+          mustChangePassword: user.mustChangePassword ?? false,
         } as unknown as { id: string; email: string; name: string; role: UserRole; lang: "fr" | "it" };
       },
     }),

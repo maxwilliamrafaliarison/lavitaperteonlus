@@ -23,11 +23,12 @@ export type UserRow = {
   createdAt: string;
   lastLoginAt: string;
   invitedBy: string;
+  mustChangePassword?: string | boolean;
 };
 
 const HEADERS = [
   "id", "email", "passwordHash", "name", "role",
-  "lang", "active", "createdAt", "lastLoginAt", "invitedBy",
+  "lang", "active", "createdAt", "lastLoginAt", "invitedBy", "mustChangePassword",
 ] as const;
 
 function rowToUser(row: UserRow): AppUser | null {
@@ -52,6 +53,7 @@ function rowToUser(row: UserRow): AppUser | null {
     createdAt: str(row.createdAt),
     lastLoginAt: opt(row.lastLoginAt),
     invitedBy: opt(row.invitedBy),
+    mustChangePassword: bool(row.mustChangePassword) ?? false,
   };
 }
 
@@ -67,6 +69,7 @@ function userToRow(user: AppUser): unknown[] {
     user.createdAt,
     user.lastLoginAt ?? "",
     user.invitedBy ?? "",
+    user.mustChangePassword ?? false,
   ];
 }
 
