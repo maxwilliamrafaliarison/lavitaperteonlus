@@ -189,6 +189,8 @@
     "caisse_ecart": "Écart",
     "caisse_requise": "Ouvrez la caisse avant d'encaisser la première vente.",
     "caisse_montant_invalide": "Montant invalide : saisissez un nombre entier positif.",
+    "caisse_imprimer": "Imprimer l'état de caisse",
+    "caisse_envoye": "Un exemplaire vient d'être envoyé à l'administration.",
     "caisse_deja_fermee": "Aucune caisse n'est ouverte.",
     "vente_stock_dispo": "{n} dispo",
     "vente_stock_max": "Stock maximum atteint pour {p}.",

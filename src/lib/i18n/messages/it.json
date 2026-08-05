@@ -189,6 +189,8 @@
     "caisse_ecart": "Scarto",
     "caisse_requise": "Aprire la cassa prima di incassare la prima vendita.",
     "caisse_montant_invalide": "Importo non valido: inserire un numero intero positivo.",
+    "caisse_imprimer": "Stampare il rendiconto di cassa",
+    "caisse_envoye": "Una copia è appena stata inviata all'amministrazione.",
     "caisse_deja_fermee": "Nessuna cassa è aperta.",
     "vente_stock_dispo": "{n} disp.",
     "vente_stock_max": "Stock massimo raggiunto per {p}.",

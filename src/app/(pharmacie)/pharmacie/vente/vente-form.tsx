@@ -16,6 +16,7 @@ import {
   Pencil,
   Lock,
   LockOpen,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -830,7 +831,15 @@ function LigneCatalogue({
       className={cn(
         "grid grid-cols-[1fr_auto] md:grid-cols-[1fr_7rem_6rem_9.5rem] items-center gap-2 rounded-xl px-3 py-2",
         "transition-colors",
-        selectionne && "ring-2 ring-primary/40 bg-primary/5",
+        /* Curseur clavier en CYAN, jamais en rouge.
+           Le rouge est la couleur de l'alerte dans cette application —
+           rupture, produit périmé, vente annulée. S'en servir pour marquer
+           la ligne sélectionnée faisait lire « ce médicament a un problème »
+           là où le code disait seulement « Entrée ajoutera celui-ci ». Au
+           comptoir, cette confusion coûte une hésitation à chaque recherche.
+           La barre à gauche porte la sélection, le fond reste sobre. */
+        selectionne && "bg-accent/10 border-l-[3px] border-accent",
+        !selectionne && "border-l-[3px] border-transparent",
         /* Épuisé : la ligne reste LISIBLE (la dispensatrice répond « épuisé »,
            pas « inconnu ») mais rien n'y est cliquable. */
         epuise && "opacity-55",
@@ -911,7 +920,7 @@ function BandeauCaisse({
   const [comptees, setComptees] = React.useState<number>(0);
   const [note, setNote] = React.useState("");
   const [loading, setLoading] = React.useState(false);
-  const [bilan, setBilan] = React.useState<{ theorique: number; comptees: number; ecart: number } | null>(null);
+  const [bilan, setBilan] = React.useState<{ theorique: number; comptees: number; ecart: number; sessionId: string } | null>(null);
 
   async function ouvrir() {
     setLoading(true);
@@ -933,7 +942,7 @@ function BandeauCaisse({
     try {
       const r = await cloreCaisseAction({ especesComptees: comptees, note });
       if (r.ok && "ecart" in r) {
-        setBilan({ theorique: r.theorique, comptees: r.comptees, ecart: r.ecart });
+        setBilan({ theorique: r.theorique, comptees: r.comptees, ecart: r.ecart, sessionId: r.sessionId });
         onChange();
       } else if (!r.ok) {
         toast.error(t("common.failed"), { description: r.error });
@@ -970,6 +979,24 @@ function BandeauCaisse({
               {fmtAr(bilan.ecart)}
             </span>
           </span>
+        </div>
+
+        {/* La pièce s'imprime et se range : un état de caisse vaut
+            justificatif comptable, il ne vit pas qu'à l'écran. Le même
+            document vient de partir à l'administration. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-glass-border pt-3">
+          <GlassButton
+            type="button"
+            variant="brand"
+            size="sm"
+            onClick={() =>
+              window.open(`/api/pharmacie/caisse/${bilan.sessionId}`, "_blank", "noopener")
+            }
+          >
+            <Printer className="size-3.5" aria-hidden="true" />
+            {t("pharmacie.caisse_imprimer")}
+          </GlassButton>
+          <p className="text-[11px] text-muted-foreground">{t("pharmacie.caisse_envoye")}</p>
         </div>
       </GlassCard>
     );

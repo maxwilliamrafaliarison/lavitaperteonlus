@@ -14,7 +14,9 @@ import { getT } from "@/lib/i18n";
 
 type Resultat =
   | { ok: true }
-  | { ok: true; ecart: number; theorique: number; comptees: number }
+  /* La clôture renvoie l'identifiant de la séance : l'écran en a besoin
+     pour ouvrir la pièce comptable, qui se numérote côté serveur. */
+  | { ok: true; sessionId: string; ecart: number; theorique: number; comptees: number }
   | { ok: false; error: string };
 
 const ouvrirSchema = z.object({
@@ -67,10 +69,29 @@ export async function cloreCaisseAction(raw: unknown): Promise<Resultat> {
       especesComptees: parsed.data.especesComptees,
       note: parsed.data.note,
     });
+    /* L'état part à l'administration, SANS conditionner la clôture.
+       Les espèces sont comptées et l'écart est écrit : une panne de
+       messagerie ne doit ni empêcher de fermer, ni faire croire à un échec.
+       On attend tout de même l'envoi — sur Vercel, une promesse laissée en
+       suspens après la réponse est tuée avec la fonction, et le courriel ne
+       partirait jamais. */
+    try {
+      const { construireEtatCaisse } = await import("@/lib/pharmacie/caisse-etat");
+      const { envoyerEtatCaisse } = await import("@/lib/pharmacie/caisse-mail");
+      const etat = await construireEtatCaisse(close);
+      const base =
+        process.env.NEXT_PUBLIC_BASE_URL ??
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+      await envoyerEtatCaisse(etat, base);
+    } catch {
+      // Journalisé côté hébergeur ; l'écran ne s'en émeut pas.
+    }
+
     revalidatePath("/pharmacie/vente");
     revalidatePath("/pharmacie");
     return {
       ok: true,
+      sessionId: close.id,
       ecart: close.ecart ?? 0,
       theorique: close.total_theorique ?? 0,
       comptees: parsed.data.especesComptees,
