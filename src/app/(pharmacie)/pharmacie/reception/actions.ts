@@ -8,12 +8,20 @@ import { can } from "@/lib/auth/permissions";
 import {
   appendRows,
   listProduits,
+  listMouvements,
   PHARMA_SHEETS,
 } from "@/lib/pharmacie/sheets";
 import { facteur } from "@/lib/pharmacie/fractionnement";
 import { getT, isLang } from "@/lib/i18n";
 
 const ReceptionInput = z.object({
+  /* Identifiant engendré par le NAVIGATEUR, conservé tant que la saisie
+     n'est pas enregistrée. Réessayer après une coupure renvoie le même
+     identifiant, que le serveur reconnaît comme un renvoi : le stock
+     n'entre qu'une fois. Sans cela, un double clic ou un renvoi après
+     timeout créait deux lots et doublait la quantité reçue — silencieusement,
+     puisque les deux écritures réussissaient. */
+  receptionId: z.string().regex(/^MVT-[A-Z0-9-]{6,40}$/).optional(),
   produitId: z.string().min(1),
   // Quantité reçue en BOÎTES (l'unité d'une livraison fournisseur).
   quantite: z.number().int().positive().max(100_000),
@@ -63,8 +71,21 @@ export async function recevoirStockAction(raw: unknown): Promise<ReceptionResult
 
   const timestamp = new Date().toISOString();
   const email = session.user.email ?? "";
-  const mouvementId = genId("MVT");
+  const mouvementId = input.receptionId ?? genId("MVT");
   const f = facteur(produit);
+
+  /* Garde d'idempotence : si ce mouvement est déjà écrit, la réception a
+     déjà eu lieu. On répond « c'est fait » sans rien réécrire, plutôt que
+     d'ajouter un second lot. Le contrôle n'est pas atomique — deux envois
+     rigoureusement simultanés pourraient encore passer — mais il ferme le
+     cas réel : le double clic et le renvoi après coupure, séparés par un
+     aller-retour réseau. */
+  if (input.receptionId) {
+    const deja = await listMouvements();
+    if (deja.some((m) => m.id === input.receptionId)) {
+      return { ok: true, mouvementId: input.receptionId };
+    }
+  }
 
   // Une réception se compte en BOÎTES. Le mouvement de stock est toujours en
   // unités de base : recevoir 10 boîtes d'un produit à 30 comprimés ajoute

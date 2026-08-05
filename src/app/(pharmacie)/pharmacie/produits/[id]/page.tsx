@@ -97,12 +97,15 @@ export default async function ProduitPage({
   const mouvements = kardex.slice(0, MAX_KARDEX);
 
   const TYPE_TONES: Record<string, string> = {
-    entree: "text-[oklch(0.75_0.18_150)]",
-    retour: "text-[oklch(0.75_0.18_150)]",
+    entree: "text-[var(--success)]",
+    retour: "text-[var(--success)]",
     vente: "text-primary",
     perte: "text-primary",
     destruction: "text-primary",
-    ajustement: "text-[oklch(0.82_0.16_85)]",
+    ajustement: "text-[var(--warning)]",
+    // « Ouvrir des boîtes » écrit deux mouvements de ce type à chaque
+    // fractionnement : sans entrée ici, ils s'affichaient sans couleur.
+    transfert: "text-accent",
   };
 
   return (
@@ -243,7 +246,7 @@ export default async function ProduitPage({
                           className={cn(
                             "px-4 py-2.5 text-right font-mono tabular-nums font-semibold whitespace-nowrap",
                             m.quantite > 0
-                              ? "text-[oklch(0.75_0.18_150)]"
+                              ? "text-[var(--success)]"
                               : "text-primary",
                           )}
                         >

@@ -25,9 +25,9 @@ const MOVEMENT_META: Record<
 const TONE_STYLES = {
   primary: "bg-primary/12 text-primary border-primary/30",
   success:
-    "bg-[oklch(0.75_0.18_150_/_0.12)] text-[oklch(0.75_0.18_150)] border-[oklch(0.75_0.18_150_/_0.3)]",
+    "bg-[var(--success)/12] text-[var(--success)] border-[var(--success)/30]",
   warning:
-    "bg-[oklch(0.82_0.16_85_/_0.12)] text-[oklch(0.82_0.16_85)] border-[oklch(0.82_0.16_85_/_0.3)]",
+    "bg-[var(--warning)/12] text-[var(--warning)] border-[var(--warning)/30]",
   muted: "bg-muted text-muted-foreground border-glass-border",
   cyan: "bg-accent/12 text-accent border-accent/30",
 };

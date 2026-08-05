@@ -95,6 +95,21 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
     return { ok: false, error: t("pharmacie.vente_error_pec_payeur") };
   }
 
+  /* Pas de vente hors session de caisse : le total théorique de la clôture
+     n'a de sens que si CHAQUE encaissement appartient à une session. La
+     vérification vit côté serveur — le bouton grisé du client n'est qu'un
+     confort. Si la table n'existe pas encore (migration 017 non passée), la
+     lecture échoue : on laisse passer, l'écran vit sans caisse. */
+  try {
+    const { getCaisseOuverte } = await import("@/lib/pharmacie/caisse");
+    const caisse = await getCaisseOuverte();
+    if (caisse === null) {
+      return { ok: false, error: t("pharmacie.caisse_requise") };
+    }
+  } catch {
+    // Caisse indisponible (pré-migration) : ne jamais bloquer la vente.
+  }
+
   // On lit l'état courant du catalogue (pour valider produit, statut, prix).
   // Le stock ventilé par lot est lu juste avant l'allocation FEFO.
   const produits = await listProduitsAvecStock();

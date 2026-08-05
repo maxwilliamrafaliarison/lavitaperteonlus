@@ -19,14 +19,14 @@ function scoreTone(score: number): {
     return {
       bg: "bg-[oklch(0.75_0.18_150_/_0.08)]",
       border: "border-[oklch(0.75_0.18_150_/_0.25)]",
-      text: "text-[oklch(0.75_0.18_150)]",
+      text: "text-[var(--success)]",
     };
   }
   if (score >= 40) {
     return {
       bg: "bg-[oklch(0.82_0.16_85_/_0.10)]",
       border: "border-[oklch(0.82_0.16_85_/_0.28)]",
-      text: "text-[oklch(0.82_0.16_85)]",
+      text: "text-[var(--warning)]",
     };
   }
   return {

@@ -14,6 +14,8 @@ import {
   Receipt,
   FileText,
   Pencil,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +25,7 @@ import { getT, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { estGalenique, type ProduitAvecStock, type ModeVente, type EntitePec } from "@/lib/pharmacie/types";
 import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
+import type { CaisseSession } from "@/lib/pharmacie/caisse";
 import {
   estFractionnable,
   prixPour,
@@ -31,6 +34,26 @@ import {
 } from "@/lib/pharmacie/fractionnement";
 
 import { creerVenteAction } from "./actions";
+import { ouvrirCaisseAction, cloreCaisseAction } from "./actions-caisse";
+
+/* ============================================================
+   ÉCRAN DE VENTE — poste de travail type officine (POS)
+   ============================================================
+
+   Deux colonnes : le CATALOGUE à gauche, permanent — tous les produits
+   actifs, y compris épuisés, car la dispensatrice doit pouvoir répondre
+   « le produit existe mais il manque » sans quitter l'écran — et le PANIER
+   à droite, avec l'encaissement.
+
+   Piloté au clavier : la recherche filtre en tapant, ↑↓ déplacent la
+   sélection, Entrée ajoute (à la boîte), Échap vide la recherche. La souris
+   reste possible partout ; le clavier est simplement plus rapide au
+   comptoir, une cliente en face.
+
+   La caisse encadre le tout : pas d'encaissement sans session ouverte
+   (fonds initial compté), clôture par comptage À L'AVEUGLE — l'écart ne
+   s'affiche qu'après la saisie, sinon le comptage « retombe juste ».
+   ============================================================ */
 
 interface LignePanier {
   produit: ProduitAvecStock;
@@ -49,7 +72,7 @@ function fmtAr(n: number): string {
   );
 }
 
-/** « VTE-…​ » unique, engendré par le navigateur à l'ouverture du panier. */
+/** « VTE-… » unique, engendré par le navigateur à l'ouverture du panier. */
 function nouvelIdPanier(): string {
   const alea =
     typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -58,11 +81,16 @@ function nouvelIdPanier(): string {
   return `VTE-${Date.now().toString(36).toUpperCase()}-${alea}`;
 }
 
+const JOUR_MS = 86_400_000;
+
 export function VenteForm({
   produits,
   entites,
   lang,
   stockParCompartiment,
+  peremptions,
+  caisse,
+  caisseDisponible,
 }: {
   produits: ProduitAvecStock[];
   entites: EntitePec[];
@@ -75,10 +103,17 @@ export function VenteForm({
    * refuser à l'encaissement, cliente devant le comptoir.
    */
   stockParCompartiment?: Record<string, { gros: number; detail: number }>;
+  /** Péremption la plus proche (lots non périmés), par produit. */
+  peremptions?: Record<string, string>;
+  /** Session de caisse ouverte, ou null (caisse fermée). */
+  caisse: CaisseSession | null;
+  /** Faux tant que la migration caisse n'est pas passée : l'écran vit sans. */
+  caisseDisponible: boolean;
 }) {
   const router = useRouter();
   const t = React.useMemo(() => getT(lang), [lang]);
   const [query, setQuery] = React.useState("");
+  const [sel, setSel] = React.useState(0);
   const [panier, setPanier] = React.useState<LignePanier[]>([]);
   const [clientNom, setClientNom] = React.useState("");
   const [typeVente, setTypeVente] = React.useState<"cash" | "pec">("cash");
@@ -93,44 +128,71 @@ export function VenteForm({
   const [idPanier, setIdPanier] = React.useState(() => nouvelIdPanier());
   const [done, setDone] = React.useState<{ venteId: string; total: number } | null>(null);
   const [recu, setRecu] = React.useState<number>(0);
+  const listeRef = React.useRef<HTMLUListElement>(null);
 
   const estPec = typeVente === "pec";
+  const caisseOuverte = !caisseDisponible || caisse !== null;
 
-  const vendables = React.useMemo(
-    () => produits.filter((p) => p.statut === "actif" && p.stockBase > 0),
+  /* Le catalogue montre TOUT le rayon actif, épuisés compris — grisés, avec
+     la raison. Les masquer laisserait la dispensatrice répondre « inconnu »
+     quand la vérité est « épuisé » — deux réponses différentes au comptoir. */
+  const actifs = React.useMemo(
+    () =>
+      produits
+        .filter((p) => p.statut === "actif")
+        .sort((a, b) => a.designation.localeCompare(b.designation, "fr")),
     [produits],
   );
 
-  const resultats = React.useMemo(() => {
+  const filtres = React.useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (q.length < 2) return [];
-    return vendables
-      .filter(
-        (p) =>
-          p.designation.toLowerCase().includes(q) ||
-          p.dci.toLowerCase().includes(q) ||
-          p.id.toLowerCase().includes(q),
-      )
-      .slice(0, 8);
-  }, [query, vendables]);
+    if (!q) return actifs;
+    return actifs.filter(
+      (p) =>
+        p.designation.toLowerCase().includes(q) ||
+        p.dci.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q),
+    );
+  }, [query, actifs]);
+
+  /* Rendu plafonné : au-delà, un bandeau invite à affiner. Un rayon de
+     quelques centaines de lignes se rend sans peine ; on garde une borne
+     pour que l'écran reste fluide si le catalogue décuple. */
+  const PLAFOND = 150;
+  const visibles = filtres.slice(0, PLAFOND);
+
+  React.useEffect(() => {
+    setSel(0);
+  }, [query]);
 
   const total = panier.reduce(
     (s, l) => s + l.quantite * prixPour(l.produit, l.mode),
     0,
   );
 
+  function compartDe(p: ProduitAvecStock) {
+    return stockParCompartiment?.[p.id] ?? null;
+  }
+
+  /** Épuisé = plus rien à vendre, compartiments confondus (périmés exclus). */
+  function estEpuise(p: ProduitAvecStock): boolean {
+    const c = compartDe(p);
+    if (c) return c.gros + c.detail <= 0;
+    return p.stockBase <= 0;
+  }
+
   /**
    * Quantité maximale d'une ligne, en tenant compte de ce que les AUTRES
    * lignes du même produit consomment déjà. Sans ça, 2 boîtes + N comprimés
    * du même produit pourraient dépasser le stock à eux deux — le serveur
-   * refuserait, mais après que le pharmacien a composé tout son panier.
+   * refuserait, mais après que la dispensatrice a composé tout son panier.
    */
   function maxPour(ligne: LignePanier, courant: LignePanier[]): number {
     const dejaPris = courant
       .filter((l) => l.produit.id === ligne.produit.id && l.mode !== ligne.mode)
       .reduce((s, l) => s + versUnitesBase(l.produit, l.quantite, l.mode), 0);
     const parUnite = versUnitesBase(ligne.produit, 1, ligne.mode);
-    const compart = stockParCompartiment?.[ligne.produit.id];
+    const compart = compartDe(ligne.produit);
     if (!compart) {
       // Repli (ventilation indisponible) : ancien calcul sur le total.
       return Math.max(0, Math.floor((ligne.produit.stockBase - dejaPris) / parUnite));
@@ -142,6 +204,13 @@ export function VenteForm({
     return Math.max(0, Math.floor((base - dejaPris) / parUnite));
   }
 
+  /** Reste ajoutable pour un produit/mode, panier déduit — pilote le grisage. */
+  function resteAjoutable(p: ProduitAvecStock, mode: ModeVente): number {
+    const existante = panier.find((l) => l.produit.id === p.id && l.mode === mode);
+    const fictive: LignePanier = existante ?? { produit: p, quantite: 0, mode };
+    return maxPour(fictive, panier) - (existante?.quantite ?? 0);
+  }
+
   function ajouter(p: ProduitAvecStock, mode: ModeVente) {
     setPanier((prev) => {
       const existante = prev.find((l) => l.produit.id === p.id && l.mode === mode);
@@ -149,7 +218,7 @@ export function VenteForm({
       if (cible.quantite + 1 > maxPour(cible, prev)) {
         // Distinguer « plus de stock » de « plus de boîte fermée » : le
         // second se résout en vendant à l'unité, pas en renonçant.
-        const compart = stockParCompartiment?.[p.id];
+        const compart = compartDe(p);
         const resteDuDetail = mode === "boite" && (compart?.detail ?? 0) > 0;
         toast.warning(
           resteDuDetail
@@ -162,8 +231,43 @@ export function VenteForm({
         ? prev.map((l) => (cle(l) === cle(cible) ? { ...l, quantite: l.quantite + 1 } : l))
         : [...prev, { produit: p, quantite: 1, mode }];
     });
-    setQuery("");
   }
+
+  /** Ajout au clavier : Entrée sur la ligne sélectionnée. */
+  function ajouterSelection() {
+    const p = visibles[sel];
+    if (!p || estEpuise(p)) return;
+    const sansPrix = !p.prix_vente || p.prix_vente <= 0;
+    if (sansPrix) return;
+    const compart = compartDe(p);
+    const auDetail = estFractionnable(p) && p.prix_vente_detail > 0;
+    // Plus de boîte fermée mais du détail : Entrée bascule d'elle-même sur
+    // l'unité — c'est ce que la dispensatrice ferait à la souris.
+    const mode: ModeVente =
+      compart && compart.gros <= 0 && auDetail ? "detail" : "boite";
+    ajouter(p, mode);
+  }
+
+  function auClavier(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSel((s) => Math.min(s + 1, visibles.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSel((s) => Math.max(s - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      ajouterSelection();
+    } else if (e.key === "Escape") {
+      setQuery("");
+    }
+  }
+
+  React.useEffect(() => {
+    listeRef.current
+      ?.querySelector(`[data-idx="${sel}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [sel]);
 
   function changerQuantite(k: string, delta: number) {
     setPanier((prev) =>
@@ -178,6 +282,10 @@ export function VenteForm({
 
   async function encaisser() {
     if (panier.length === 0) return;
+    if (!caisseOuverte) {
+      toast.warning(t("pharmacie.caisse_requise"));
+      return;
+    }
     if (estPec && pecPayeur.trim() === "") {
       toast.warning(t("pharmacie.vente_error_pec_payeur"));
       return;
@@ -185,6 +293,7 @@ export function VenteForm({
     setLoading(true);
     try {
       const result = await creerVenteAction({
+        venteId: idPanier,
         clientNom,
         typeVente,
         pecPayeur,
@@ -204,13 +313,13 @@ export function VenteForm({
       } else {
         toast.error(t("common.failed"), { description: result.error });
       }
-    } catch (e) {
+    } catch {
       // Jamais le message technique brut au comptoir : la dispensatrice a
-        // besoin d'un geste, pas d'une trace d'exception.
-        toast.error(t("pharmacie.vente_reseau_titre"), {
-          description: t("pharmacie.vente_reseau_aide"),
-          duration: 12000,
-        });
+      // besoin d'un geste, pas d'une trace d'exception.
+      toast.error(t("pharmacie.vente_reseau_titre"), {
+        description: t("pharmacie.vente_reseau_aide"),
+        duration: 12000,
+      });
     } finally {
       setLoading(false);
     }
@@ -221,7 +330,7 @@ export function VenteForm({
     return (
       <GlassCard className="mx-auto max-w-md p-8 text-center print:shadow-none">
         <CheckCircle2
-          className="mx-auto size-12 text-[oklch(0.75_0.18_150)]"
+          className="mx-auto size-12 text-[var(--success)]"
           aria-hidden="true"
         />
         <h2 className="mt-4 font-display text-2xl font-semibold">
@@ -275,7 +384,7 @@ export function VenteForm({
           {estPec && (
             <p className="mt-1 flex justify-between font-semibold">
               <span>{t("pharmacie.vente_a_payer")}</span>
-              <span className="font-mono tabular-nums text-[oklch(0.75_0.18_150)]">
+              <span className="font-mono tabular-nums text-[var(--success)]">
                 {fmtAr(0)}
               </span>
             </p>
@@ -318,7 +427,7 @@ export function VenteForm({
             <span
               className={cn(
                 "font-mono text-base font-semibold tabular-nums",
-                recu >= done.total && "text-[oklch(0.75_0.18_150)]",
+                recu >= done.total && "text-[var(--success)]",
               )}
             >
               {fmtAr(Math.max(0, recu - done.total))}
@@ -386,283 +495,584 @@ export function VenteForm({
     );
   }
 
-  // -------- Écran de vente --------
+  // -------- Écran de vente (POS) --------
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      {/* Recherche produit */}
-      <div className="lg:col-span-3 space-y-4">
-        <div className="relative">
-          <Search
-            className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("pharmacie.vente_search_placeholder")}
-            aria-label={t("pharmacie.vente_search_placeholder")}
-            className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
-            autoFocus
-          />
+    <div className="space-y-4">
+      {caisseDisponible && (
+        <BandeauCaisse caisse={caisse} t={t} onChange={() => router.refresh()} />
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        {/* Catalogue permanent */}
+        <div className="lg:col-span-3 space-y-3">
+          <div className="relative">
+            <Search
+              className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={auClavier}
+              placeholder={t("pharmacie.vente_search_placeholder")}
+              aria-label={t("pharmacie.vente_search_placeholder")}
+              className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30"
+              autoFocus
+            />
+            <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 hidden md:block text-[10px] text-muted-foreground">
+              {t("pharmacie.vente_raccourcis")}
+            </span>
+          </div>
+
+          <GlassCard className="p-2">
+            {/* En-tête de colonnes : le rayon se lit comme un registre. */}
+            <div className="hidden md:grid grid-cols-[1fr_7rem_6rem_9.5rem] gap-2 px-3 pb-1.5 pt-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              <span>{t("pharmacie.vente_col_produit")}</span>
+              <span className="text-right">{t("pharmacie.vente_col_stock")}</span>
+              <span className="text-right">{t("pharmacie.vente_col_peremption")}</span>
+              <span className="text-right">{t("pharmacie.vente_col_prix")}</span>
+            </div>
+            <ul
+              role="listbox"
+              aria-label={t("pharmacie.vente_col_produit")}
+              ref={listeRef}
+              className="max-h-[60vh] overflow-y-auto divide-y divide-glass-border"
+            >
+              {visibles.map((p, idx) => (
+                <LigneCatalogue
+                  key={p.id}
+                  produit={p}
+                  idx={idx}
+                  selectionne={idx === sel}
+                  epuise={estEpuise(p)}
+                  compart={compartDe(p)}
+                  peremption={peremptions?.[p.id] ?? ""}
+                  resteBoite={resteAjoutable(p, "boite")}
+                  resteDetail={resteAjoutable(p, "detail")}
+                  t={t}
+                  onAjouter={(mode) => {
+                    setSel(idx);
+                    ajouter(p, mode);
+                  }}
+                />
+              ))}
+              {visibles.length === 0 && (
+                <li className="px-3 py-6 text-center text-sm text-muted-foreground">
+                  {t("pharmacie.vente_no_result")}
+                </li>
+              )}
+            </ul>
+            {filtres.length > PLAFOND && (
+              <p className="px-3 py-2 text-center text-[11px] text-muted-foreground border-t border-glass-border">
+                {t("pharmacie.vente_affiner", { n: String(filtres.length - PLAFOND) })}
+              </p>
+            )}
+          </GlassCard>
         </div>
 
-        {resultats.length > 0 && (
-          <GlassCard className="p-2">
-            <ul role="list" className="divide-y divide-glass-border">
-              {resultats.map((p) => {
-                // Sans prix de vente, la caisse encaisserait 0 Ar : le
-                // serveur refuse la vente, autant l'annoncer ici et
-                // renvoyer vers la fiche produit plutôt que de laisser
-                // composer un panier qui sera rejeté.
-                const sansPrix = !p.prix_vente || p.prix_vente <= 0;
-                const infos = (
-                  <>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm leading-tight inline-flex items-center gap-1.5 max-w-full">
-                        <span className="truncate">{p.designation}</span>
-                        {estGalenique(p) && <BadgeGalenique compact />}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {p.dci || p.classe || p.id}
-                        {p.dosage ? ` · ${p.dosage}` : ""}
-                      </p>
-                    </div>
-                    <span className="text-xs text-muted-foreground font-mono tabular-nums shrink-0">
-                      {formaterQuantite(p, p.stockBase)}
-                    </span>
-                  </>
-                );
-                const classeLigne =
-                  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
-                // Vendable à l'unité seulement si le produit est fractionné ET
-                // qu'un prix de comptoir a été fixé pour l'unité.
-                const auDetail = estFractionnable(p) && p.prix_vente_detail > 0;
-                return (
-                  <li key={p.id}>
-                    {sansPrix ? (
-                      // Le produit n'est pas vendable : on mène à la fiche
-                      // pour saisir le prix, au lieu d'un bouton mort.
-                      <Link href={`/pharmacie/produits/${p.id}`} className={classeLigne}>
-                        {infos}
-                        <span className="rounded-full border border-[oklch(0.82_0.16_85_/_0.3)] bg-[oklch(0.82_0.16_85_/_0.12)] px-2 py-0.5 text-[10px] font-medium text-[oklch(0.82_0.16_85)] whitespace-nowrap shrink-0">
-                          {t("pharmacie.vente_sans_prix_badge")}
-                        </span>
-                        <Pencil
-                          className="size-3.5 text-muted-foreground shrink-0"
-                          aria-hidden="true"
-                        />
-                        <span className="sr-only">{t("pharmacie.vente_sans_prix_aide")}</span>
-                      </Link>
-                    ) : auDetail ? (
-                      // Deux boutons : le pharmacien choisit l'unité au moment
-                      // d'ajouter, pas après — c'est le geste du comptoir.
-                      <div className="flex items-center gap-3 px-3 py-2.5">
-                        {infos}
-                        <div className="flex gap-1.5 shrink-0">
-                          <BoutonMode
-                            onClick={() => ajouter(p, "boite")}
-                            libelle={t("pharmacie.vente_mode_boite")}
-                            prix={fmtAr(p.prix_vente)}
-                          />
-                          <BoutonMode
-                            onClick={() => ajouter(p, "detail")}
-                            libelle={p.unite_detail || t("pharmacie.vente_mode_detail")}
-                            prix={fmtAr(p.prix_vente_detail)}
-                            accent
-                          />
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => ajouter(p, "boite")}
-                        className={classeLigne}
-                      >
-                        {infos}
-                        <span className="font-mono text-sm tabular-nums shrink-0">
-                          {fmtAr(p.prix_vente)}
-                        </span>
-                        <Plus className="size-4 text-primary shrink-0" aria-hidden="true" />
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </GlassCard>
-        )}
+        {/* Panier */}
+        <div className="lg:col-span-2">
+          <GlassCard className="p-5 sticky top-24">
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
+              <ShoppingCart className="size-4 text-primary" aria-hidden="true" />
+              {t("pharmacie.vente_panier")} ({panier.length})
+            </h2>
 
-        {query.trim().length >= 2 && resultats.length === 0 && (
-          <p className="text-sm text-muted-foreground px-2">
-            {t("pharmacie.vente_no_result")}
-          </p>
-        )}
-      </div>
-
-      {/* Panier */}
-      <div className="lg:col-span-2">
-        <GlassCard className="p-5 sticky top-24">
-          <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-            <ShoppingCart className="size-4 text-primary" aria-hidden="true" />
-            {t("pharmacie.vente_panier")} ({panier.length})
-          </h2>
-
-          {panier.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">
-              {t("pharmacie.vente_panier_vide")}
-            </p>
-          ) : (
-            <ul role="list" className="mt-4 space-y-3">
-              {panier.map((l) => {
-                const k = cle(l);
-                return (
-                  <li key={k} className="rounded-xl glass border p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium leading-tight inline-flex items-center gap-1.5 flex-wrap">
-                          {l.produit.designation}
-                          {estGalenique(l.produit) && <BadgeGalenique compact />}
-                        </p>
-                        {/* L'unité doit être lisible : deux lignes du même
-                            produit ne se distinguent que par elle. */}
-                        {estFractionnable(l.produit) && (
-                          <span
-                            className={cn(
-                              "mt-1 inline-block rounded-full border px-1.5 py-0.5 text-[9px] font-medium",
-                              l.mode === "detail"
-                                ? "border-accent/30 bg-accent/10 text-accent"
-                                : "border-glass-border text-muted-foreground",
-                            )}
-                          >
-                            {l.mode === "detail"
-                              ? l.produit.unite_detail || t("pharmacie.vente_mode_detail")
-                              : t("pharmacie.vente_mode_boite")}
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => changerQuantite(k, -l.quantite)}
-                        aria-label={t("actions.delete")}
-                        className="text-muted-foreground hover:text-primary transition-colors"
-                      >
-                        <Trash2 className="size-3.5" aria-hidden="true" />
-                      </button>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between">
-                      <div className="inline-flex items-center gap-1">
-                        <QtyBtn onClick={() => changerQuantite(k, -1)} label="-">
-                          <Minus className="size-3" aria-hidden="true" />
-                        </QtyBtn>
-                        <span className="w-8 text-center font-mono text-sm tabular-nums">
-                          {l.quantite}
-                        </span>
-                        <QtyBtn
-                          onClick={() => changerQuantite(k, 1)}
-                          disabled={l.quantite >= maxPour(l, panier)}
-                          label="+"
-                        >
-                          <Plus className="size-3" aria-hidden="true" />
-                        </QtyBtn>
-                      </div>
-                      <span className="font-mono text-sm tabular-nums">
-                        {fmtAr(l.quantite * prixPour(l.produit, l.mode))}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <div className="mt-5 space-y-3 border-t border-glass-border pt-4">
-            {/* Type de vente : comptant ou prise en charge (client à 0 Ar). */}
-            <div className="grid grid-cols-2 gap-2">
-              <TypeBtn
-                actif={!estPec}
-                onClick={() => setTypeVente("cash")}
-                label={t("pharmacie.vente_type_cash")}
-              />
-              <TypeBtn
-                actif={estPec}
-                onClick={() => setTypeVente("pec")}
-                label={t("pharmacie.vente_type_pec")}
-              />
-            </div>
-
-            {!estPec ? (
-              <label className="block">
-                <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
-                  {t("pharmacie.vente_client")} ({t("common.optional")})
-                </span>
-                <input
-                  type="text"
-                  value={clientNom}
-                  onChange={(e) => setClientNom(e.target.value)}
-                  placeholder={t("pharmacie.vente_client_placeholder")}
-                  className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </label>
+            {panier.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                {t("pharmacie.vente_panier_vide")}
+              </p>
             ) : (
-              <label className="block">
-                <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
-                  {t("pharmacie.vente_pec_payeur")}{" "}
-                  <span aria-label={t("a11y.required_indicator")} className="text-primary">*</span>
-                </span>
-                <input
-                  type="text"
-                  list="pec-entites"
-                  value={pecPayeur}
-                  onChange={(e) => setPecPayeur(e.target.value)}
-                  placeholder={t("pharmacie.vente_pec_placeholder")}
-                  className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-                <datalist id="pec-entites">
-                  {entites.map((e) => (
-                    <option key={e.id} value={e.nom} />
-                  ))}
-                </datalist>
-              </label>
+              <ul role="list" className="mt-4 space-y-3">
+                {panier.map((l) => {
+                  const k = cle(l);
+                  return (
+                    <li key={k} className="rounded-xl glass border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium leading-tight inline-flex items-center gap-1.5 flex-wrap">
+                            {l.produit.designation}
+                            {estGalenique(l.produit) && <BadgeGalenique compact />}
+                          </p>
+                          {/* L'unité doit être lisible : deux lignes du même
+                              produit ne se distinguent que par elle. */}
+                          {estFractionnable(l.produit) && (
+                            <span
+                              className={cn(
+                                "mt-1 inline-block rounded-full border px-1.5 py-0.5 text-[9px] font-medium",
+                                l.mode === "detail"
+                                  ? "border-accent/30 bg-accent/10 text-accent"
+                                  : "border-glass-border text-muted-foreground",
+                              )}
+                            >
+                              {l.mode === "detail"
+                                ? l.produit.unite_detail || t("pharmacie.vente_mode_detail")
+                                : t("pharmacie.vente_mode_boite")}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => changerQuantite(k, -l.quantite)}
+                          aria-label={t("actions.delete")}
+                          className="text-muted-foreground hover:text-primary transition-colors"
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="inline-flex items-center gap-1">
+                          <QtyBtn onClick={() => changerQuantite(k, -1)} label="-">
+                            <Minus className="size-3" aria-hidden="true" />
+                          </QtyBtn>
+                          <span className="w-8 text-center font-mono text-sm tabular-nums">
+                            {l.quantite}
+                          </span>
+                          <QtyBtn
+                            onClick={() => changerQuantite(k, 1)}
+                            disabled={l.quantite >= maxPour(l, panier)}
+                            label="+"
+                          >
+                            <Plus className="size-3" aria-hidden="true" />
+                          </QtyBtn>
+                        </div>
+                        <span className="font-mono text-sm tabular-nums">
+                          {fmtAr(l.quantite * prixPour(l.produit, l.mode))}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
 
-            <div>
-              {estPec ? (
-                <>
-                  <p className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>{t("pharmacie.vente_pec_valeur")}</span>
-                    <span className="font-mono tabular-nums line-through">{fmtAr(total)}</span>
-                  </p>
-                  <p className="mt-1 flex items-center justify-between text-lg font-semibold">
-                    <span>{t("pharmacie.vente_a_payer")}</span>
-                    <span className="font-mono tabular-nums text-[oklch(0.75_0.18_150)]">
-                      {fmtAr(0)}
-                    </span>
-                  </p>
-                </>
+            <div className="mt-5 space-y-3 border-t border-glass-border pt-4">
+              {/* Type de vente : comptant ou prise en charge (client à 0 Ar). */}
+              <div className="grid grid-cols-2 gap-2">
+                <TypeBtn
+                  actif={!estPec}
+                  onClick={() => setTypeVente("cash")}
+                  label={t("pharmacie.vente_type_cash")}
+                />
+                <TypeBtn
+                  actif={estPec}
+                  onClick={() => setTypeVente("pec")}
+                  label={t("pharmacie.vente_type_pec")}
+                />
+              </div>
+
+              {!estPec ? (
+                <label className="block">
+                  <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                    {t("pharmacie.vente_client")} ({t("common.optional")})
+                  </span>
+                  <input
+                    type="text"
+                    value={clientNom}
+                    onChange={(e) => setClientNom(e.target.value)}
+                    placeholder={t("pharmacie.vente_client_placeholder")}
+                    className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                </label>
               ) : (
-                <p className="flex items-center justify-between text-lg font-semibold">
-                  <span>{t("pharmacie.vente_total")}</span>
-                  <span className="font-mono tabular-nums">{fmtAr(total)}</span>
+                <label className="block">
+                  <span className="block text-[10px] uppercase tracking-[0.18em] text-muted-foreground mb-1.5">
+                    {t("pharmacie.vente_pec_payeur")}{" "}
+                    <span aria-label={t("a11y.required_indicator")} className="text-primary">*</span>
+                  </span>
+                  <input
+                    type="text"
+                    list="pec-entites"
+                    value={pecPayeur}
+                    onChange={(e) => setPecPayeur(e.target.value)}
+                    placeholder={t("pharmacie.vente_pec_placeholder")}
+                    className="w-full rounded-xl glass border px-3.5 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
+                  <datalist id="pec-entites">
+                    {entites.map((e) => (
+                      <option key={e.id} value={e.nom} />
+                    ))}
+                  </datalist>
+                </label>
+              )}
+
+              <div>
+                {estPec ? (
+                  <>
+                    <p className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>{t("pharmacie.vente_pec_valeur")}</span>
+                      <span className="font-mono tabular-nums line-through">{fmtAr(total)}</span>
+                    </p>
+                    <p className="mt-1 flex items-center justify-between text-lg font-semibold">
+                      <span>{t("pharmacie.vente_a_payer")}</span>
+                      <span className="font-mono tabular-nums text-[var(--success)]">
+                        {fmtAr(0)}
+                      </span>
+                    </p>
+                  </>
+                ) : (
+                  <p className="flex items-center justify-between text-lg font-semibold">
+                    <span>{t("pharmacie.vente_total")}</span>
+                    <span className="font-mono tabular-nums">{fmtAr(total)}</span>
+                  </p>
+                )}
+              </div>
+
+              <GlassButton
+                type="button"
+                variant="brand"
+                size="lg"
+                className="w-full"
+                disabled={panier.length === 0 || loading || !caisseOuverte}
+                onClick={encaisser}
+              >
+                {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
+                {estPec ? t("pharmacie.vente_valider_pec") : t("pharmacie.vente_encaisser")}
+              </GlassButton>
+              {!caisseOuverte && (
+                <p className="text-center text-[11px] text-muted-foreground">
+                  {t("pharmacie.caisse_requise")}
                 </p>
               )}
             </div>
-
-            <GlassButton
-              type="button"
-              variant="brand"
-              size="lg"
-              className="w-full"
-              disabled={panier.length === 0 || loading}
-              onClick={encaisser}
-            >
-              {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-              {estPec ? t("pharmacie.vente_valider_pec") : t("pharmacie.vente_encaisser")}
-            </GlassButton>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        </div>
       </div>
     </div>
+  );
+}
+
+/* ============================================================
+   Ligne du catalogue
+   ============================================================ */
+function LigneCatalogue({
+  produit: p,
+  idx,
+  selectionne,
+  epuise,
+  compart,
+  peremption,
+  resteBoite,
+  resteDetail,
+  t,
+  onAjouter,
+}: {
+  produit: ProduitAvecStock;
+  idx: number;
+  selectionne: boolean;
+  epuise: boolean;
+  compart: { gros: number; detail: number } | null;
+  peremption: string;
+  resteBoite: number;
+  resteDetail: number;
+  t: (k: string, v?: Record<string, string>) => string;
+  onAjouter: (mode: ModeVente) => void;
+}) {
+  const sansPrix = !p.prix_vente || p.prix_vente <= 0;
+  const auDetail = estFractionnable(p) && p.prix_vente_detail > 0;
+  // Péremption sous 90 jours : ambre — le lot est vendable mais à écouler.
+  const perimeBientot =
+    peremption !== "" &&
+    new Date(peremption).getTime() - Date.now() < 90 * JOUR_MS;
+
+  const infos = (
+    <div className="flex-1 min-w-0">
+      <p
+        className={cn(
+          "font-medium text-sm leading-tight inline-flex items-center gap-1.5 max-w-full",
+          epuise && "text-muted-foreground",
+        )}
+      >
+        <span className="truncate">{p.designation}</span>
+        {estGalenique(p) && <BadgeGalenique compact />}
+      </p>
+      <p className="text-[11px] text-muted-foreground truncate">
+        {p.dci || p.classe || p.id}
+        {p.dosage ? ` · ${p.dosage}` : ""}
+      </p>
+    </div>
+  );
+
+  const stock = (
+    <span
+      className={cn(
+        "text-xs font-mono tabular-nums text-right",
+        epuise ? "text-primary font-semibold" : "text-muted-foreground",
+      )}
+    >
+      {epuise ? t("pharmacie.vente_stock_zero") : formaterQuantite(p, p.stockBase)}
+      {!epuise && compart && auDetail && compart.detail > 0 && (
+        <span className="block text-[10px]">
+          {t("pharmacie.vente_dont_detail", { n: String(compart.detail) })}
+        </span>
+      )}
+    </span>
+  );
+
+  const colPeremption = (
+    <span
+      className={cn(
+        "text-[11px] font-mono tabular-nums text-right",
+        perimeBientot ? "text-[var(--warning)]" : "text-muted-foreground",
+      )}
+    >
+      {peremption ? peremption.slice(0, 10) : "—"}
+    </span>
+  );
+
+  return (
+    <li
+      data-idx={idx}
+      role="option"
+      aria-selected={selectionne}
+      aria-disabled={epuise || sansPrix}
+      className={cn(
+        "grid grid-cols-[1fr_auto] md:grid-cols-[1fr_7rem_6rem_9.5rem] items-center gap-2 rounded-xl px-3 py-2",
+        "transition-colors",
+        selectionne && "ring-2 ring-primary/40 bg-primary/5",
+        /* Épuisé : la ligne reste LISIBLE (la dispensatrice répond « épuisé »,
+           pas « inconnu ») mais rien n'y est cliquable. */
+        epuise && "opacity-55",
+      )}
+    >
+      {infos}
+      {stock}
+      <span className="hidden md:block">{colPeremption}</span>
+
+      <span className="flex justify-end gap-1.5">
+        {epuise ? (
+          <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary whitespace-nowrap">
+            {t("pharmacie.vente_epuise")}
+          </span>
+        ) : sansPrix ? (
+          // Le produit n'est pas vendable : on mène à la fiche pour saisir le
+          // prix, au lieu d'un bouton mort.
+          <Link
+            href={`/pharmacie/produits/${p.id}`}
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--warning)/30] bg-[var(--warning)/12] px-2 py-0.5 text-[10px] font-medium text-[var(--warning)] whitespace-nowrap"
+          >
+            {t("pharmacie.vente_sans_prix_badge")}
+            <Pencil className="size-3" aria-hidden="true" />
+            <span className="sr-only">{t("pharmacie.vente_sans_prix_aide")}</span>
+          </Link>
+        ) : auDetail ? (
+          // Deux boutons : la dispensatrice choisit l'unité au moment
+          // d'ajouter, pas après — c'est le geste du comptoir.
+          <>
+            <BoutonMode
+              onClick={() => onAjouter("boite")}
+              libelle={t("pharmacie.vente_mode_boite")}
+              prix={fmtAr(p.prix_vente)}
+              epuiseMode={resteBoite <= 0}
+            />
+            <BoutonMode
+              onClick={() => onAjouter("detail")}
+              libelle={p.unite_detail || t("pharmacie.vente_mode_detail")}
+              prix={fmtAr(p.prix_vente_detail)}
+              accent
+              epuiseMode={resteDetail <= 0}
+            />
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onAjouter("boite")}
+            disabled={resteBoite <= 0}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-xl border border-glass-border glass px-2.5 py-1.5",
+              "hover:bg-white/8 transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+            )}
+          >
+            <span className="font-mono text-[11px] tabular-nums">{fmtAr(p.prix_vente)}</span>
+            <Plus className="size-3.5 text-primary" aria-hidden="true" />
+          </button>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/* ============================================================
+   Bandeau de caisse — ouverture et clôture comptées
+   ============================================================ */
+function BandeauCaisse({
+  caisse,
+  t,
+  onChange,
+}: {
+  caisse: CaisseSession | null;
+  t: (k: string, v?: Record<string, string>) => string;
+  onChange: () => void;
+}) {
+  const [fonds, setFonds] = React.useState<number>(0);
+  const [enCloture, setEnCloture] = React.useState(false);
+  const [comptees, setComptees] = React.useState<number>(0);
+  const [note, setNote] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [bilan, setBilan] = React.useState<{ theorique: number; comptees: number; ecart: number } | null>(null);
+
+  async function ouvrir() {
+    setLoading(true);
+    try {
+      const r = await ouvrirCaisseAction({ fondsInitial: fonds });
+      if (r.ok) {
+        toast.success(t("pharmacie.caisse_ouverte_succes"));
+        onChange();
+      } else {
+        toast.error(t("common.failed"), { description: r.error });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function clore() {
+    setLoading(true);
+    try {
+      const r = await cloreCaisseAction({ especesComptees: comptees, note });
+      if (r.ok && "ecart" in r) {
+        setBilan({ theorique: r.theorique, comptees: r.comptees, ecart: r.ecart });
+        onChange();
+      } else if (!r.ok) {
+        toast.error(t("common.failed"), { description: r.error });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Bilan de clôture : l'écart ne s'affiche qu'ICI, après le comptage.
+  if (bilan) {
+    const juste = bilan.ecart === 0;
+    return (
+      <GlassCard className="p-4">
+        <p className="font-display font-semibold">{t("pharmacie.caisse_cloturee")}</p>
+        <div className="mt-2 grid grid-cols-3 gap-3 text-sm">
+          <span>
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t("pharmacie.caisse_theorique")}</span>
+            <span className="font-mono tabular-nums">{fmtAr(bilan.theorique)}</span>
+          </span>
+          <span>
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t("pharmacie.caisse_comptees")}</span>
+            <span className="font-mono tabular-nums">{fmtAr(bilan.comptees)}</span>
+          </span>
+          <span>
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{t("pharmacie.caisse_ecart")}</span>
+            <span
+              className={cn(
+                "font-mono tabular-nums font-semibold",
+                juste ? "text-[var(--success)]" : "text-primary",
+              )}
+            >
+              {bilan.ecart > 0 ? "+" : ""}
+              {fmtAr(bilan.ecart)}
+            </span>
+          </span>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // Caisse fermée : on l'ouvre avec un fonds compté.
+  if (!caisse) {
+    return (
+      <GlassCard className="p-4 border-[var(--warning)/35]">
+        <div className="flex flex-wrap items-end gap-3">
+          <p className="flex items-center gap-2 font-medium text-sm mr-auto">
+            <Lock className="size-4 text-[var(--warning)]" aria-hidden="true" />
+            {t("pharmacie.caisse_fermee_titre")}
+          </p>
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1">
+              {t("pharmacie.caisse_fonds")}
+            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={1000}
+              value={fonds}
+              onChange={(e) => setFonds(Math.max(0, Number(e.target.value) || 0))}
+              className="w-36 rounded-xl glass border px-3 h-10 text-right font-mono text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </label>
+          <GlassButton type="button" variant="brand" size="sm" disabled={loading} onClick={ouvrir}>
+            {loading ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <LockOpen className="size-3.5" aria-hidden="true" />}
+            {t("pharmacie.caisse_ouvrir")}
+          </GlassButton>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">{t("pharmacie.caisse_fermee_aide")}</p>
+      </GlassCard>
+    );
+  }
+
+  // Caisse ouverte : rappel discret + clôture (comptage à l'aveugle).
+  return (
+    <GlassCard className="p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="mr-auto flex items-center gap-2 text-sm text-muted-foreground">
+          <LockOpen className="size-4 text-[var(--success)]" aria-hidden="true" />
+          {t("pharmacie.caisse_ouverte_par", {
+            p: caisse.ouverte_par.split("@")[0],
+            h: new Date(caisse.ouverte_le).toLocaleTimeString("fr-FR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Indian/Antananarivo",
+            }),
+          })}
+          <span className="font-mono tabular-nums">
+            · {t("pharmacie.caisse_fonds_court")} {fmtAr(caisse.fonds_initial)}
+          </span>
+        </p>
+        {!enCloture && (
+          <GlassButton type="button" variant="glass" size="sm" onClick={() => setEnCloture(true)}>
+            <Lock className="size-3.5" aria-hidden="true" />
+            {t("pharmacie.caisse_clore")}
+          </GlassButton>
+        )}
+      </div>
+
+      {enCloture && (
+        <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-glass-border pt-3">
+          {/* Comptage à l'aveugle : ni total du jour ni théorique à l'écran. */}
+          <label className="block">
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1">
+              {t("pharmacie.caisse_comptees")}
+            </span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              step={500}
+              value={comptees}
+              onChange={(e) => setComptees(Math.max(0, Number(e.target.value) || 0))}
+              className="w-40 rounded-xl glass border px-3 h-10 text-right font-mono text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-primary/40"
+              autoFocus
+            />
+          </label>
+          <label className="block flex-1 min-w-40">
+            <span className="block text-[10px] uppercase tracking-[0.14em] text-muted-foreground mb-1">
+              {t("pharmacie.caisse_note")}
+            </span>
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full rounded-xl glass border px-3 h-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </label>
+          <GlassButton type="button" variant="brand" size="sm" disabled={loading} onClick={clore}>
+            {loading && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+            {t("pharmacie.caisse_confirmer_cloture")}
+          </GlassButton>
+          <GlassButton type="button" variant="glass" size="sm" onClick={() => setEnCloture(false)}>
+            {t("common.cancel")}
+          </GlassButton>
+        </div>
+      )}
+    </GlassCard>
   );
 }
 
@@ -705,19 +1115,24 @@ function BoutonMode({
   libelle,
   prix,
   accent,
+  epuiseMode,
 }: {
   onClick: () => void;
   libelle: string;
   prix: string;
   accent?: boolean;
+  /** Ce mode précis n'a plus de stock (panier déduit) : bouton inerte. */
+  epuiseMode?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={epuiseMode}
       className={cn(
         "flex flex-col items-center rounded-xl border px-2.5 py-1.5 transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        "disabled:opacity-40 disabled:cursor-not-allowed",
         accent
           ? "border-accent/30 bg-accent/10 hover:bg-accent/20"
           : "border-glass-border glass hover:bg-white/8",

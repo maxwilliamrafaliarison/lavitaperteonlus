@@ -14,6 +14,15 @@ import { estFractionnable, facteur } from "@/lib/pharmacie/fractionnement";
 
 import { recevoirStockAction } from "./actions";
 
+/** « MVT-… » unique, engendré par le navigateur pour rendre la saisie rejouable. */
+function nouvelIdReception(): string {
+  const alea =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()
+      : Math.random().toString(36).slice(2, 14).toUpperCase();
+  return `MVT-${Date.now().toString(36).toUpperCase()}-${alea}`;
+}
+
 export function ReceptionForm({
   produits,
   lang,
@@ -51,12 +60,19 @@ export function ReceptionForm({
     setQuery("");
   }
 
+  /* Identifiant de la saisie, engendré une fois et renouvelé seulement
+     après un enregistrement réussi : réessayer après une coupure renvoie le
+     MÊME identifiant, que le serveur reconnaît comme un renvoi. Sans lui, un
+     double clic créait deux lots et doublait la quantité reçue. */
+  const [idSaisie, setIdSaisie] = React.useState(() => nouvelIdReception());
+
   async function valider(e: React.FormEvent) {
     e.preventDefault();
     if (!selection) return;
     setLoading(true);
     try {
       const result = await recevoirStockAction({
+        receptionId: idSaisie,
         produitId: selection.id,
         quantite,
         numeroLot,
@@ -73,6 +89,9 @@ export function ReceptionForm({
         setNumeroLot("");
         setDateExpiration("");
         setNote("");
+        // Nouvelle saisie = nouvel identifiant : sans cela, la réception
+        // suivante serait prise pour un renvoi et silencieusement ignorée.
+        setIdSaisie(nouvelIdReception());
         router.refresh();
       } else {
         toast.error(t("common.failed"), { description: result.error });
@@ -131,6 +150,14 @@ export function ReceptionForm({
                 ))}
               </ul>
             </GlassCard>
+          )}
+          {query.trim().length >= 2 && resultats.length === 0 && (
+            /* Une recherche muette laisse croire à une panne. On distingue
+               « ce produit n'existe pas au référentiel » de « je n'ai rien
+               tapé » : la dispensatrice sait alors quoi faire. */
+            <p className="px-2 text-sm text-muted-foreground">
+              {t("pharmacie.vente_no_result")}
+            </p>
           )}
         </>
       ) : (

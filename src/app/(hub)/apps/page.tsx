@@ -19,6 +19,14 @@ export default async function HubPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const { name, role, lang } = session.user;
+
+  /* La dispensatrice arrive DIRECTEMENT sur son poste de travail.
+     Le springboard ne lui montrerait qu'une seule tuile — un clic de plus
+     entre elle et la cliente au comptoir. La redirection vit ici plutôt
+     que dans la page de connexion : elle vaut ainsi pour tous les chemins
+     (connexion, favori sur /apps, lien « Toutes les applications »). */
+  if (role === "pharmacien") redirect("/pharmacie/vente");
+
   const t = getT(lang);
 
   const apps: HubApp[] = [

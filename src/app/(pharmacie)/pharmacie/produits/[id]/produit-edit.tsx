@@ -259,7 +259,7 @@ export function ProduitEditPanel({
       </GlassCard>
 
       {/* Ajustement d'inventaire */}
-      <GlassCard className="p-5 border-[oklch(0.82_0.16_85_/_0.3)]">
+      <GlassCard className="p-5 border-[var(--warning)/30]">
         <h2 className="font-display text-lg font-semibold mb-1">
           {t("pharmacie.ajust_title")}
         </h2>
@@ -282,7 +282,7 @@ export function ProduitEditPanel({
               <span
                 className={
                   delta > 0
-                    ? "text-[oklch(0.75_0.18_150)] font-semibold font-mono"
+                    ? "text-[var(--success)] font-semibold font-mono"
                     : "text-primary font-semibold font-mono"
                 }
               >
@@ -331,7 +331,7 @@ export function ProduitEditPanel({
             type="checkbox"
             checked={fractActif}
             onChange={(e) => basculerFract(e.target.checked)}
-            className="size-4 rounded accent-[oklch(0.75_0.18_150)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="size-4 rounded accent-[var(--success)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           />
           <span className="text-sm">{t("pharmacie.fract_actif")}</span>
         </label>

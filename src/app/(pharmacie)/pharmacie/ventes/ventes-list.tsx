@@ -46,6 +46,13 @@ export function VentesList({
   const router = useRouter();
   const t = React.useMemo(() => getT(lang), [lang]);
   const [confirmId, setConfirmId] = React.useState<string | null>(null);
+  /* Instant d'armement de la confirmation.
+     Un double clic rapide franchissait les DEUX étapes d'un coup : le
+     premier clic armait, le second annulait la vente — la garde ne gardait
+     rien. On impose un court délai pendant lequel le second clic ne prend
+     pas, le temps que l'œil enregistre le changement de libellé. */
+  const [armeA, setArmeA] = React.useState(0);
+  const DELAI_GARDE_MS = 700;
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
 
   // Le clic ailleurs annule la confirmation en attente
@@ -161,10 +168,13 @@ export function VentesList({
                           type="button"
                           disabled={busy}
                           onClick={() =>
-                            confirmId === v.id ? annuler(v) : setConfirmId(v.id)
+                            confirmId === v.id
+                              ? Date.now() - armeA >= DELAI_GARDE_MS && annuler(v)
+                              : (setConfirmId(v.id), setArmeA(Date.now()))
                           }
                           className={cn(
-                            "inline-flex h-7 items-center gap-1 rounded-lg border px-2 text-[11px] font-medium transition-all",
+                            "inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-all",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                             confirmId === v.id
                               ? "border-primary bg-primary/15 text-primary"
                               : "border-glass-border glass text-muted-foreground hover:text-primary hover:border-primary/40",
@@ -227,7 +237,9 @@ function IconBtn({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="inline-flex size-7 items-center justify-center rounded-lg glass border border-glass-border text-muted-foreground hover:text-foreground hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      // 36 px plutôt que 28 : ces boutons servent debout, au comptoir, et
+      // parfois au doigt sur l'écran tactile de la caisse.
+      className="inline-flex size-9 items-center justify-center rounded-lg glass border border-glass-border text-muted-foreground hover:text-foreground hover:bg-white/8 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
     >
       {children}
     </button>

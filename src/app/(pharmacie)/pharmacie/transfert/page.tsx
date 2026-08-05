@@ -8,6 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock, listStockParLot } from "@/lib/pharmacie/sheets";
 import { estFractionnable, facteur } from "@/lib/pharmacie/fractionnement";
 import { safe } from "@/lib/sheets/safe";
+import { PanneBanner } from "@/components/layout/panne-banner";
 import { getT } from "@/lib/i18n";
 import type { ProduitAvecStock, StockLot } from "@/lib/pharmacie/types";
 
@@ -60,7 +61,17 @@ export default async function TransfertPage() {
         </p>
       </div>
 
-      <TransfertForm produits={produits} lang={lang} />
+      {!prodRes.ok || !stockRes.ok ? (
+        /* Panne de la source : sans elle, la liste des produits à ouvrir est
+           vide — indiscernable d'un « rien à transférer » légitime. */
+        <PanneBanner
+          titre={t("pharmacie.panne_titre")}
+          consigne={t("pharmacie.panne_consigne")}
+          detail={prodRes.error || stockRes.error}
+        />
+      ) : (
+        <TransfertForm produits={produits} lang={lang} />
+      )}
     </main>
   );
 }

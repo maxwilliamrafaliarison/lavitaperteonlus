@@ -36,10 +36,10 @@ const ICONS: Record<ReportType, typeof FileText> = {
 const ACCENTS: Record<ReportType, string> = {
   inventaire: "text-primary bg-primary/15",
   a_remplacer: "text-[oklch(0.64_0.24_27)] bg-[oklch(0.64_0.24_27_/_0.12)]",
-  valorisation: "text-[oklch(0.75_0.18_150)] bg-[oklch(0.75_0.18_150_/_0.12)]",
+  valorisation: "text-[var(--success)] bg-[var(--success)/12]",
   mouvements: "text-accent bg-accent/15",
   par_utilisateur: "text-[oklch(0.70_0.22_300)] bg-[oklch(0.70_0.22_300_/_0.12)]",
-  par_salle: "text-[oklch(0.82_0.16_85)] bg-[oklch(0.82_0.16_85_/_0.12)]",
+  par_salle: "text-[var(--warning)] bg-[var(--warning)/12]",
 };
 
 interface PreviewState {

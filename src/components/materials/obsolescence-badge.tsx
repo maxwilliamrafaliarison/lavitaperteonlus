@@ -13,9 +13,9 @@ interface ObsolescenceBadgeProps {
 }
 
 const LEVEL_STYLES: Record<ObsolescenceLevel, string> = {
-  ok: "border-[oklch(0.75_0.18_150_/_0.4)] bg-[oklch(0.75_0.18_150_/_0.12)] text-[oklch(0.75_0.18_150)]",
+  ok: "border-[oklch(0.75_0.18_150_/_0.4)] bg-[var(--success)/12] text-[var(--success)]",
   warning:
-    "border-[oklch(0.82_0.16_85_/_0.4)] bg-[oklch(0.82_0.16_85_/_0.12)] text-[oklch(0.82_0.16_85)]",
+    "border-[oklch(0.82_0.16_85_/_0.4)] bg-[var(--warning)/12] text-[var(--warning)]",
   critical: "border-primary/40 bg-primary/12 text-primary",
 };
 

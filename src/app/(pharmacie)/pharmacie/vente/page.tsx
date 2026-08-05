@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
+import { getCaisseOuverte, type CaisseSession } from "@/lib/pharmacie/caisse";
 import { listProduitsAvecStock, listEntitesPec, listStockParLot } from "@/lib/pharmacie/sheets";
 import { safe } from "@/lib/sheets/safe";
 import { PanneBanner } from "@/components/layout/panne-banner";
@@ -26,7 +27,7 @@ export default async function VentePage() {
   const lang = session.user.lang;
   const t = getT(lang);
 
-  const [res, entitesRes, stockRes] = await Promise.all([
+  const [res, entitesRes, stockRes, caisseRes] = await Promise.all([
     safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []),
     safe<EntitePec[]>(() => listEntitesPec(), []),
     // Ventilation par compartiment, lots PÉRIMÉS exclus : le plafond affiché
@@ -37,16 +38,35 @@ export default async function VentePage() {
       const jour = aujourdhui();
       const parLot = await listStockParLot();
       const out: Record<string, { gros: number; detail: number }> = {};
+      // Péremption la plus proche parmi les lots ENCORE VENDABLES : c'est la
+      // date que la dispensatrice lit sur le rayon — celle du lot que le
+      // FEFO servira en premier.
+      const peremptions: Record<string, string> = {};
       for (const [produitId, lots] of parLot) {
         for (const l of lots) {
           if (estPerime(l.dateExpiration, jour)) continue;
           const acc = (out[produitId] ??= { gros: 0, detail: 0 });
           acc.gros += Math.max(0, l.gros);
           acc.detail += Math.max(0, l.detail);
+          if (
+            l.dateExpiration &&
+            l.gros + l.detail > 0 &&
+            (!peremptions[produitId] || l.dateExpiration < peremptions[produitId])
+          ) {
+            peremptions[produitId] = l.dateExpiration;
+          }
         }
       }
-      return out;
-    }, {} as Record<string, { gros: number; detail: number }>),
+      return { out, peremptions };
+    }, { out: {}, peremptions: {} } as { out: Record<string, { gros: number; detail: number }>; peremptions: Record<string, string> }),
+    /* La caisse peut ne pas exister encore (migration 017 non passée) : dans
+       ce cas l'écran vit sans elle — on distingue « fermée » (null) de
+       « indisponible » (erreur), car la première BLOQUE l'encaissement et la
+       seconde ne doit surtout pas le faire. */
+    safe<CaisseSession | null | "indisponible">(
+      () => getCaisseOuverte(),
+      "indisponible" as const,
+    ),
   ]);
 
   return (
@@ -68,7 +88,15 @@ export default async function VentePage() {
       </div>
 
       {res.ok ? (
-        <VenteForm produits={res.data} entites={entitesRes.data} lang={lang} stockParCompartiment={stockRes.data} />
+        <VenteForm
+          produits={res.data}
+          entites={entitesRes.data}
+          lang={lang}
+          stockParCompartiment={stockRes.data.out}
+          peremptions={stockRes.data.peremptions}
+          caisse={caisseRes.data === "indisponible" ? null : caisseRes.data}
+          caisseDisponible={caisseRes.data !== "indisponible"}
+        />
       ) : (
         // Le catalogue est injoignable : on n'affiche PAS la caisse. Un
         // formulaire vide inviterait à composer un panier qui ne pourrait

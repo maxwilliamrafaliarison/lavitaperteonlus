@@ -201,10 +201,10 @@ export default async function PharmaciePage() {
           {/* À commander (groupé par fournisseur) */}
           {aCommander.length > 0 && (
             <section aria-label={t("pharmacie.commander_title")}>
-              <GlassCard className="p-5 border-[oklch(0.82_0.16_85_/_0.3)]">
+              <GlassCard className="p-5 border-[var(--warning)/30]">
                 <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
                   <ShoppingCart
-                    className="size-4 text-[oklch(0.82_0.16_85)]"
+                    className="size-4 text-[var(--warning)]"
                     aria-hidden="true"
                   />
                   {t("pharmacie.commander_title")} ({aCommander.length})
@@ -320,7 +320,7 @@ export default async function PharmaciePage() {
                               className={cn(
                                 "px-4 py-3 text-right font-mono tabular-nums",
                                 rupture && "text-primary font-semibold",
-                                lowStock && "text-[oklch(0.82_0.16_85)] font-semibold",
+                                lowStock && "text-[var(--warning)] font-semibold",
                               )}
                             >
                               {formaterQuantite(p, p.stockBase)}
@@ -334,7 +334,7 @@ export default async function PharmaciePage() {
                                   className={cn(
                                     "text-xs font-mono",
                                     perime && "text-primary font-semibold",
-                                    bientot && "text-[oklch(0.82_0.16_85)]",
+                                    bientot && "text-[var(--warning)]",
                                   )}
                                 >
                                   {p.prochainePeremption}
@@ -419,8 +419,8 @@ function Badge({
     tone === "primary"
       ? "bg-primary/12 text-primary border-primary/30"
       : tone === "warning"
-        ? "bg-[oklch(0.82_0.16_85_/_0.12)] text-[oklch(0.82_0.16_85)] border-[oklch(0.82_0.16_85_/_0.3)]"
-        : "bg-[oklch(0.75_0.18_150_/_0.12)] text-[oklch(0.75_0.18_150)] border-[oklch(0.75_0.18_150_/_0.3)]";
+        ? "bg-[var(--warning)/12] text-[var(--warning)] border-[var(--warning)/30]"
+        : "bg-[var(--success)/12] text-[var(--success)] border-[var(--success)/30]";
   return (
     <span
       className={cn(
@@ -452,8 +452,8 @@ function Kpi({
       : tone === "cyan"
         ? "bg-accent/15 text-accent"
         : tone === "success"
-          ? "bg-[oklch(0.75_0.18_150_/_0.15)] text-[oklch(0.75_0.18_150)]"
-          : "bg-[oklch(0.82_0.16_85_/_0.15)] text-[oklch(0.82_0.16_85)]";
+          ? "bg-[var(--success)/15] text-[var(--success)]"
+          : "bg-[var(--warning)/15] text-[var(--warning)]";
   return (
     <GlassCard className="p-6">
       <div className={cn("inline-flex size-10 items-center justify-center rounded-xl", toneCls)}>

@@ -11,11 +11,11 @@ const STATE_LABELS: Record<MaterialState, { fr: string; it: string }> = {
 
 const STATE_STYLES: Record<MaterialState, string> = {
   operationnel:
-    "border-[oklch(0.75_0.18_150_/_0.3)] bg-[oklch(0.75_0.18_150_/_0.10)] text-[oklch(0.75_0.18_150)]",
+    "border-[var(--success)/30] bg-[oklch(0.75_0.18_150_/_0.10)] text-[var(--success)]",
   en_panne: "border-primary/30 bg-primary/10 text-primary",
   obsolete: "border-primary/40 bg-primary/12 text-primary",
   en_reparation:
-    "border-[oklch(0.82_0.16_85_/_0.3)] bg-[oklch(0.82_0.16_85_/_0.10)] text-[oklch(0.82_0.16_85)]",
+    "border-[var(--warning)/30] bg-[oklch(0.82_0.16_85_/_0.10)] text-[var(--warning)]",
   hors_service: "border-muted-foreground/30 bg-muted text-muted-foreground",
 };
 

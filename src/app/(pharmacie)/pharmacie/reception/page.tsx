@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
 import { safe } from "@/lib/sheets/safe";
+import { PanneBanner } from "@/components/layout/panne-banner";
 import { getT } from "@/lib/i18n";
 import type { ProduitAvecStock } from "@/lib/pharmacie/types";
 
@@ -43,7 +44,18 @@ export default async function ReceptionPage() {
         </p>
       </div>
 
-      <ReceptionForm produits={res.data} lang={lang} />
+      {!res.ok ? (
+        /* Panne de la source : ne jamais la présenter comme un catalogue
+           vide. Un formulaire sans produits inviterait à croire que le
+           médicament reçu n'existe pas au référentiel. */
+        <PanneBanner
+          titre={t("pharmacie.panne_titre")}
+          consigne={t("pharmacie.panne_consigne")}
+          detail={res.error}
+        />
+      ) : (
+        <ReceptionForm produits={res.data} lang={lang} />
+      )}
     </main>
   );
 }

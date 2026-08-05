@@ -95,10 +95,15 @@
   --cyan-brand: oklch(0.78 0.13 190);
   --cyan-soft: oklch(0.78 0.13 190 / 0.12);
 
-  --success: oklch(0.72 0.17 150);
-  --warning: oklch(0.80 0.17 85);
-  --danger: oklch(0.60 0.22 28);
-  --destructive: oklch(0.60 0.22 28);
+  /* Vert et ambre ASSOMBRIS pour le thème clair.
+     Aux clartés du thème sombre (0.75 / 0.82), ces teintes tombaient sous
+     3:1 sur fond blanc : « en rupture » et « périme bientôt » — les deux
+     mentions qu'on doit voir d'un coup d'œil au comptoir — se lisaient mal.
+     Les valeurs ci-dessous passent 4.5:1 en texte. */
+  --success: oklch(0.52 0.14 150);
+  --warning: oklch(0.55 0.13 75);
+  --danger: oklch(0.55 0.22 28);
+  --destructive: oklch(0.55 0.22 28);
 
   --border: oklch(0.90 0.008 250);
   --input: oklch(0.94 0.006 250);

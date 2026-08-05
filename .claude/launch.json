@@ -5,6 +5,7 @@
       "name": "lavitaperte-dashboard",
       "runtimeExecutable": "env",
       "runtimeArgs": ["NEXT_TELEMETRY_DISABLED=1", "npm", "run", "dev"],
+      "cwd": "/Users/maxwilliamrafaliarison/dev/lavitaperte-dashboard",
       "port": 3000
     }
   ]

@@ -247,7 +247,7 @@ function PasswordSection({ t }: { t: ReturnType<typeof getT> }) {
   return (
     <GlassCard className="p-6">
       <div className="flex items-start gap-3">
-        <div className="inline-flex size-10 items-center justify-center rounded-xl bg-[oklch(0.82_0.16_85_/_0.15)] text-[oklch(0.82_0.16_85)] shrink-0">
+        <div className="inline-flex size-10 items-center justify-center rounded-xl bg-[var(--warning)/15] text-[var(--warning)] shrink-0">
           <KeyRound className="size-5" />
         </div>
         <form onSubmit={handleSubmit} className="flex-1 min-w-0 space-y-3">

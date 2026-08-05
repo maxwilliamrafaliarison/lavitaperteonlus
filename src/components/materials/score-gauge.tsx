@@ -9,14 +9,14 @@ interface ScoreGaugeProps {
 }
 
 const LEVEL_COLORS: Record<ObsolescenceLevel, string> = {
-  ok: "stroke-[oklch(0.75_0.18_150)]",
-  warning: "stroke-[oklch(0.82_0.16_85)]",
+  ok: "stroke-[var(--success)]",
+  warning: "stroke-[var(--warning)]",
   critical: "stroke-primary",
 };
 
 const LEVEL_TEXT: Record<ObsolescenceLevel, string> = {
-  ok: "text-[oklch(0.75_0.18_150)]",
-  warning: "text-[oklch(0.82_0.16_85)]",
+  ok: "text-[var(--success)]",
+  warning: "text-[var(--warning)]",
   critical: "text-primary",
 };
 

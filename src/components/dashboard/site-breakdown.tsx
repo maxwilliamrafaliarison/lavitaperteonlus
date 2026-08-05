@@ -38,9 +38,9 @@ export function SiteBreakdown({ sites, lang = "fr" }: Props) {
           const criticalPct = hasItems ? (site.critical / site.total) * 100 : 0;
           const scoreColor =
             site.avgScore >= 70
-              ? "text-[oklch(0.75_0.18_150)]"
+              ? "text-[var(--success)]"
               : site.avgScore >= 40
-                ? "text-[oklch(0.82_0.16_85)]"
+                ? "text-[var(--warning)]"
                 : "text-primary";
 
           return (

@@ -11,6 +11,7 @@ import {
   listAchats,
 } from "@/lib/pharmacie/sheets";
 import { safe } from "@/lib/sheets/safe";
+import { PanneBanner } from "@/components/layout/panne-banner";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
 import type {
@@ -63,7 +64,17 @@ export default async function AchatsPage() {
         </p>
       </div>
 
-      <AchatsForm produits={produits} fournisseurs={fournRes.data} lang={lang} />
+      {!prodRes.ok || !achatsRes.ok ? (
+        /* Panne de la source : saisir un achat sur un catalogue vide
+           produirait un registre incomplet, ou rien du tout. */
+        <PanneBanner
+          titre={t("pharmacie.panne_titre")}
+          consigne={t("pharmacie.panne_consigne")}
+          detail={prodRes.error || achatsRes.error}
+        />
+      ) : (
+        <AchatsForm produits={produits} fournisseurs={fournRes.data} lang={lang} />
+      )}
 
       {/* Historique des entrées */}
       <section className="space-y-3">

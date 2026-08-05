@@ -41,11 +41,11 @@ const ROLE_META: Record<UserRole, { icon: LucideIcon; tone: string }> = {
   },
   logistique: {
     icon: Package,
-    tone: "bg-[oklch(0.82_0.16_85_/_0.15)] text-[oklch(0.82_0.16_85)] border-[oklch(0.82_0.16_85_/_0.3)]",
+    tone: "bg-[var(--warning)/15] text-[var(--warning)] border-[var(--warning)/30]",
   },
   pharmacien: {
     icon: Pill,
-    tone: "bg-[oklch(0.75_0.18_150_/_0.15)] text-[oklch(0.75_0.18_150)] border-[oklch(0.75_0.18_150_/_0.3)]",
+    tone: "bg-[var(--success)/15] text-[var(--success)] border-[var(--success)/30]",
   },
 };
 
