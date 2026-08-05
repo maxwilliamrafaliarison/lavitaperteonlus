@@ -82,6 +82,12 @@ export async function ouvrirCaisse(params: {
  * non annulées depuis l'ouverture. Les PEC n'encaissent rien ; une vente
  * annulée pendant la session n'a pas laissé d'argent dans le tiroir.
  * Paginé : PostgREST plafonne chaque réponse à 1000 lignes.
+ *
+ * ⚠️ Le rapprochement se fait sur le TEMPS seul, pas sur le site : la table
+ * `ventes` ne porte pas de colonne de site, la pharmacie n'existant qu'au
+ * centre REX. Le jour où une seconde officine ouvrira, il faudra ajouter
+ * cette colonne et filtrer ici — sans quoi les deux caisses compteraient
+ * les mêmes encaissements.
  */
 export async function totalTheorique(session: CaisseSession): Promise<number> {
   let somme = session.fonds_initial;
