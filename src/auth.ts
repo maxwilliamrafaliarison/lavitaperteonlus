@@ -15,7 +15,15 @@ import type { UserRole } from "@/types";
    ============================================================ */
 
 const credentialsSchema = z.object({
-  email: z.string().email(),
+  /* `trim()` AVANT la validation, et non après.
+     Un identifiant recopié depuis un message ou un tableau traîne souvent
+     une espace ; sans ce nettoyage, zod rejette l'adresse et l'on répond
+     « identifiants incorrects » sans avoir seulement cherché le compte —
+     le message accuse alors le mot de passe pour une espace invisible. */
+  email: z.string().trim().email(),
+  /* Le mot de passe n'est délibérément PAS nettoyé : une espace peut en
+     faire partie, et la rogner reviendrait à accepter un secret différent
+     de celui qui a été choisi. */
   password: z.string().min(1),
 });
 
