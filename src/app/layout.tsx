@@ -142,6 +142,11 @@ export default async function RootLayout({
             // découvre toute personne à sa première connexion. Un choix fait
             // ensuite via la bascule est conservé par le navigateur et prime.
             defaultTheme="light"
+            // Clé versionnée : les comptes ouverts avant le passage au clair
+            // avaient « dark » figé dans leur navigateur et n'auraient jamais
+            // vu le nouveau défaut. Changer la clé les y ramène ; qui préfère
+            // le sombre le reprend d'un clic, et ce choix-là tient.
+            storageKey="lvpt-theme-2"
             enableSystem={false}
             disableTransitionOnChange
           >
