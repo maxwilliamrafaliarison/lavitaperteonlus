@@ -15,12 +15,22 @@ export const UserRole = z.enum([
 ]);
 export type UserRole = z.infer<typeof UserRole>;
 
+/**
+ * Libellés affichés.
+ *
+ * La clé technique `pharmacien` est volontairement conservée : elle porte
+ * les permissions, elle est écrite dans la base pour chaque compte et elle
+ * apparaît dans le code métier. La renommer imposerait une migration pour
+ * un simple mot à l'écran. Seul l'intitulé change — c'est « dispensatrice »
+ * qui est le titre exact au comptoir du centre, et c'est celui-là que les
+ * intéressées doivent lire sur leur profil.
+ */
 export const ROLE_LABELS: Record<UserRole, { fr: string; it: string }> = {
   admin: { fr: "Administrateur", it: "Amministratore" },
   informaticien: { fr: "Informaticien", it: "Informatico" },
   direction: { fr: "Direction", it: "Direzione" },
   logistique: { fr: "Responsable logistique", it: "Responsabile logistica" },
-  pharmacien: { fr: "Pharmacien", it: "Farmacista" },
+  pharmacien: { fr: "Dispensatrice", it: "Dispensatrice" },
 };
 
 // --- Utilisateurs de l'application ------------------------------------------

@@ -103,7 +103,7 @@
     "informaticien": "Informaticien",
     "direction": "Direction",
     "logistique": "Responsable logistique",
-    "pharmacien": "Pharmacien"
+    "pharmacien": "Dispensatrice"
   },
   "hub": {
     "welcome": "Bonjour, {name}",
