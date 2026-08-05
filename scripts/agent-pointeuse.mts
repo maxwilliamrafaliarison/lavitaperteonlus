@@ -26,6 +26,10 @@ import { Socket } from "node:net";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
+// Doit précéder toute création de ZKLib : rétablit la lecture complète de la
+// mémoire de l'appareil, dont le dernier bloc — celui des journées en cours.
+import "./lib/zk-correctif.mjs";
+
 const require = createRequire(import.meta.url);
 const ZKLib = require("node-zklib");
 
@@ -69,6 +73,24 @@ async function pg(method: string, path: string, body?: unknown) {
 function horodatageLocal(d: Date): string {
   // "sv-SE" rend nativement le format "YYYY-MM-DD HH:MM:SS".
   return d.toLocaleString("sv-SE", { timeZone: "Indian/Antananarivo" });
+}
+
+/** Bornes de plausibilité, calculées à chaque appel : l'agent tourne des jours. */
+const demain = () => horodatageLocal(new Date(Date.now() + 86_400_000)).slice(0, 10);
+const hier = () => horodatageLocal(new Date(Date.now() - 86_400_000)).slice(0, 10);
+
+/**
+ * Un enregistrement sorti de la mémoire est-il crédible ?
+ *
+ * Un décodage désaligné se trahit par un identifiant qui n'est pas un nombre
+ * — la pointeuse n'attribue que des numéros —, par une date antérieure à la
+ * mise en service, ou par une date dans le futur.
+ */
+function estPlausible(r: { deviceUserId: string | number; recordTime: string | Date }): boolean {
+  if (r?.deviceUserId == null || r?.recordTime == null) return false;
+  if (!/^[0-9]+$/.test(String(r.deviceUserId))) return false;
+  const h = horodatageLocal(new Date(r.recordTime));
+  return h >= "2020-01-01" && h.slice(0, 10) <= demain();
 }
 
 /**
@@ -140,10 +162,61 @@ async function collecter(site: string) {
   const cfg = POINTEUSES[site];
   const zk = new ZKLib(cfg.ip, cfg.port, 15000, 5000);
   await zk.createSocket();
-  const logs = await zk.getAttendances();
-  await zk.disconnect().catch(() => {});
+  const info = await zk.getInfo().catch(() => null);
+  const attendus = Number(info?.logCounts ?? 0);
 
-  const brut: Array<{ deviceUserId: string | number; recordTime: string | Date }> = logs?.data ?? [];
+  /* Lecture jugée sur son CONTENU, pas sur sa taille.
+
+     Deux défauts se cumulent dans node-zklib. La réception abandonne 10 s
+     après le dernier paquet — délai codé en dur — et rend le buffer partiel
+     sans erreur visible ; et un bloc perdu décale le décodage de tout ce qui
+     suit, fabriquant des identifiants d'octets bruts et des dates absurdes.
+     Une lecture peut donc afficher le bon nombre d'enregistrements et rester
+     fausse : un essai a rapporté 13 631 passages sur 13 632 annoncés dont
+     3 811 invalides, avec une période s'arrêtant deux mois plus tôt.
+
+     La mémoire se lisant du plus ancien au plus récent, ce qui se perd est
+     toujours la fin — précisément la journée en cours, celle que ce bouton
+     vient chercher. On exige donc que la quasi-totalité des enregistrements
+     soit plausible ET que la lecture atteigne les jours récents, en rouvrant
+     la connexion entre deux tentatives (la socket ne survit pas à plusieurs
+     transferts massifs). */
+  let brut: Array<{ deviceUserId: string | number; recordTime: string | Date }> = [];
+  let lecteur = zk;
+  let dernierJour = "";
+  for (let essai = 1; essai <= 6; essai++) {
+    if (essai > 1) {
+      await lecteur.disconnect().catch(() => {});
+      await new Promise((r) => setTimeout(r, 2000));
+      lecteur = new ZKLib(cfg.ip, cfg.port, 15000, 5000);
+      await lecteur.createSocket();
+    }
+    const lot: Array<{ deviceUserId: string | number; recordTime: string | Date }> =
+      (await lecteur.getAttendances().catch(() => null))?.data ?? [];
+
+    const valides = lot.filter(estPlausible);
+    const dernier = valides.reduce((max, r) => {
+      const h = horodatageLocal(new Date(r.recordTime)).slice(0, 10);
+      return h > max ? h : max;
+    }, "");
+    const propre = lot.length > 0 && valides.length >= lot.length * 0.98;
+    const plafond = attendus === 0 ? Infinity : attendus + 100;
+
+    if (propre && valides.length > brut.length && lot.length <= plafond) {
+      brut = lot;
+      dernierJour = dernier;
+    }
+    if (propre && dernier >= hier() && lot.length >= (attendus === 0 ? 1 : attendus - 10) && lot.length <= plafond) break;
+  }
+  await lecteur.disconnect().catch(() => {});
+
+  if ((attendus > 0 && brut.length < attendus - 10) || dernierJour < hier()) {
+    throw new Error(
+      `Lecture inexploitable : ${brut.length} passages lus sur ${attendus} annoncés, le plus récent ` +
+        `datant du ${dernierJour || "—"}. Rien n'a été enregistré — mieux vaut aucune donnée qu'une ` +
+        `journée tronquée. Relancez ; si l'échec persiste, branchez le poste en Ethernet plutôt qu'en Wi-Fi.`,
+    );
+  }
   const now = new Date().toISOString();
   const rows = brut
     .map((r) => {

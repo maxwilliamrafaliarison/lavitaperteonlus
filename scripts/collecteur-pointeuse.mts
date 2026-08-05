@@ -17,6 +17,10 @@
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 
+// Doit précéder toute création de ZKLib : rétablit la lecture complète de
+// la mémoire de l'appareil (voir l'en-tête du correctif).
+import "./lib/zk-correctif.mjs";
+
 const require = createRequire(import.meta.url);
 const ZKLib = require("node-zklib");
 
@@ -31,6 +35,8 @@ const IP = args.find((a) => a.startsWith("--ip="))?.split("=")[1] ?? "192.168.8.
 const PORT = Number(args.find((a) => a.startsWith("--port="))?.split("=")[1] ?? 4370);
 const SITE = (args.find((a) => a.startsWith("--site="))?.split("=")[1] ?? "REX").toUpperCase();
 const APPLY = args.includes("--apply");
+const TIMEOUT = Number(args.find((a) => a.startsWith("--timeout="))?.split("=")[1] ?? 120000);
+const ESSAIS = Number(args.find((a) => a.startsWith("--essais="))?.split("=")[1] ?? 6);
 
 const URL_SB = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const KEY = (process.env.SUPABASE_SERVICE_KEY || process.env.PATIENTS_SUPABASE_SERVICE_KEY || "").replace(/[^A-Za-z0-9._-]/g, "");
@@ -61,16 +67,149 @@ function horodatageLocal(d: Date): string {
   return d.toLocaleString("sv-SE", { timeZone: "Indian/Antananarivo" });
 }
 
+/** Bornes de plausibilité, en heure des centres. */
+const demain = horodatageLocal(new Date(Date.now() + 86_400_000)).slice(0, 10);
+const hier = horodatageLocal(new Date(Date.now() - 86_400_000)).slice(0, 10);
+
+/**
+ * Un enregistrement sorti de la mémoire est-il crédible ?
+ *
+ * Trois signes trahissent un décodage désaligné : un identifiant qui n'est
+ * pas un nombre (la pointeuse n'attribue que des numéros), une date
+ * antérieure à la mise en service, une date dans le futur. Le même prédicat
+ * sert à noter la qualité de chaque essai et à filtrer la lecture retenue —
+ * deux critères différents laisseraient passer ce que le premier rejette.
+ */
+function estPlausible(r: { deviceUserId: string | number; recordTime: string | Date }): boolean {
+  if (r?.deviceUserId == null || r?.recordTime == null) return false;
+  if (!/^[0-9]+$/.test(String(r.deviceUserId))) return false;
+  const h = horodatageLocal(new Date(r.recordTime));
+  return h >= "2020-01-01" && h.slice(0, 10) <= demain;
+}
+
 console.log(`Connexion à la pointeuse ${IP}:${PORT} (site ${SITE})…`);
-const zk = new ZKLib(IP, PORT, 10000, 4000);
+// Délai de lecture volontairement large : la mémoire de l'appareil contient
+// plus de treize mille passages et se transfère par paquets. Avec un délai
+// court, node-zklib rend SANS ERREUR le début du buffer — donc les passages
+// les PLUS ANCIENS — et la collecte paraît réussir tout en ne ramenant rien
+// du jour. Une troncature silencieuse est pire qu'un échec : elle se voit
+// seulement en comparant le nombre lu au compteur de l'appareil (ci-dessous).
+const zk = new ZKLib(IP, PORT, TIMEOUT, 8000);
+// La connexion est renouvelée entre deux tentatives de lecture ; on garde
+// une référence sur celle qui est ouverte pour pouvoir la refermer.
+let zkActif = zk;
 try {
   await zk.createSocket();
   const info = await zk.getInfo().catch(() => null);
   if (info) console.log(`Appareil joint · ${info.userCounts ?? "?"} utilisateurs · ${info.logCounts ?? "?"} pointages en mémoire`);
 
-  const logs = await zk.getAttendances();
-  const data: Array<{ deviceUserId: string | number; recordTime: string | Date }> = logs?.data ?? [];
-  console.log(`${data.length} pointages lus depuis la mémoire de l'appareil.`);
+  /* ------------------------------------------------------------------
+     Lecture avec réessais.
+
+     node-zklib code EN DUR un délai de 10 s entre deux paquets
+     (zklibtcp.js, readWithBuffer) — le délai passé au constructeur ne
+     s'y applique pas. À l'expiration, la bibliothèque résout la promesse
+     avec le buffer PARTIEL et une erreur que getAttendances ne propage
+     pas : la collecte semble réussir alors qu'elle n'a ramené que le
+     début de la mémoire, donc les passages les plus anciens.
+
+     Les tailles obtenues se suivent par doublements — 1 636, 3 273,
+     6 547, 13 284 — signe que la coupure tombe sur une frontière de bloc
+     et qu'une lecture complète est atteignable. Il faut en revanche
+     ROUVRIR LA CONNEXION entre deux tentatives : la socket ne survit pas
+     à plusieurs transferts massifs, et l'enchaînement sur la même finit
+     par échouer sèchement.
+     ------------------------------------------------------------------ */
+  const attendus = Number(info?.logCounts ?? 0);
+
+  /* On garde la MEILLEURE lecture, jamais l'union de plusieurs.
+     Fusionner les essais paraissait astucieux — chacun rapportant des blocs
+     différents — mais un transfert qui perd un bloc décale le décodage de
+     tout ce qui suit : les passages suivants sont alors reconstitués de
+     travers, avec des identifiants faits d'octets bruts et des dates
+     absurdes. L'essai a produit 14 047 « passages » pour 13 285 en mémoire,
+     dont un daté de 2068. Une lecture désalignée n'est pas une lecture
+     incomplète : elle est fausse, et rien n'en est récupérable. */
+  let data: Array<{ deviceUserId: string | number; recordTime: string | Date }> = [];
+  let lecteur = zk;
+  for (let essai = 1; essai <= ESSAIS; essai++) {
+    if (essai > 1) {
+      // Connexion neuve : fermer, souffler, rouvrir.
+      await lecteur.disconnect().catch(() => {});
+      await new Promise((r) => setTimeout(r, 2000));
+      lecteur = new ZKLib(IP, PORT, TIMEOUT, 8000);
+      await lecteur.createSocket();
+    }
+    const lot: Array<{ deviceUserId: string | number; recordTime: string | Date }> = await lecteur
+      .getAttendances()
+      .then((l: { data?: unknown[] }) => (l?.data ?? []) as typeof lot)
+      .catch(() => []);
+    /* Une lecture nettement plus grosse que le compteur est désalignée : on
+       la rejette au lieu de la retenir pour sa taille (le décodage de
+       travers en avait fabriqué 762 de trop). Un léger dépassement, lui,
+       est normal — le compteur date du début de la lecture et des gens
+       badgent pendant ce temps. */
+    const plafond = attendus === 0 ? Infinity : attendus + 100;
+
+    /* On juge la lecture sur ce qu'elle CONTIENT, pas sur sa taille.
+       Une lecture peut afficher le bon nombre d'enregistrements et rester
+       fausse : un bloc perdu décale le décodage, et la suite se reconstitue
+       en identifiants d'octets bruts et en dates absurdes. Un essai a ainsi
+       rapporté 13 631 « passages » sur 13 632 annoncés — le compte parfait —
+       dont 3 811 invalides, et dont la période s'arrêtait au 2 juin.
+       Deux exigences, donc : la quasi-totalité doit passer les contrôles de
+       plausibilité, et la lecture doit atteindre les jours récents — c'est
+       la fin de la mémoire qui nous intéresse, elle est ce qu'on vient
+       chercher et ce qui se perd en premier. */
+    const valides = lot.filter((r) => estPlausible(r));
+    const dernier = valides.reduce((max, r) => {
+      const h = horodatageLocal(new Date(r.recordTime));
+      return h > max ? h : max;
+    }, "");
+    const propre = lot.length > 0 && valides.length >= lot.length * 0.98;
+    const aJour = dernier.slice(0, 10) >= hier;
+    const assezGros = lot.length >= (attendus === 0 ? 1 : attendus - 10) && lot.length <= plafond;
+
+    if (propre && valides.length > data.length && lot.length <= plafond) data = lot;
+
+    const complet = propre && aJour && assezGros;
+    console.log(
+      `Essai ${essai}/${ESSAIS} : ${lot.length} lus` +
+        (attendus ? `/${attendus}` : "") +
+        ` · ${valides.length} valides · jusqu'au ${dernier.slice(0, 10) || "—"}` +
+        (complet ? " ✅" : ` — ${!propre ? "décodage douteux" : !aJour ? "n'atteint pas les jours récents" : "incomplet"}`),
+    );
+    if (complet) break;
+  }
+  zkActif = lecteur;
+  
+  console.log(`\n${data.length} pointages retenus depuis la mémoire de l'appareil.`);
+
+  /* Garde-fou final, sur les deux mêmes exigences que la boucle : le compte
+     doit rejoindre celui de l'appareil, ET la lecture doit atteindre les
+     jours récents. Le second point est le plus important : la mémoire se lit
+     du plus ancien au plus récent, donc ce qui se perd est toujours la fin —
+     précisément les journées qu'on vient chercher. */
+  const dernierJour = data.reduce((max, r) => {
+    const h = horodatageLocal(new Date(r.recordTime)).slice(0, 10);
+    return h > max && h <= demain ? h : max;
+  }, "");
+  const tropCourt = attendus > 0 && data.length < attendus - 10;
+  const tropVieux = dernierJour < hier;
+  if (tropCourt || tropVieux) {
+    console.error(
+      `\n⚠️  LECTURE INEXPLOITABLE : ${data.length} passages lus sur ${attendus} annoncés, ` +
+        `le plus récent datant du ${dernierJour || "—"}.` +
+        `\n   ${tropVieux ? "Les journées récentes manquent." : "Le transfert s'est arrêté en route."}` +
+        `\n   Relancez la collecte ; si l'échec persiste, branchez le poste en Ethernet` +
+        `\n   plutôt qu'en Wi-Fi — le transfert de la mémoire y est bien plus sûr.\n`,
+    );
+    if (APPLY) {
+      console.error("Enregistrement annulé : mieux vaut aucune donnée qu'une journée incomplète.");
+      await zkActif.disconnect();
+      process.exit(1);
+    }
+  }
 
   const pointages = data
     .map((r) => {
@@ -95,14 +234,27 @@ try {
     // La lecture renvoie un bloc de mémoire dont la fin est du remplissage :
     // enregistrements sans agent, horodatés à la date zéro (1999-12-31).
     // Les retenir créerait des agents fantômes et des journées absurdes.
-    .filter((p) => p._idPointeuse && p.horodatage >= "2020-01-01");
+    /* Mêmes bornes que estPlausible, appliquées à la lecture retenue.
+       Seule la borne basse existait, contre le remplissage de fin de mémoire
+       daté de 1999. Un décodage désaligné produit aussi des dates dans le
+       futur : un passage daté du 9 janvier 2068 a ainsi été enregistré, avec
+       un identifiant fait d'octets bruts. Un badgeage postérieur à demain
+       n'existe pas ; on refuse plutôt que de faire confiance.
+       L'identifiant doit par ailleurs être numérique — c'est ce que la
+       pointeuse attribue, et un désalignement se trahit d'abord là. */
+    .filter(
+      (p) =>
+        /^[0-9]+$/.test(p._idPointeuse) &&
+        p.horodatage >= "2020-01-01" &&
+        p.horodatage <= demain,
+    );
 
   const jours = [...new Set(pointages.map((p) => p.jour))].sort();
   console.log(`Période : ${jours[0] ?? "—"} → ${jours.at(-1) ?? "—"} · ${new Set(pointages.map((p) => p._idPointeuse)).size} agents distincts`);
 
   if (!APPLY) {
     console.log("\n(lecture seule — relancez avec --apply pour enregistrer)");
-    await zk.disconnect();
+    await zkActif.disconnect();
     process.exit(0);
   }
 
@@ -140,10 +292,10 @@ try {
   }]);
 
   console.log(`\n✅ ${aInserer.length} pointages ajoutés · ${nvAgents.size} agents créés · ${pointages.length - aInserer.length} déjà présents`);
-  await zk.disconnect();
+  await zkActif.disconnect();
 } catch (e) {
   console.error("\n❌ Connexion impossible :", String(e).slice(0, 200));
   console.error("   Vérifiez : poste branché sur le réseau du centre · IP/port corrects · pointeuse allumée.");
-  try { await zk.disconnect(); } catch {}
+  try { await zkActif.disconnect(); } catch {}
   process.exit(1);
 }

@@ -47,10 +47,29 @@ try {
   log(`Connexion à la pointeuse ${SITE} (${IP_POINTEUSE})…`);
   const zk = new ZKLib(IP_POINTEUSE, 4370, 15000, 5000);
   await zk.createSocket();
-  const logs = await zk.getAttendances();
+  const info = await zk.getInfo().catch(() => null);
+  const attendus = Number(info?.logCounts ?? 0);
+
+  /* La bibliothèque abandonne la réception 10 s après le dernier paquet et
+     rend le buffer PARTIEL sans erreur. La mémoire se lisant du plus ancien
+     au plus récent, une lecture tronquée ne contient jamais la journée en
+     cours : la tâche paraîtrait réussir en ne remontant rien d'utile. */
+  let brut = [];
+  for (let essai = 1; essai <= 6; essai++) {
+    const logs = await zk.getAttendances();
+    const lot = logs?.data ?? [];
+    if (lot.length > brut.length) brut = lot;
+    log(`Essai ${essai} : ${lot.length} lus${attendus ? ` / ${attendus} annoncés` : ""}.`);
+    if (attendus === 0 || brut.length >= attendus - 10) break;
+  }
   await zk.disconnect().catch(() => {});
 
-  const brut = logs?.data ?? [];
+  if (attendus > 0 && brut.length < attendus - 10) {
+    throw new Error(
+      `Lecture incomplète : ${brut.length} sur ${attendus}. Les passages les plus récents manquent — ` +
+        `rien n'a été enregistré. Vérifiez que le poste est en Ethernet, puis relancez.`,
+    );
+  }
   const pointages = brut
     .map((r) => ({
       id: String(r.deviceUserId ?? ""),
