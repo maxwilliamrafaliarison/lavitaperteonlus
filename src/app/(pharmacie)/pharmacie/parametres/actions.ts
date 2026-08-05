@@ -13,6 +13,18 @@ const ParametresInput = z.object({
   tvaActive: z.boolean().default(false),
   /** Taux de TVA en pourcentage (0–100). Ignoré si tvaActive = false. */
   tvaTaux: z.number().min(0).max(100).default(0),
+
+  /* Identité légale portée par les pièces comptables (état de caisse,
+     factures). Facultatifs au sens du formulaire — on n'empêche pas de
+     travailler faute d'un code fiscal — mais leur absence est signalée
+     sur chaque document, car une pièce sans émetteur identifiable n'est
+     pas opposable. */
+  siegeSocial: z.string().trim().max(200).default(""),
+  codeFiscal: z.string().trim().max(60).default(""),
+  denomination: z.string().trim().max(160).default(""),
+  formeJuridique: z.string().trim().max(160).default(""),
+  /** Destinataires de l'état de caisse, séparés par des virgules. */
+  emailCaisse: z.string().trim().max(400).default(""),
 });
 
 export type ParametresResult = { ok: true } | { ok: false; error: string };
@@ -38,13 +50,23 @@ export async function definirParametresAction(
   if (!parsed.success) {
     return { ok: false, error: t("pharmacie.param_error_invalid") };
   }
-  const { tvaActive, tvaTaux } = parsed.data;
+  const { tvaActive, tvaTaux, siegeSocial, codeFiscal, denomination, formeJuridique, emailCaisse } =
+    parsed.data;
 
   try {
     // "1"/"0" plutôt qu'un booléen : la table parametres est du texte, et un
     // lecteur (ticket, facture) teste `valeur === "1"` sans ambiguïté.
     await setParametre("tva_active", tvaActive ? "1" : "0");
     await setParametre("tva_taux", String(tvaTaux));
+
+    /* Identité légale des pièces comptables. Écrite même vide : effacer un
+       champ doit pouvoir se faire depuis l'écran, sinon une valeur erronée
+       resterait à jamais faute de moyen de la retirer. */
+    await setParametre("entite_siege_social", siegeSocial);
+    await setParametre("entite_code_fiscal", codeFiscal);
+    await setParametre("entite_denomination", denomination);
+    await setParametre("entite_forme_juridique", formeJuridique);
+    await setParametre("email_caisse_destinataires", emailCaisse);
   } catch (e) {
     return {
       ok: false,

@@ -25,8 +25,16 @@ export default async function ParametresPage() {
   const t = getT(lang);
 
   const params = await safe(() => listParametres(), new Map<string, string>());
-  const tvaActive = params.data.get("tva_active") === "1";
-  const tvaTaux = Number(params.data.get("tva_taux") ?? "0") || 0;
+  const lire = (k: string) => (params.data.get(k) ?? "").trim();
+  const initial = {
+    tvaActive: params.data.get("tva_active") === "1",
+    tvaTaux: Number(params.data.get("tva_taux") ?? "0") || 0,
+    siegeSocial: lire("entite_siege_social"),
+    codeFiscal: lire("entite_code_fiscal"),
+    denomination: lire("entite_denomination"),
+    formeJuridique: lire("entite_forme_juridique"),
+    emailCaisse: lire("email_caisse_destinataires"),
+  };
 
   return (
     <main id="main-content" className="mx-auto max-w-3xl flex-1 p-4 md:p-10 space-y-6">
@@ -46,11 +54,7 @@ export default async function ParametresPage() {
         </p>
       </div>
 
-      <ParametresForm
-        tvaActiveInitial={tvaActive}
-        tvaTauxInitial={tvaTaux}
-        lang={lang}
-      />
+      <ParametresForm initial={initial} lang={lang} />
     </main>
   );
 }
