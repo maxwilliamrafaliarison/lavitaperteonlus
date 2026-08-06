@@ -61,6 +61,17 @@ const VenteInput = z.object({
   /** Entité payeuse de la prise en charge (obligatoire si typeVente='pec'). */
   pecPayeur: z.string().trim().max(120).default(""),
   lignes: z.array(LigneInput).min(1).max(50),
+  /**
+   * Devis dont cette vente découle, le cas échéant. Sert uniquement au
+   * pilotage — mesurer combien d'estimations se transforment. N'influe ni
+   * sur les prix, ni sur le stock : le panier repris est revalidé comme
+   * n'importe quel autre, car les tarifs et la disponibilité ont pu changer
+   * depuis l'édition du devis.
+   */
+  proformaId: z
+    .string()
+    .regex(/^DEV-[0-9]{8,20}$/, "Identifiant de devis invalide")
+    .optional(),
 });
 
 export type VenteResult =
@@ -259,6 +270,15 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
       ok: false,
       error: t("pharmacie.vente_error_write", { detail: String(e).slice(0, 120) }),
     };
+  }
+
+  /* Si la vente découle d'un devis, on le marque transformé — APRÈS
+     l'enregistrement, et sans jamais le conditionner. Un échec ici fausse
+     une statistique ; il ne doit pas faire croire que la vente a échoué,
+     alors que le client a payé et que le stock est sorti. */
+  if (parsed.data.proformaId) {
+    const { marquerTransforme } = await import("@/lib/pharmacie/proforma");
+    await marquerTransforme(parsed.data.proformaId, venteId);
   }
 
   revalidatePath("/pharmacie");

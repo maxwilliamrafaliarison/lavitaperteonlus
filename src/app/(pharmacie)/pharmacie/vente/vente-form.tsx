@@ -121,6 +121,11 @@ export function VenteForm({
   const [pecPayeur, setPecPayeur] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [proforma, setProforma] = React.useState(false);
+  /* Devis édité pour LE PANIER COURANT. Si le patient achète dans la
+     foulée, la vente le mentionne et le devis compte comme transformé.
+     Effacé dès que le panier change : le devis ne décrirait plus la
+     même chose, et rattacher la vente fausserait la mesure. */
+  const [devisEnCours, setDevisEnCours] = React.useState<string | null>(null);
   /**
    * Identifiant du panier, engendré une fois et conservé tant que la vente
    * n'est pas encaissée : réessayer après une coupure renvoie le MÊME
@@ -166,6 +171,20 @@ export function VenteForm({
   React.useEffect(() => {
     setSel(0);
   }, [query]);
+
+  /* Le devis cesse de valoir dès que le panier change.
+     Rattacher une vente à un devis qui ne décrit plus la même chose
+     fausserait la mesure : on compterait comme « transformé » un devis
+     que le patient n'a pas suivi. La signature du panier — produits,
+     modes, quantités — sert de témoin. */
+  const signaturePanier = panier.map((l) => `${cle(l)}x${l.quantite}`).join("|");
+  const signatureAuDevis = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (signatureAuDevis.current !== null && signatureAuDevis.current !== signaturePanier) {
+      setDevisEnCours(null);
+      signatureAuDevis.current = null;
+    }
+  }, [signaturePanier]);
 
   const total = panier.reduce(
     (s, l) => s + l.quantite * prixPour(l.produit, l.mode),
@@ -319,6 +338,13 @@ export function VenteForm({
         toast.error(t("common.failed"), { description: d.error ?? String(r.status) });
         return;
       }
+      const numero = r.headers.get("X-Proforma-Id");
+      if (numero) {
+        setDevisEnCours(numero);
+        // Mémorise l'état du panier au moment du devis : toute
+        // modification ultérieure rompra le rattachement.
+        signatureAuDevis.current = signaturePanier;
+      }
       const url = URL.createObjectURL(await r.blob());
       window.open(url, "_blank", "noopener");
       // Libéré après ouverture : l'onglet a déjà chargé le document.
@@ -344,6 +370,8 @@ export function VenteForm({
     try {
       const result = await creerVenteAction({
         venteId: idPanier,
+        // Rattache la vente au devis dont elle découle, s'il y en a un.
+        proformaId: devisEnCours ?? undefined,
         clientNom,
         typeVente,
         pecPayeur,

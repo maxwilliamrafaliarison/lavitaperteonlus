@@ -20,6 +20,7 @@ import { listProduitsAvecStock } from "@/lib/pharmacie/sheets";
 import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
 import { STATUT_LABELS, estGalenique, type ProduitAvecStock } from "@/lib/pharmacie/types";
 import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
+import { listProformas, calculerStats } from "@/lib/pharmacie/proforma";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,15 @@ export default async function PharmaciePage() {
   const t = getT(lang);
 
   const res = await safe<ProduitAvecStock[]>(() => listProduitsAvecStock(), []);
+
+  /* Suivi des devis sur trente jours glissants. Réservé à qui pilote —
+     une dispensatrice n'a rien à faire d'un taux de transformation au
+     comptoir, et l'écran est déjà dense. */
+  const piloteur = can(session.user.role, "pharmacie:config");
+  const devis = piloteur
+    ? await listProformas(new Date(Date.now() - 30 * 86_400_000).toISOString())
+    : [];
+  const statsDevis = calculerStats(devis);
   const produits = res.data;
   // Trois états à ne jamais confondre : la source est tombée (res.ok=false),
   // la source répond mais le stock est vide, ou tout va bien. On se fie au
@@ -383,6 +393,54 @@ export default async function PharmaciePage() {
             </GlassCard>
           </section>
         </>
+      )}
+
+      {piloteur && statsDevis.emis > 0 && (
+        <section className="space-y-3">
+          <h2 className="font-display text-lg font-semibold">
+            {t("pharmacie.devis_suivi_titre")}
+          </h2>
+          <GlassCard className="p-6">
+            <div className="grid gap-6 sm:grid-cols-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {t("pharmacie.devis_emis")}
+                </p>
+                <p className="mt-1 font-display text-2xl font-semibold tabular-nums">
+                  {statsDevis.emis}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {fmtAr(statsDevis.montantEmis)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {t("pharmacie.devis_transformes")}
+                </p>
+                <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-[var(--success)]">
+                  {statsDevis.transformes}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {fmtAr(statsDevis.montantTransforme)}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                  {t("pharmacie.devis_taux")}
+                </p>
+                <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-accent">
+                  {statsDevis.taux} %
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("pharmacie.devis_periode")}
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 border-t border-glass-border pt-3 text-xs text-muted-foreground">
+              {t("pharmacie.devis_suivi_aide")}
+            </p>
+          </GlassCard>
+        </section>
       )}
     </main>
   );

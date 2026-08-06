@@ -121,6 +121,10 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="${numero}.pdf"`,
       "Cache-Control": "no-store",
+      /* Le numéro voyage dans un en-tête : le corps est un PDF binaire, et
+         l'écran a besoin de cet identifiant pour rattacher la vente au
+         devis si le patient achète dans la foulée. */
+      "X-Proforma-Id": numero,
     },
   });
 }
