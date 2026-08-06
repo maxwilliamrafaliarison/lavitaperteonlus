@@ -33,12 +33,14 @@ export interface LigneCatalogue {
   stockLibelle: string;
   prixLibelle: string;
   peremption: string;
+  /** Fournisseur habituel, vide si aucun n'est renseigné. */
+  fournisseur: string;
   /** Repère visuel : ce qui appelle une action. */
   etat: "ok" | "bas" | "rupture" | "bientot" | "perime";
   etatLibelle: string;
 }
 
-type Filtre = "tous" | "rupture" | "bas" | "peremption";
+type Filtre = "tous" | "rupture" | "bas" | "peremption" | "galenique";
 
 export function CatalogueRecherche({
   lignes,
@@ -53,6 +55,15 @@ export function CatalogueRecherche({
   const t = React.useMemo(() => getT(lang), [lang]);
   const [q, setQ] = React.useState("");
   const [filtre, setFiltre] = React.useState<Filtre>("tous");
+  /* Fournisseur : liste déroulante plutôt qu'onglet — ils sont trop
+     nombreux pour tenir en boutons, et le besoin est ponctuel (préparer
+     une commande, vérifier ce qu'on tient d'un même laboratoire). */
+  const [fournisseur, setFournisseur] = React.useState("");
+
+  const fournisseurs = React.useMemo(
+    () => [...new Set(lignes.map((l) => l.fournisseur).filter(Boolean))].sort((a, b) => a.localeCompare(b, "fr")),
+    [lignes],
+  );
 
   const resultats = React.useMemo(() => {
     const requete = q.trim().toLowerCase();
@@ -60,6 +71,8 @@ export function CatalogueRecherche({
       if (filtre === "rupture" && l.etat !== "rupture") return false;
       if (filtre === "bas" && l.etat !== "bas") return false;
       if (filtre === "peremption" && l.etat !== "bientot" && l.etat !== "perime") return false;
+      if (filtre === "galenique" && !l.galenique) return false;
+      if (fournisseur && l.fournisseur !== fournisseur) return false;
       if (!requete) return true;
       /* Recherche sur le nom commercial, la molécule et la référence : au
          comptoir on demande aussi bien « du Doliprane » que « du
@@ -71,7 +84,7 @@ export function CatalogueRecherche({
         l.classe.toLowerCase().includes(requete)
       );
     });
-  }, [lignes, q, filtre]);
+  }, [lignes, q, filtre, fournisseur]);
 
   const compte = (f: Filtre) =>
     f === "tous"
@@ -80,13 +93,16 @@ export function CatalogueRecherche({
         ? lignes.filter((l) => l.etat === "rupture").length
         : f === "bas"
           ? lignes.filter((l) => l.etat === "bas").length
-          : lignes.filter((l) => l.etat === "bientot" || l.etat === "perime").length;
+          : f === "peremption"
+            ? lignes.filter((l) => l.etat === "bientot" || l.etat === "perime").length
+            : lignes.filter((l) => l.galenique).length;
 
   const onglets: { cle: Filtre; libelle: string }[] = [
     { cle: "tous", libelle: t("pharmacie.cat_tous") },
     { cle: "rupture", libelle: t("pharmacie.cat_rupture") },
     { cle: "bas", libelle: t("pharmacie.cat_bas") },
     { cle: "peremption", libelle: t("pharmacie.cat_peremption") },
+    { cle: "galenique", libelle: t("pharmacie.cat_galenique") },
   ];
 
   return (
@@ -148,6 +164,27 @@ export function CatalogueRecherche({
             <span className="tabular-nums opacity-70">{compte(o.cle)}</span>
           </button>
         ))}
+
+        {fournisseurs.length > 0 && (
+          <select
+            value={fournisseur}
+            onChange={(e) => setFournisseur(e.target.value)}
+            aria-label={t("pharmacie.cat_fournisseur")}
+            className={cn(
+              "h-9 rounded-xl border bg-transparent px-3 text-xs font-medium transition-colors",
+              fournisseur
+                ? "border-accent bg-accent/12 text-accent"
+                : "border-glass-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <option value="">{t("pharmacie.cat_fournisseur")}</option>
+            {fournisseurs.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       <GlassCard className="overflow-hidden p-0">

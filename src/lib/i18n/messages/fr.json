@@ -149,6 +149,8 @@
     "cat_rupture": "En rupture",
     "cat_bas": "Stock bas",
     "cat_peremption": "Péremption",
+    "cat_galenique": "Préparations galéniques",
+    "cat_fournisseur": "Tous les fournisseurs",
     "cat_nouveau": "Nouveau produit",
     "cat_aucun": "Aucun produit ne correspond à cette recherche.",
     "cat_resultats": "{n} produit(s) affiché(s) sur {total}.",

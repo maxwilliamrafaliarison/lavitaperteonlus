@@ -149,6 +149,8 @@
     "cat_rupture": "Esauriti",
     "cat_bas": "Scorta bassa",
     "cat_peremption": "Scadenza",
+    "cat_galenique": "Preparazioni galeniche",
+    "cat_fournisseur": "Tutti i fornitori",
     "cat_nouveau": "Nuovo prodotto",
     "cat_aucun": "Nessun prodotto corrisponde a questa ricerca.",
     "cat_resultats": "{n} prodotto/i visualizzato/i su {total}.",

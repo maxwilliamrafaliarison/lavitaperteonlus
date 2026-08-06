@@ -22,6 +22,7 @@ import { STATUT_LABELS, estGalenique, type ProduitAvecStock } from "@/lib/pharma
 import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
 import { listProformas, calculerStats } from "@/lib/pharmacie/proforma";
 import { CatalogueRecherche, type LigneCatalogue } from "./catalogue-recherche";
+import { SectionRepliable } from "@/components/pharmacie/section-repliable";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -94,6 +95,7 @@ export default async function PharmaciePage() {
       dosage: p.dosage ?? "",
       classe: p.classe ?? "",
       galenique: estGalenique(p),
+      fournisseur: p.fournisseur ?? "",
       stockLibelle: rupture ? t("pharmacie.vente_stock_zero") : formaterQuantite(p, p.stockBase),
       prixLibelle: p.prix_vente ? fmtAr(prixParUniteBase(p)) : "—",
       peremption: p.prochainePeremption || "—",
@@ -190,50 +192,55 @@ export default async function PharmaciePage() {
         />
       ) : (
         <>
-          {/* KPIs */}
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Kpi
-              icon={<Pill className="size-5" />}
-              label={t("pharmacie.kpi_produits")}
-              value={String(actifs.length)}
-              hint={t("pharmacie.kpi_produits_hint", { n: aDetruire.length })}
-              tone="success"
-            />
-            <Kpi
-              icon={<Banknote className="size-5" />}
-              label={t("pharmacie.kpi_valeur")}
-              value={fmtAr(valeurStock)}
-              hint={t("pharmacie.kpi_valeur_hint")}
-              tone="cyan"
-            />
-            <Kpi
-              icon={<CalendarClock className="size-5" />}
-              label={t("pharmacie.kpi_peremption")}
-              value={String(bientotPerimes.length)}
-              hint={t("pharmacie.kpi_peremption_hint")}
-              tone={bientotPerimes.length > 0 ? "warning" : "success"}
-            />
-            <Kpi
-              icon={<AlertTriangle className="size-5" />}
-              label={t("pharmacie.kpi_alertes")}
-              value={String(perimes.length + aCommander.length)}
-              hint={t("pharmacie.kpi_alertes_hint", {
-                perimes: perimes.length,
-                stock: aCommander.length,
-              })}
-              tone={perimes.length + aCommander.length > 0 ? "primary" : "success"}
-            />
-          </section>
+          {/* Chiffres clés en BANNIÈRE, non en cartes.
+              Quatre grandes tuiles occupaient tout le premier écran et
+              repoussaient le stock hors de vue, alors qu'on vient ici pour
+              chercher un médicament. Une ligne suffit à porter la même
+              information ; ce qui appelle une action reste coloré. */}
+          <GlassCard className="p-3">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <Chiffre
+                icone={<Pill className="size-4" />}
+                valeur={String(actifs.length)}
+                libelle={t("pharmacie.kpi_produits")}
+              />
+              <Chiffre
+                icone={<Banknote className="size-4" />}
+                valeur={fmtAr(valeurStock)}
+                libelle={t("pharmacie.kpi_valeur")}
+              />
+              <Chiffre
+                icone={<CalendarClock className="size-4" />}
+                valeur={String(bientotPerimes.length)}
+                libelle={t("pharmacie.kpi_peremption")}
+                ton={bientotPerimes.length > 0 ? "attention" : "neutre"}
+              />
+              <Chiffre
+                icone={<AlertTriangle className="size-4" />}
+                valeur={String(perimes.length + aCommander.length)}
+                libelle={t("pharmacie.kpi_alertes")}
+                ton={perimes.length + aCommander.length > 0 ? "alerte" : "neutre"}
+              />
+            </div>
+          </GlassCard>
+
+          {/* LE STOCK D'ABORD : c'est ce qu'on vient chercher. */}
+          <CatalogueRecherche
+            lignes={lignesCatalogue}
+            lang={lang}
+            peutModifier={can(session.user.role, "pharmacie:stock")}
+          />
 
           {/* À détruire */}
           {aDetruire.length > 0 && (
-            <section aria-label={t("pharmacie.destroy_title")}>
-              <GlassCard className="p-5 border-primary/30">
-                <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-                  <Trash2 className="size-4 text-primary" aria-hidden="true" />
-                  {t("pharmacie.destroy_title")} ({aDetruire.length})
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
+            <SectionRepliable
+              titre={t("pharmacie.destroy_title")}
+              compte={aDetruire.length}
+              ton="alerte"
+              icone={<Trash2 className="size-4 text-primary" aria-hidden="true" />}
+            >
+              <div>
+                <p className="text-xs text-muted-foreground">
                   {t("pharmacie.destroy_desc")}
                 </p>
                 <ul role="list" className="mt-3 flex flex-wrap gap-2">
@@ -251,25 +258,23 @@ export default async function PharmaciePage() {
                     </li>
                   ))}
                 </ul>
-              </GlassCard>
-            </section>
+              </div>
+            </SectionRepliable>
           )}
 
           {/* À commander (groupé par fournisseur) */}
           {aCommander.length > 0 && (
-            <section aria-label={t("pharmacie.commander_title")}>
-              <GlassCard className="p-5 border-[var(--warning)/30]">
-                <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-                  <ShoppingCart
-                    className="size-4 text-[var(--warning)]"
-                    aria-hidden="true"
-                  />
-                  {t("pharmacie.commander_title")} ({aCommander.length})
-                </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
+            <SectionRepliable
+              titre={t("pharmacie.commander_title")}
+              compte={aCommander.length}
+              ton="attention"
+              icone={<ShoppingCart className="size-4 text-[var(--warning)]" aria-hidden="true" />}
+            >
+              <div>
+                <p className="text-xs text-muted-foreground">
                   {t("pharmacie.commander_desc")}
                 </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
                   {groupesFournisseur.map(([fournisseur, items]) => (
                     <div key={fournisseur || "__none__"} className="rounded-xl glass border p-4">
                       <h3 className="text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
@@ -316,18 +321,10 @@ export default async function PharmaciePage() {
                     </div>
                   ))}
                 </div>
-              </GlassCard>
-            </section>
+              </div>
+            </SectionRepliable>
           )}
 
-          {/* Catalogue cherchable : cent produits ne se parcourent pas à
-              l'œil, et tout le monde au centre doit pouvoir répondre
-              « l'avons-nous, à quel prix » sans passer par la vente. */}
-          <CatalogueRecherche
-            lignes={lignesCatalogue}
-            lang={lang}
-            peutModifier={can(session.user.role, "pharmacie:stock")}
-          />
         </>
       )}
 
@@ -427,39 +424,33 @@ function Badge({
   );
 }
 
-function Kpi({
-  icon,
-  label,
-  value,
-  hint,
-  tone,
+/** Chiffre clé de la bannière : une ligne, pas une tuile. */
+function Chiffre({
+  icone,
+  valeur,
+  libelle,
+  ton = "neutre",
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint: string;
-  tone: "primary" | "cyan" | "success" | "warning";
+  icone: React.ReactNode;
+  valeur: string;
+  libelle: string;
+  ton?: "neutre" | "attention" | "alerte";
 }) {
-  const toneCls =
-    tone === "primary"
-      ? "bg-primary/15 text-primary"
-      : tone === "cyan"
-        ? "bg-accent/15 text-accent"
-        : tone === "success"
-          ? "bg-[var(--success)/15] text-[var(--success)]"
-          : "bg-[var(--warning)/15] text-[var(--warning)]";
+  const couleur =
+    ton === "alerte"
+      ? "text-primary"
+      : ton === "attention"
+        ? "text-[var(--warning)]"
+        : "text-muted-foreground";
   return (
-    <GlassCard className="p-6">
-      <div className={cn("inline-flex size-10 items-center justify-center rounded-xl", toneCls)}>
-        {icon}
-      </div>
-      <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 font-display text-2xl md:text-3xl font-semibold tabular-nums truncate">
-        {value}
-      </p>
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-    </GlassCard>
+    <span className="inline-flex items-baseline gap-2">
+      <span className={cn("self-center", couleur)} aria-hidden="true">
+        {icone}
+      </span>
+      <span className={cn("font-display text-lg font-semibold tabular-nums", ton !== "neutre" && couleur)}>
+        {valeur}
+      </span>
+      <span className="text-xs text-muted-foreground">{libelle}</span>
+    </span>
   );
 }
