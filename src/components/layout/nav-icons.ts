@@ -22,6 +22,7 @@ import {
   Clock,
   CalendarDays,
   CircleHelp,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,6 +53,7 @@ export const NAV_ICONS: Record<string, LucideIcon> = {
   Clock,
   CalendarDays,
   CircleHelp,
+  Truck,
 };
 
 export function navIcon(name: string): LucideIcon {

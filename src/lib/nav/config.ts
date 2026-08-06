@@ -76,6 +76,8 @@ export const APP_NAV: Record<AppKey, AppNav> = {
       { href: "/pharmacie/achats", labelKey: "pharmacie.achats_cta", icon: "ClipboardList", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock" },
       { href: "/pharmacie/transfert", labelKey: "pharmacie.transfert_cta", icon: "ArrowLeftRight", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock" },
       { href: "/pharmacie/rapports", labelKey: "pharmacie.rapports_cta", icon: "FileBarChart2", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_pilotage", badges: ["peremptions"] },
+      // Consultation seule : qui sont nos fournisseurs, comment les joindre.
+      { href: "/pharmacie/fournisseurs", labelKey: "pharmacie.fournisseurs_cta", icon: "Truck", groupeKey: "pharmacie.grp_pilotage" },
       { href: "/pharmacie/parametres", labelKey: "pharmacie.param_cta", icon: "Settings", permission: "pharmacie:config", groupeKey: "pharmacie.grp_pilotage" },
       { href: "/pharmacie/aide", labelKey: "pharmacie.nav_aide", icon: "CircleHelp", groupeKey: "pharmacie.grp_pilotage" },
     ],
