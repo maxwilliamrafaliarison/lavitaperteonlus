@@ -51,7 +51,7 @@ export async function importerPointagesAction(
 ): Promise<ImportResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "pointage:collecter")) {
     return { ok: false, error: "Votre rôle ne permet pas d'importer des pointages." };
   }
 

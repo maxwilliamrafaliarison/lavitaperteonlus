@@ -23,6 +23,10 @@ const ICI = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const ZKLib = require("node-zklib");
 
+// Rétablit la lecture COMPLÈTE de la mémoire de l'appareil : sans lui, le
+// dernier bloc — celui des journées en cours — est perdu sans erreur.
+await import("./zk-correctif.mjs");
+
 const config = {};
 for (const ligne of readFileSync(join(ICI, "config.txt"), "utf8").split("\n")) {
   const m = ligne.match(/^\s*([A-Z_]+)\s*=\s*(.+?)\s*$/);
@@ -52,12 +56,59 @@ function portOuvert(ip, port, ms = 3000) {
   });
 }
 
+/** Bornes de plausibilité, recalculées à chaque appel (l'agent tourne des jours). */
+const demain = () => horodatageLocal(new Date(Date.now() + 86_400_000)).slice(0, 10);
+const hier = () => horodatageLocal(new Date(Date.now() - 86_400_000)).slice(0, 10);
+
 async function collecter() {
-  const zk = new ZKLib(IP_POINTEUSE, 4370, 15000, 5000);
+  /* Lecture jugée sur son CONTENU : proportion d'enregistrements plausibles
+     et date la plus récente atteinte. Un compte parfait peut être faux — un
+     bloc perdu décale le décodage et fabrique des identifiants d'octets
+     bruts. La connexion est ROUVERTE entre deux essais : la socket ne
+     survit pas à plusieurs transferts massifs. */
+  let zk = new ZKLib(IP_POINTEUSE, 4370, 15000, 5000);
   await zk.createSocket();
-  const logs = await zk.getAttendances();
+  const info = await zk.getInfo().catch(() => null);
+  const attendus = Number(info?.logCounts ?? 0);
+
+  let brut = [];
+  for (let essai = 1; essai <= 6; essai++) {
+    if (essai > 1) {
+      await zk.disconnect().catch(() => {});
+      await new Promise((r) => setTimeout(r, 2000));
+      zk = new ZKLib(IP_POINTEUSE, 4370, 15000, 5000);
+      await zk.createSocket();
+    }
+    const lot = (await zk.getAttendances().catch(() => null))?.data ?? [];
+    const valides = lot.filter((r) => {
+      if (r?.deviceUserId == null || r?.recordTime == null) return false;
+      if (!/^[0-9]+$/.test(String(r.deviceUserId))) return false;
+      const h = horodatageLocal(new Date(r.recordTime));
+      return h >= "2020-01-01" && h.slice(0, 10) <= demain();
+    });
+    const propre = lot.length > 0 && valides.length >= lot.length * 0.98;
+    const dernier = valides.reduce((max, r) => {
+      const h = horodatageLocal(new Date(r.recordTime)).slice(0, 10);
+      return h > max ? h : max;
+    }, "");
+    const plafond = attendus === 0 ? Infinity : attendus + 100;
+    if (propre && valides.length > brut.length && lot.length <= plafond) brut = valides;
+    if (propre && dernier >= hier() && lot.length >= (attendus === 0 ? 1 : attendus - 10) && lot.length <= plafond) break;
+  }
   await zk.disconnect().catch(() => {});
-  const pointages = (logs?.data ?? [])
+
+  const dernierJour = brut.reduce((max, r) => {
+    const h = horodatageLocal(new Date(r.recordTime)).slice(0, 10);
+    return h > max ? h : max;
+  }, "");
+  if ((attendus > 0 && brut.length < attendus - 10) || dernierJour < hier()) {
+    throw new Error(
+      `Lecture inexploitable : ${brut.length}/${attendus} passages, le plus récent du ${dernierJour || "—"}. ` +
+        `Rien n'a été enregistré. Relancez ; si l'échec persiste, préférez l'Ethernet au Wi-Fi.`,
+    );
+  }
+
+  const pointages = brut
     .map((r) => ({ id: String(r.deviceUserId ?? ""), horodatage: horodatageLocal(new Date(r.recordTime)) }))
     .filter((p) => p.id && p.horodatage >= "2020-01-01");
 

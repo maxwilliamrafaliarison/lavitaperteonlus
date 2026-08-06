@@ -16,7 +16,7 @@ export default async function ImportPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   // Importer engage la paie : réservé à l'administrateur.
-  if (!can(session.user.role, "pointage:gerer")) redirect("/pointage");
+  if (!can(session.user.role, "pointage:collecter")) redirect("/pointage");
   const lang = session.user.lang;
   const t = getT(lang);
 

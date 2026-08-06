@@ -20,6 +20,9 @@ const ICI = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const ZKLib = require("node-zklib");
 
+// Rétablit la lecture COMPLÈTE de la mémoire (dernier bloc compris).
+await import("./zk-correctif.mjs");
+
 // ── Configuration ─────────────────────────────────────────────────────────
 const config = {};
 for (const ligne of readFileSync(join(ICI, "config.txt"), "utf8").split("\n")) {

@@ -73,7 +73,7 @@ export default async function PointagePage() {
           {/* Collecte directe : réservée à qui gère le pointage. Un bouton
               par centre — chaque pointeuse a sa propre base de numérotation,
               et l'agent doit savoir laquelle il interroge. */}
-          {can(session.user.role, "pointage:gerer") && (
+          {can(session.user.role, "pointage:collecter") && (
             <div className="grid gap-4 sm:grid-cols-2">
               <BoutonCollecte site="REX" />
               <ImportMiaraka />
