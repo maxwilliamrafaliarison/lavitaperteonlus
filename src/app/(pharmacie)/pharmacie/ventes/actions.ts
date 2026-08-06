@@ -101,3 +101,64 @@ export async function annulerVenteAction(
   revalidatePath("/pharmacie/ventes");
   return { ok: true };
 }
+
+/* ============================================================
+   DÉTAIL D'UNE VENTE — chargé à la demande
+   ============================================================
+   Les lignes ne voyagent PAS avec la liste : une journée chargée
+   compterait plusieurs centaines de lignes qu'on n'ouvrira jamais, et la
+   page mettrait d'autant plus de temps à s'afficher. On les va chercher
+   au moment où quelqu'un déplie une vente — le seul moment où elles
+   servent.
+   ============================================================ */
+
+export type DetailResult =
+  | {
+      ok: true;
+      lignes: Array<{
+        designation: string;
+        dosage: string;
+        quantite: number;
+        prixUnitaire: number;
+        sousTotal: number;
+        galenique: boolean;
+      }>;
+      clientNom: string;
+      pecPayeur: string;
+    }
+  | { ok: false; error: string };
+
+export async function detailVenteAction(venteId: string): Promise<DetailResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  const lang = isLang(session.user.lang) ? session.user.lang : "fr";
+  const t = getT(lang);
+  if (!can(session.user.role, "app:pharmacie")) {
+    return { ok: false, error: t("pharmacie.vente_error_forbidden") };
+  }
+  // Format contrôlé : l'identifiant part dans un filtre.
+  if (!/^VTE-[A-Z0-9-]{4,40}$/.test(venteId)) {
+    return { ok: false, error: t("pharmacie.vente_error_invalid") };
+  }
+
+  try {
+    const { getVenteComplete } = await import("@/lib/pharmacie/sheets");
+    const vente = await getVenteComplete(venteId);
+    if (!vente) return { ok: false, error: t("pharmacie.vente_error_produit") };
+    return {
+      ok: true,
+      clientNom: vente.clientNom,
+      pecPayeur: vente.pecPayeur,
+      lignes: vente.lignes.map((l) => ({
+        designation: l.designation,
+        dosage: l.dosage,
+        quantite: l.quantite,
+        prixUnitaire: l.prixUnitaire,
+        sousTotal: l.sousTotal,
+        galenique: l.galenique,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 160) };
+  }
+}

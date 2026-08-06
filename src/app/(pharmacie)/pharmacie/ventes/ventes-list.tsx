@@ -10,7 +10,19 @@ import { getT, type Lang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { VenteResume } from "@/lib/pharmacie/sheets";
 
-import { annulerVenteAction } from "./actions";
+import { annulerVenteAction, detailVenteAction } from "./actions";
+
+interface DetailVente {
+  lignes: Array<{
+    designation: string;
+    dosage: string;
+    quantite: number;
+    prixUnitaire: number;
+    sousTotal: number;
+    galenique: boolean;
+  }>;
+  pecPayeur: string;
+}
 
 function fmtAr(n: number): string {
   return (
@@ -54,6 +66,35 @@ export function VentesList({
   const [armeA, setArmeA] = React.useState(0);
   const DELAI_GARDE_MS = 700;
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
+
+  /* Détail d'une vente : quels médicaments, en quelle quantité, à quel
+     prix. Chargé À LA DEMANDE et mémorisé — une journée chargée porte
+     plusieurs centaines de lignes qu'on n'ouvrira jamais, les faire
+     voyager avec la liste ralentirait la page pour rien. */
+  const [ouvert, setOuvert] = React.useState<string | null>(null);
+  const [details, setDetails] = React.useState<Record<string, DetailVente>>({});
+  const [chargeId, setChargeId] = React.useState<string | null>(null);
+
+  async function basculerDetail(venteId: string) {
+    if (ouvert === venteId) {
+      setOuvert(null);
+      return;
+    }
+    setOuvert(venteId);
+    if (details[venteId]) return; // déjà connu : pas de second aller-retour
+    setChargeId(venteId);
+    try {
+      const r = await detailVenteAction(venteId);
+      if (r.ok) {
+        setDetails((d) => ({ ...d, [venteId]: { lignes: r.lignes, pecPayeur: r.pecPayeur } }));
+      } else {
+        toast.error(t("common.failed"), { description: r.error });
+        setOuvert(null);
+      }
+    } finally {
+      setChargeId(null);
+    }
+  }
 
   /* ------------------------------------------------------------------
      REGROUPEMENT PAR JOURNÉE
@@ -251,15 +292,25 @@ export function VentesList({
             {j.lignes.map((v) => {
               const annulee = v.statut === "annulee";
               const busy = loadingId === v.id;
+              const estOuvert = ouvert === v.id;
               return (
+                <React.Fragment key={v.id}>
                 <tr
-                  key={v.id}
+                  onClick={() => basculerDetail(v.id)}
                   className={cn(
-                    "hover:bg-white/3 transition-colors",
+                    "cursor-pointer hover:bg-foreground/5 transition-colors",
                     annulee && "opacity-55",
+                    estOuvert && "bg-accent/8",
                   )}
                 >
                   <td className="px-4 py-3 font-mono text-xs">
+                    <ChevronRight
+                      className={cn(
+                        "mr-1.5 inline size-3 text-muted-foreground transition-transform",
+                        estOuvert && "rotate-90",
+                      )}
+                      aria-hidden="true"
+                    />
                     {v.id}
                     {annulee && (
                       <span className="ml-2 inline-block rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
@@ -284,7 +335,7 @@ export function VentesList({
                   <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">
                     {v.operateurEmail.split("@")[0]}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       <IconBtn
                         label={t("pharmacie.vente_ticket")}
@@ -340,6 +391,28 @@ export function VentesList({
                     </div>
                   </td>
                 </tr>
+
+                {estOuvert && (
+                  <tr className="bg-accent/5">
+                    <td colSpan={7} className="px-4 pb-4 pt-1">
+                      {chargeId === v.id ? (
+                        <p className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+                          <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+                          {t("common.loading")}
+                        </p>
+                      ) : details[v.id] ? (
+                        <DetailLignes
+                          detail={details[v.id]}
+                          total={v.total}
+                          typeVente={v.typeVente}
+                          lang={lang}
+                          t={t}
+                        />
+                      ) : null}
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               );
             })}
           </tbody>
@@ -416,5 +489,87 @@ function IconBtn({
     >
       {children}
     </button>
+  );
+}
+
+/* ============================================================
+   DÉTAIL D'UNE VENTE — ce qui a réellement été délivré
+   ============================================================
+   « 21 400 Ar » ne dit rien de ce que le patient a emporté. Cette vue
+   répond à la seule question qu'on se pose en rouvrant une vente : quels
+   médicaments, en quelle quantité, à quel prix.
+   ============================================================ */
+function DetailLignes({
+  detail,
+  total,
+  typeVente,
+  lang,
+  t,
+}: {
+  detail: DetailVente;
+  total: number;
+  typeVente: string;
+  lang: Lang;
+  t: ReturnType<typeof getT>;
+}) {
+  const estPec = (typeVente || "cash") === "pec";
+  return (
+    <div className="rounded-xl border border-glass-border bg-background/40 p-3">
+      {estPec && detail.pecPayeur && (
+        <p className="mb-2 text-xs">
+          <span className="text-muted-foreground">{t("pharmacie.vente_pec_payeur")} </span>
+          <span className="font-medium">{detail.pecPayeur}</span>
+        </p>
+      )}
+
+      {detail.lignes.length === 0 ? (
+        <p className="py-2 text-xs text-muted-foreground">{t("pharmacie.detail_aucune_ligne")}</p>
+      ) : (
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-glass-border text-left text-muted-foreground">
+              <th scope="col" className="py-1.5 font-medium">{t("pharmacie.col_designation")}</th>
+              <th scope="col" className="py-1.5 text-right font-medium">{t("pharmacie.detail_qte")}</th>
+              <th scope="col" className="py-1.5 text-right font-medium">{t("pharmacie.detail_pu")}</th>
+              <th scope="col" className="py-1.5 text-right font-medium">{t("pharmacie.vente_total")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.lignes.map((l, i) => (
+              <tr key={i} className="border-b border-glass-border/50 last:border-0">
+                <td className="py-1.5 pr-2">
+                  <span className="font-medium">{l.designation}</span>
+                  {l.dosage ? (
+                    <span className="text-muted-foreground"> · {l.dosage}</span>
+                  ) : null}
+                  {l.galenique && (
+                    <span className="ml-1.5 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-px text-[9px] text-accent">
+                      {t("pharmacie.cat_galenique")}
+                    </span>
+                  )}
+                </td>
+                <td className="py-1.5 text-right font-mono tabular-nums">{l.quantite}</td>
+                <td className="py-1.5 text-right font-mono tabular-nums text-muted-foreground">
+                  {fmtAr(l.prixUnitaire)}
+                </td>
+                <td className="py-1.5 text-right font-mono tabular-nums font-medium">
+                  {fmtAr(l.sousTotal)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-foreground/20">
+              <td colSpan={3} className="py-2 text-right font-medium">
+                {estPec ? t("pharmacie.vente_pec_valeur") : t("pharmacie.vente_total")}
+              </td>
+              <td className="py-2 text-right font-mono text-sm font-semibold tabular-nums">
+                {fmtAr(total)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      )}
+    </div>
   );
 }
