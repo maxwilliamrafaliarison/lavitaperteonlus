@@ -104,6 +104,8 @@ export function EtatCaissePdf({
           </Text>
           <Text style={{ fontSize: 8.5, color: COLORS.textMuted, marginTop: 1.5 }}>
             Établissement : {entite.etablissement}
+            {entite.nif ? ` · NIF ${entite.nif}` : ""}
+            {entite.stat ? ` · STAT ${entite.stat}` : ""}
           </Text>
         </View>
 

@@ -107,7 +107,7 @@ export async function envoyerEtatCaisse(
     <div style="font-size:13px;font-weight:700">${entite.denomination}</div>
     <div style="font-size:11px;color:#6b7280;margin-top:2px">${entite.formeJuridique}</div>
     <div style="font-size:11px;color:#6b7280;margin-top:2px">Siège social : ${entite.siegeSocial} · Code fiscal / P. IVA : ${entite.codeFiscal}</div>
-    <div style="font-size:11px;color:#6b7280;margin-top:2px">Établissement : ${entite.etablissement}</div>
+    <div style="font-size:11px;color:#6b7280;margin-top:2px">Établissement : ${entite.etablissement}${entite.nif ? ` · NIF ${entite.nif}` : ""}${entite.stat ? ` · STAT ${entite.stat}` : ""}</div>
   </div>
 
   <h2 style="margin:0 0 2px;font-size:18px">Relevé de caisse journalier</h2>

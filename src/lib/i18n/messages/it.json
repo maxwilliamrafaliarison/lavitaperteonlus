@@ -306,6 +306,8 @@
     "param_entite_incomplet": "Mancano la sede legale o il codice fiscale: ogni rendiconto di cassa riporta un avviso finché non sono compilati.",
     "param_entite_siege": "Sede legale",
     "param_entite_code_fiscal": "Codice fiscale / Partita IVA",
+    "param_entite_nif": "NIF (Madagascar)",
+    "param_entite_stat": "N. STAT (Madagascar)",
     "param_entite_denomination": "Denominazione",
     "param_entite_forme": "Forma giuridica",
     "param_entite_email_caisse": "Destinatari del rendiconto di cassa",

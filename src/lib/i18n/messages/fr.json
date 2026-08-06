@@ -306,6 +306,8 @@
     "param_entite_incomplet": "Le siège social ou le code fiscal manque : chaque état de caisse porte un avertissement tant qu'ils ne sont pas renseignés.",
     "param_entite_siege": "Siège social",
     "param_entite_code_fiscal": "Code fiscal / Partita IVA",
+    "param_entite_nif": "NIF (Madagascar)",
+    "param_entite_stat": "N° STAT (Madagascar)",
     "param_entite_denomination": "Dénomination",
     "param_entite_forme": "Forme juridique",
     "param_entite_email_caisse": "Destinataires de l'état de caisse",

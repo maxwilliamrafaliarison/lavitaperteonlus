@@ -27,6 +27,17 @@ export interface EntiteLegale {
   siegeSocial: string;
   codeFiscal: string;
   etablissement: string;
+  /**
+   * Identifiants fiscaux MALGACHES de l'établissement.
+   *
+   * L'organisation est italienne, mais la pharmacie vend à Fianarantsoa :
+   * une pièce remise à un patient relève du droit local, tandis que la
+   * comptabilité consolidée relève du droit italien. Les deux séries
+   * d'identifiants ont donc leur place sur le même document — l'une
+   * n'excuse pas l'absence de l'autre.
+   */
+  nif: string;
+  stat: string;
   /** Vrai tant qu'une mention obligatoire manque. */
   incomplete: boolean;
   manquants: string[];
@@ -51,9 +62,19 @@ export async function chargerEntite(site = "REX"): Promise<EntiteLegale> {
   const etablissement =
     lire("entite_etablissement") || `Centre ${site} · Fianarantsoa, Madagascar`;
 
+  /* Les identifiants malgaches vivent déjà sous les clés `facture_*`,
+     utilisées par les tickets et factures. On les relit ici plutôt que
+     d'en créer de nouvelles : deux jeux de clés pour la même donnée
+     finiraient par diverger, et une pièce porterait alors un numéro
+     différent de l'autre. */
+  const nif = lire("entite_nif") || lire("facture_nif");
+  const stat = lire("entite_stat") || lire("facture_stat");
+
   const manquants: string[] = [];
   if (!siegeSocial) manquants.push("siège social");
   if (!codeFiscal) manquants.push("code fiscal / P. IVA");
+  if (!nif) manquants.push("NIF");
+  if (!stat) manquants.push("STAT");
 
   return {
     denomination,
@@ -61,6 +82,8 @@ export async function chargerEntite(site = "REX"): Promise<EntiteLegale> {
     siegeSocial: siegeSocial || A_RENSEIGNER,
     codeFiscal: codeFiscal || A_RENSEIGNER,
     etablissement,
+    nif,
+    stat,
     incomplete: manquants.length > 0,
     manquants,
   };

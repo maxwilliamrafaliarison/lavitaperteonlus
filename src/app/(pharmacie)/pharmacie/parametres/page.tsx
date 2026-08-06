@@ -34,6 +34,8 @@ export default async function ParametresPage() {
     denomination: lire("entite_denomination"),
     formeJuridique: lire("entite_forme_juridique"),
     emailCaisse: lire("email_caisse_destinataires"),
+    nif: lire("entite_nif") || lire("facture_nif"),
+    stat: lire("entite_stat") || lire("facture_stat"),
   };
 
   return (

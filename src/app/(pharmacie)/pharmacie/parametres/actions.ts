@@ -21,6 +21,11 @@ const ParametresInput = z.object({
      pas opposable. */
   siegeSocial: z.string().trim().max(200).default(""),
   codeFiscal: z.string().trim().max(60).default(""),
+  /* Identifiants fiscaux malgaches de l'établissement : la pharmacie vend
+     à Fianarantsoa, sous droit local, quand la comptabilité consolidée
+     relève du droit italien. Une pièce porte donc les deux. */
+  nif: z.string().trim().max(40).default(""),
+  stat: z.string().trim().max(40).default(""),
   denomination: z.string().trim().max(160).default(""),
   formeJuridique: z.string().trim().max(160).default(""),
   /** Destinataires de l'état de caisse, séparés par des virgules. */
@@ -50,7 +55,7 @@ export async function definirParametresAction(
   if (!parsed.success) {
     return { ok: false, error: t("pharmacie.param_error_invalid") };
   }
-  const { tvaActive, tvaTaux, siegeSocial, codeFiscal, denomination, formeJuridique, emailCaisse } =
+  const { tvaActive, tvaTaux, siegeSocial, codeFiscal, denomination, formeJuridique, emailCaisse, nif, stat } =
     parsed.data;
 
   try {
@@ -67,6 +72,11 @@ export async function definirParametresAction(
     await setParametre("entite_denomination", denomination);
     await setParametre("entite_forme_juridique", formeJuridique);
     await setParametre("email_caisse_destinataires", emailCaisse);
+    /* Écrit sous les clés `facture_*`, déjà lues par les tickets et
+       factures : un seul jeu de clés pour une même donnée, sinon deux
+       pièces finiraient par porter des numéros différents. */
+    await setParametre("facture_nif", nif);
+    await setParametre("facture_stat", stat);
   } catch (e) {
     return {
       ok: false,

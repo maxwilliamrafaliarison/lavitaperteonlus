@@ -19,6 +19,8 @@ export interface ParametresInitiaux {
   denomination: string;
   formeJuridique: string;
   emailCaisse: string;
+  nif: string;
+  stat: string;
 }
 
 export function ParametresForm({
@@ -38,7 +40,8 @@ export function ParametresForm({
 
   // Ce qui manque aux pièces comptables, dit ici plutôt que découvert
   // au moment d'archiver un état de caisse.
-  const incomplet = !v.siegeSocial.trim() || !v.codeFiscal.trim();
+  const incomplet =
+    !v.siegeSocial.trim() || !v.codeFiscal.trim() || !v.nif.trim() || !v.stat.trim();
 
   async function enregistrer() {
     setLoading(true);
@@ -156,6 +159,27 @@ export function ParametresForm({
             className={`${champ} font-mono`}
           />
         </label>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className={etiquette}>{t("pharmacie.param_entite_nif")}</span>
+            <input
+              value={v.nif}
+              onChange={(e) => maj("nif", e.target.value)}
+              placeholder="0000xxxxxxx"
+              className={`${champ} font-mono`}
+            />
+          </label>
+          <label className="block">
+            <span className={etiquette}>{t("pharmacie.param_entite_stat")}</span>
+            <input
+              value={v.stat}
+              onChange={(e) => maj("stat", e.target.value)}
+              placeholder="00000 00 0000 0 00000"
+              className={`${champ} font-mono`}
+            />
+          </label>
+        </div>
 
         <label className="block">
           <span className={etiquette}>{t("pharmacie.param_entite_denomination")}</span>

@@ -95,6 +95,8 @@ export function ProformaPdf({
           </Text>
           <Text style={{ fontSize: 8.5, color: COLORS.textMuted, marginTop: 1.5 }}>
             {entite.etablissement}
+            {entite.nif ? ` · NIF ${entite.nif}` : ""}
+            {entite.stat ? ` · STAT ${entite.stat}` : ""}
           </Text>
         </View>
 
@@ -234,6 +236,13 @@ export function ProformaTicket({
         {entite.codeFiscal && entite.codeFiscal !== "à renseigner" ? (
           <Text style={{ ...tk.centre, fontSize: 6.5, color: COLORS.textMuted }}>
             C.F. {entite.codeFiscal}
+          </Text>
+        ) : null}
+        {entite.nif || entite.stat ? (
+          <Text style={{ ...tk.centre, fontSize: 6.5, color: COLORS.textMuted }}>
+            {entite.nif ? `NIF ${entite.nif}` : ""}
+            {entite.nif && entite.stat ? " · " : ""}
+            {entite.stat ? `STAT ${entite.stat}` : ""}
           </Text>
         ) : null}
 
