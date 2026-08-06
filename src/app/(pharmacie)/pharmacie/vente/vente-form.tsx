@@ -17,6 +17,7 @@ import {
   Lock,
   LockOpen,
   Printer,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -92,6 +93,7 @@ export function VenteForm({
   peremptions,
   caisse,
   caisseDisponible,
+  peutStock,
 }: {
   produits: ProduitAvecStock[];
   entites: EntitePec[];
@@ -110,6 +112,8 @@ export function VenteForm({
   caisse: CaisseSession | null;
   /** Faux tant que la migration caisse n'est pas passée : l'écran vit sans. */
   caisseDisponible: boolean;
+  /** Droit de gérer le stock — condition de la saisie rétroactive. */
+  peutStock: boolean;
 }) {
   const router = useRouter();
   const t = React.useMemo(() => getT(lang), [lang]);
@@ -126,6 +130,12 @@ export function VenteForm({
      Effacé dès que le panier change : le devis ne décrirait plus la
      même chose, et rattacher la vente fausserait la mesure. */
   const [devisEnCours, setDevisEnCours] = React.useState<string | null>(null);
+  /* Rattrapage de juillet — DISPOSITIF TEMPORAIRE.
+     Voir pharmacie/vente/actions.ts pour ce que la date change (et ne
+     change pas). Retrait : supprimer cet état, le bloc d'interface qui
+     suit, et le champ `dateVente` du schéma serveur. */
+  const [retroActif, setRetroActif] = React.useState(false);
+  const [dateRetro, setDateRetro] = React.useState("");
   /**
    * Identifiant du panier, engendré une fois et conservé tant que la vente
    * n'est pas encaissée : réessayer après une coupure renvoie le MÊME
@@ -372,6 +382,7 @@ export function VenteForm({
         venteId: idPanier,
         // Rattache la vente au devis dont elle découle, s'il y en a un.
         proformaId: devisEnCours ?? undefined,
+        dateVente: retroActif && dateRetro ? dateRetro : undefined,
         clientNom,
         typeVente,
         pecPayeur,
@@ -797,12 +808,50 @@ export function VenteForm({
                 )}
               </div>
 
+              {/* ---- Rattrapage : dispositif TEMPORAIRE ---- */}
+              {peutStock && (
+                <div className="rounded-xl border border-[var(--warning)]/35 bg-[var(--warning)]/8 p-3 space-y-2">
+                  <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={retroActif}
+                      onChange={(e) => {
+                        setRetroActif(e.target.checked);
+                        if (!e.target.checked) setDateRetro("");
+                      }}
+                      className="size-3.5 accent-[var(--warning)]"
+                    />
+                    <History className="size-3.5 text-[var(--warning)]" aria-hidden="true" />
+                    {t("pharmacie.retro_active")}
+                  </label>
+                  {retroActif && (
+                    <>
+                      <input
+                        type="date"
+                        value={dateRetro}
+                        max={new Date().toLocaleDateString("sv-SE", { timeZone: "Indian/Antananarivo" })}
+                        onChange={(e) => setDateRetro(e.target.value)}
+                        aria-label={t("pharmacie.retro_date")}
+                        className="h-10 w-full rounded-lg glass border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--warning)]/40"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        {t("pharmacie.retro_aide")}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )}
+
               <GlassButton
                 type="button"
                 variant="brand"
                 size="lg"
                 className="w-full"
-                disabled={panier.length === 0 || loading || !caisseOuverte}
+                disabled={
+                  panier.length === 0 ||
+                  loading ||
+                  (retroActif ? !dateRetro : !caisseOuverte)
+                }
                 onClick={encaisser}
               >
                 {loading && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}

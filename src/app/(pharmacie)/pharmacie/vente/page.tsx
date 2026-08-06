@@ -95,7 +95,8 @@ export default async function VentePage() {
           stockParCompartiment={stockRes.data.out}
           peremptions={stockRes.data.peremptions}
           caisse={caisseRes.data === "indisponible" ? null : caisseRes.data}
-          caisseDisponible={caisseRes.data !== "indisponible"}
+          peutStock={can(session.user.role, "pharmacie:stock")}
+        caisseDisponible={caisseRes.data !== "indisponible"}
         />
       ) : (
         // Le catalogue est injoignable : on n'affiche PAS la caisse. Un

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Receipt, FileText, Ban, Loader2 } from "lucide-react";
+import { Receipt, FileText, Ban, Loader2, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import { GlassCard } from "@/components/glass/glass-card";
@@ -55,6 +55,72 @@ export function VentesList({
   const DELAI_GARDE_MS = 700;
   const [loadingId, setLoadingId] = React.useState<string | null>(null);
 
+  /* ------------------------------------------------------------------
+     REGROUPEMENT PAR JOURNÉE
+
+     Une liste continue de plusieurs centaines de lignes ne se lit pas :
+     on cherche « ce qu'a fait telle journée », pas « la 137ᵉ vente ».
+     Chaque jour devient donc un bloc avec son total encaissé, replié
+     par défaut sauf le plus récent — celui qu'on vient consulter.
+     ------------------------------------------------------------------ */
+  const [mois, setMois] = React.useState("");
+  const [type, setType] = React.useState<"tous" | "cash" | "pec">("tous");
+  const [masquerAnnulees, setMasquerAnnulees] = React.useState(false);
+
+  /** Clé de journée en heure des centres, jamais en UTC. */
+  const jourDe = React.useCallback((iso: string) => {
+    try {
+      return new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Indian/Antananarivo" });
+    } catch {
+      return iso.slice(0, 10);
+    }
+  }, []);
+
+  const moisDisponibles = React.useMemo(
+    () => [...new Set(ventes.map((v) => jourDe(v.timestamp).slice(0, 7)))].sort().reverse(),
+    [ventes, jourDe],
+  );
+
+  const filtrees = React.useMemo(
+    () =>
+      ventes.filter((v) => {
+        if (mois && !jourDe(v.timestamp).startsWith(mois)) return false;
+        if (type !== "tous" && (v.typeVente || "cash") !== type) return false;
+        if (masquerAnnulees && v.statut === "annulee") return false;
+        return true;
+      }),
+    [ventes, mois, type, masquerAnnulees, jourDe],
+  );
+
+  const journees = React.useMemo(() => {
+    const par = new Map<string, VenteResume[]>();
+    for (const v of filtrees) {
+      const j = jourDe(v.timestamp);
+      const l = par.get(j);
+      if (l) l.push(v);
+      else par.set(j, [v]);
+    }
+    return [...par.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([jour, lignes]) => {
+        /* Une vente annulée n'a rien encaissé : elle reste VISIBLE — la
+           traçabilité l'exige — mais ne compte pas dans le total. */
+        const actives = lignes.filter((v) => v.statut !== "annulee");
+        return {
+          jour,
+          lignes,
+          nb: actives.length,
+          nbAnnulees: lignes.length - actives.length,
+          encaisse: actives
+            .filter((v) => (v.typeVente || "cash") !== "pec")
+            .reduce((s, v) => s + v.total, 0),
+          pec: actives.filter((v) => (v.typeVente || "cash") === "pec").length,
+        };
+      });
+  }, [filtrees, jourDe]);
+
+  const totalPeriode = journees.reduce((s, j) => s + j.encaisse, 0);
+
   // Le clic ailleurs annule la confirmation en attente
   React.useEffect(() => {
     if (!confirmId) return;
@@ -85,8 +151,89 @@ export function VentesList({
   }
 
   return (
-    <GlassCard className="overflow-hidden p-0">
-      <div className="overflow-x-auto">
+    <div className="space-y-4">
+      {/* ---- Filtres : la synthèse avant le détail ---- */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={mois}
+          onChange={(e) => setMois(e.target.value)}
+          aria-label={t("pharmacie.ventes_filtre_mois")}
+          className="h-9 rounded-xl border border-glass-border bg-transparent px-3 text-xs font-medium"
+        >
+          <option value="">{t("pharmacie.ventes_filtre_mois")}</option>
+          {moisDisponibles.map((m) => (
+            <option key={m} value={m}>
+              {libelleMois(m, lang)}
+            </option>
+          ))}
+        </select>
+
+        {(["tous", "cash", "pec"] as const).map((cle) => (
+          <button
+            key={cle}
+            type="button"
+            onClick={() => setType(cle)}
+            aria-pressed={type === cle}
+            className={cn(
+              "h-9 rounded-xl border px-3 text-xs font-medium transition-colors",
+              type === cle
+                ? "border-accent bg-accent/12 text-accent"
+                : "border-glass-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t(`pharmacie.ventes_filtre_${cle}`)}
+          </button>
+        ))}
+
+        <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-glass-border px-3 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={masquerAnnulees}
+            onChange={(e) => setMasquerAnnulees(e.target.checked)}
+            className="size-3.5 accent-[var(--primary)]"
+          />
+          {t("pharmacie.ventes_filtre_masquer_annulees")}
+        </label>
+
+        <span className="ml-auto text-sm">
+          <span className="text-muted-foreground">{t("pharmacie.ventes_total_periode")} </span>
+          <span className="font-mono font-semibold tabular-nums">{fmtAr(totalPeriode)}</span>
+        </span>
+      </div>
+
+      {journees.length === 0 && (
+        <GlassCard className="p-8 text-center text-sm text-muted-foreground">
+          {t("pharmacie.ventes_aucune_pour_filtre")}
+        </GlassCard>
+      )}
+
+      {journees.map((j, index) => (
+        <details
+          key={j.jour}
+          /* Seule la journée la plus récente s'ouvre : c'est celle qu'on
+             vient consulter. Les précédentes se demandent. */
+          open={index === 0}
+          className="group rounded-2xl border border-glass-border glass overflow-hidden"
+        >
+          <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-foreground/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40">
+            <ChevronRight
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
+            <span className="font-display text-base font-semibold">
+              {libelleJour(j.jour, lang)}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {t("pharmacie.ventes_n_ventes", { n: j.nb })}
+              {j.pec > 0 ? ` · ${j.pec} PEC` : ""}
+              {j.nbAnnulees > 0 ? ` · ${j.nbAnnulees} ${t("pharmacie.annul_badge").toLowerCase()}` : ""}
+            </span>
+            <span className="ml-auto font-mono text-base font-semibold tabular-nums">
+              {fmtAr(j.encaisse)}
+            </span>
+          </summary>
+
+          <div className="overflow-x-auto border-t border-glass-border">
         <table className="w-full text-sm">
           <caption className="sr-only">{t("pharmacie.ventes_title")}</caption>
           <thead>
@@ -101,7 +248,7 @@ export function VentesList({
             </tr>
           </thead>
           <tbody className="divide-y divide-glass-border">
-            {ventes.map((v) => {
+            {j.lignes.map((v) => {
               const annulee = v.statut === "annulee";
               const busy = loadingId === v.id;
               return (
@@ -197,9 +344,35 @@ export function VentesList({
             })}
           </tbody>
         </table>
-      </div>
-    </GlassCard>
+          </div>
+        </details>
+      ))}
+    </div>
   );
+}
+
+/** « mercredi 6 août 2026 » — la journée telle qu'on en parle. */
+function libelleJour(jour: string, lang: Lang): string {
+  try {
+    return new Date(`${jour}T12:00:00Z`).toLocaleDateString(
+      lang === "it" ? "it-IT" : "fr-FR",
+      { weekday: "long", day: "numeric", month: "long", year: "numeric" },
+    );
+  } catch {
+    return jour;
+  }
+}
+
+/** « août 2026 » pour le sélecteur de mois. */
+function libelleMois(mois: string, lang: Lang): string {
+  try {
+    return new Date(`${mois}-01T12:00:00Z`).toLocaleDateString(
+      lang === "it" ? "it-IT" : "fr-FR",
+      { month: "long", year: "numeric" },
+    );
+  } catch {
+    return mois;
+  }
 }
 
 function Th({
