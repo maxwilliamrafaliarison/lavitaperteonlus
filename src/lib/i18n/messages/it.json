@@ -221,6 +221,8 @@
     "vente_error_stock": "Stock insufficiente per {p} ({stock} rimanenti).",
     "vente_error_sans_prix": "{p} non ha un prezzo di vendita: la vendita è bloccata per non incassare 0 Ar. Inserisci il prezzo nella scheda del prodotto, poi riprova.",
     "vente_error_pas_detail": "{p} non si vende all'unità. Attiva la vendita all'unità nella sua scheda, oppure vendilo a scatola.",
+    "vente_proforma": "Preventivo (proforma)",
+    "vente_proforma_aide": "Stima di prezzo da consegnare al paziente. Non incassa nulla e non movimenta la giacenza.",
     "vente_mode_boite": "Scatola",
     "vente_mode_detail": "All'unità",
     "vente_par_boite": "{n} per scatola",

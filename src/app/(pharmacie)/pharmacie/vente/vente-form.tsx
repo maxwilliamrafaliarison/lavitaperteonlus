@@ -120,6 +120,7 @@ export function VenteForm({
   const [typeVente, setTypeVente] = React.useState<"cash" | "pec">("cash");
   const [pecPayeur, setPecPayeur] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [proforma, setProforma] = React.useState(false);
   /**
    * Identifiant du panier, engendré une fois et conservé tant que la vente
    * n'est pas encaissée : réessayer après une coupure renvoie le MÊME
@@ -279,6 +280,53 @@ export function VenteForm({
         })
         .filter((l) => l.quantite > 0),
     );
+  }
+
+  /**
+   * Édite un devis à partir du panier courant.
+   *
+   * N'appelle PAS l'action de vente : aucun chemin de code ne doit pouvoir
+   * transformer une estimation en encaissement. Le serveur rend un PDF sans
+   * rien écrire — ni vente, ni mouvement de stock, ni réservation.
+   *
+   * Le fichier arrive en binaire ; on l'ouvre par une URL d'objet plutôt que
+   * par un lien, car la requête est un POST porteur du panier.
+   */
+  async function editerProforma() {
+    setProforma(true);
+    try {
+      const r = await fetch("/api/pharmacie/proforma", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client: clientNom.trim(),
+          lignes: panier.map((l) => ({
+            designation: l.produit.designation,
+            detail: [l.produit.dci, l.produit.dosage].filter(Boolean).join(" · "),
+            quantite: l.quantite,
+            unite:
+              l.mode === "detail"
+                ? l.produit.unite_detail || t("pharmacie.vente_mode_detail")
+                : t("pharmacie.vente_mode_boite"),
+            prixUnitaire: prixPour(l.produit, l.mode),
+            total: l.quantite * prixPour(l.produit, l.mode),
+          })),
+        }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        toast.error(t("common.failed"), { description: d.error ?? String(r.status) });
+        return;
+      }
+      const url = URL.createObjectURL(await r.blob());
+      window.open(url, "_blank", "noopener");
+      // Libéré après ouverture : l'onglet a déjà chargé le document.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      toast.error(t("common.failed"), { description: String(e).slice(0, 120) });
+    } finally {
+      setProforma(false);
+    }
   }
 
   async function encaisser() {
@@ -736,6 +784,29 @@ export function VenteForm({
                   {t("pharmacie.caisse_requise")}
                 </p>
               )}
+
+              {/* Devis : le patient veut connaître le prix avant de décider.
+                  Volontairement en bouton secondaire et SANS condition de
+                  caisse ouverte — établir une estimation n'encaisse rien et
+                  ne doit pas dépendre de l'état du tiroir. */}
+              <GlassButton
+                type="button"
+                variant="ghost"
+                size="md"
+                className="w-full"
+                disabled={panier.length === 0 || proforma}
+                onClick={editerProforma}
+              >
+                {proforma ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileText className="size-4" aria-hidden="true" />
+                )}
+                {t("pharmacie.vente_proforma")}
+              </GlassButton>
+              <p className="text-center text-[11px] text-muted-foreground">
+                {t("pharmacie.vente_proforma_aide")}
+              </p>
             </div>
           </GlassCard>
         </div>

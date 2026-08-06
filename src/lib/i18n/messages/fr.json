@@ -221,6 +221,8 @@
     "vente_error_stock": "Stock insuffisant pour {p} ({stock} restant).",
     "vente_error_sans_prix": "{p} n'a pas de prix de vente : la vente est bloquée pour ne pas encaisser 0 Ar. Renseignez le prix sur la fiche du produit, puis recommencez.",
     "vente_error_pas_detail": "{p} ne se vend pas à l'unité. Activez la vente à l'unité sur sa fiche, ou vendez-le à la boîte.",
+    "vente_proforma": "Devis (proforma)",
+    "vente_proforma_aide": "Estimation de prix à remettre au patient. N'encaisse rien et ne sort rien du stock.",
     "vente_mode_boite": "Boîte",
     "vente_mode_detail": "À l'unité",
     "vente_par_boite": "{n} par boîte",
