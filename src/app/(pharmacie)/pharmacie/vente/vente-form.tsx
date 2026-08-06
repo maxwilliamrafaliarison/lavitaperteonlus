@@ -292,13 +292,14 @@ export function VenteForm({
    * Le fichier arrive en binaire ; on l'ouvre par une URL d'objet plutôt que
    * par un lien, car la requête est un POST porteur du panier.
    */
-  async function editerProforma() {
+  async function editerProforma(format: "ticket" | "a4" = "ticket") {
     setProforma(true);
     try {
       const r = await fetch("/api/pharmacie/proforma", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          format,
           client: clientNom.trim(),
           lignes: panier.map((l) => ({
             designation: l.produit.designation,
@@ -789,21 +790,37 @@ export function VenteForm({
                   Volontairement en bouton secondaire et SANS condition de
                   caisse ouverte — établir une estimation n'encaisse rien et
                   ne doit pas dépendre de l'état du tiroir. */}
-              <GlassButton
-                type="button"
-                variant="ghost"
-                size="md"
-                className="w-full"
-                disabled={panier.length === 0 || proforma}
-                onClick={editerProforma}
-              >
-                {proforma ? (
-                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                ) : (
+              <div className="flex gap-2">
+                <GlassButton
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  className="flex-1"
+                  disabled={panier.length === 0 || proforma}
+                  onClick={() => editerProforma("ticket")}
+                >
+                  {proforma ? (
+                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Receipt className="size-4" aria-hidden="true" />
+                  )}
+                  {t("pharmacie.vente_proforma")}
+                </GlassButton>
+                {/* Version A4 : pour un devis qu'on remet formellement, à
+                    présenter à un tiers payeur ou à comparer ailleurs. */}
+                <GlassButton
+                  type="button"
+                  variant="ghost"
+                  size="md"
+                  disabled={panier.length === 0 || proforma}
+                  onClick={() => editerProforma("a4")}
+                  title={t("pharmacie.vente_proforma_a4")}
+                  aria-label={t("pharmacie.vente_proforma_a4")}
+                >
                   <FileText className="size-4" aria-hidden="true" />
-                )}
-                {t("pharmacie.vente_proforma")}
-              </GlassButton>
+                  A4
+                </GlassButton>
+              </div>
               <p className="text-center text-[11px] text-muted-foreground">
                 {t("pharmacie.vente_proforma_aide")}
               </p>

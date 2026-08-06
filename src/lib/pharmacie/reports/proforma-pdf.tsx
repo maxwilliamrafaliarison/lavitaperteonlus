@@ -1,5 +1,10 @@
 import React from "react";
-import { Document, Page, View, Text } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Font } from "@react-pdf/renderer";
+
+/* Pas de césure : sur un ticket de 80 mm, la coupure automatique tranchait
+   « CORASSORI » en « CORAS-SORI ». Un nom propre ne se coupe pas, et un
+   document que l'on remet au patient doit se lire sans buter. */
+Font.registerHyphenationCallback((mot) => [mot]);
 
 import { styles, COLORS, fmtAriary } from "@/lib/reports/theme";
 import { ReportHeader, ReportFooter, TitleBlock } from "@/lib/reports/layout";
@@ -184,6 +189,107 @@ export function ProformaPdf({
             </Text>
           )}
         </View>
+      </Page>
+    </Document>
+  );
+}
+
+/* ============================================================
+   TICKET PROFORMA — 80 mm, imprimante de comptoir
+   ============================================================
+   Même valeur que la version A4 : le format n'a aucune incidence, un
+   devis n'étant pas une pièce comptable. Ce qui compte est de ne pas
+   pouvoir être pris pour un reçu, et les mentions qui l'assurent tiennent
+   sur un rouleau. C'est le geste rapide du comptoir : le patient repart
+   avec son prix en dix secondes, sans mobiliser l'imprimante A4.
+   ============================================================ */
+
+const LARGEUR_TICKET = 226.77; // 80 mm
+
+export function ProformaTicket({
+  data,
+  entite,
+}: {
+  data: DonneesProforma;
+  entite: EntiteLegale;
+}) {
+  // Hauteur ajustée au contenu : un rouleau ne connaît pas la pagination.
+  const hauteur = Math.max(300, 250 + data.lignes.length * 22);
+
+  const tk = {
+    page: { paddingHorizontal: 10, paddingVertical: 12, fontFamily: "Helvetica", fontSize: 7.5 },
+    centre: { textAlign: "center" as const },
+    sep: { borderTop: `0.5 solid ${COLORS.border}`, marginVertical: 4 },
+  };
+
+  return (
+    <Document title={`${data.numero} — Devis`} author={entite.denomination}>
+      <Page size={[LARGEUR_TICKET, hauteur]} style={tk.page}>
+        <Text style={{ ...tk.centre, fontSize: 8.5, fontWeight: 700, lineHeight: 1.2 }}>
+          {entite.denomination.toUpperCase()}
+        </Text>
+        <Text style={{ ...tk.centre, fontSize: 6.5, color: COLORS.textMuted, marginTop: 1 }}>
+          {entite.etablissement}
+        </Text>
+        {entite.codeFiscal && entite.codeFiscal !== "à renseigner" ? (
+          <Text style={{ ...tk.centre, fontSize: 6.5, color: COLORS.textMuted }}>
+            C.F. {entite.codeFiscal}
+          </Text>
+        ) : null}
+
+        <View style={tk.sep} />
+
+        {/* La nature du document, en tête et en grand : c'est ce qui
+            distingue ce ticket d'un reçu de caisse. */}
+        <Text style={{ ...tk.centre, fontSize: 11, fontWeight: 700, color: COLORS.warning }}>
+          DEVIS — PROFORMA
+        </Text>
+        <Text style={{ ...tk.centre, fontSize: 7, fontWeight: 700, marginTop: 1 }}>
+          NE VAUT PAS FACTURE
+        </Text>
+        <Text style={{ ...tk.centre, fontSize: 6.5, color: COLORS.textMuted, marginTop: 2, lineHeight: 1.35 }}>
+          Aucun paiement reçu · aucune marchandise délivrée · aucune quantité réservée
+        </Text>
+
+        <View style={tk.sep} />
+
+        <Text style={{ fontSize: 7 }}>N° {data.numero}</Text>
+        <Text style={{ fontSize: 7 }}>Établi le {jour(data.emisLe)}</Text>
+        <Text style={{ fontSize: 7, fontWeight: 700, color: COLORS.warning }}>
+          Valable jusqu&apos;au {jour(data.valideJusquau)}
+        </Text>
+        {data.client ? <Text style={{ fontSize: 7 }}>Client : {data.client}</Text> : null}
+        <Text style={{ fontSize: 7 }}>Par : {data.emisPar}</Text>
+
+        <View style={tk.sep} />
+
+        {data.lignes.map((l, i) => (
+          <View key={i} style={{ marginBottom: 3 }}>
+            <Text style={{ fontSize: 7.5 }}>{l.designation}</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 7, color: COLORS.textMuted }}>
+                {l.quantite} {l.unite} × {fmtAriary(l.prixUnitaire)}
+              </Text>
+              <Text style={{ fontSize: 7.5 }}>{fmtAriary(l.total)}</Text>
+            </View>
+          </View>
+        ))}
+
+        <View style={{ borderTop: `1 solid ${COLORS.text}`, marginTop: 3, paddingTop: 4 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text style={{ fontSize: 9, fontWeight: 700 }}>TOTAL ESTIMÉ</Text>
+            <Text style={{ fontSize: 10, fontWeight: 700, color: COLORS.brand }}>
+              {fmtAriary(data.total)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={tk.sep} />
+        <Text style={{ fontSize: 6, color: COLORS.textMuted, lineHeight: 1.4 }}>
+          Montants en ariary (MGA). Prix susceptibles de varier après la date de validité.
+          Sous réserve de disponibilité. Ce document ne constitue ni une facture, ni un reçu,
+          ni une preuve de paiement.
+        </Text>
       </Page>
     </Document>
   );

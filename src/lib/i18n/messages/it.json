@@ -223,6 +223,7 @@
     "vente_error_pas_detail": "{p} non si vende all'unità. Attiva la vendita all'unità nella sua scheda, oppure vendilo a scatola.",
     "vente_proforma": "Preventivo (proforma)",
     "vente_proforma_aide": "Stima di prezzo da consegnare al paziente. Non incassa nulla e non movimenta la giacenza.",
+    "vente_proforma_a4": "Preventivo in formato A4 (consegna formale)",
     "vente_mode_boite": "Scatola",
     "vente_mode_detail": "All'unità",
     "vente_par_boite": "{n} per scatola",

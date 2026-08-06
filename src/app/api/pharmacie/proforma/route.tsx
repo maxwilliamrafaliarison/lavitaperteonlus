@@ -5,7 +5,8 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { chargerEntite } from "@/lib/pharmacie/entite";
-import { ProformaPdf } from "@/lib/pharmacie/reports/proforma-pdf";
+import { ProformaPdf, ProformaTicket } from "@/lib/pharmacie/reports/proforma-pdf";
+import { enregistrerProforma } from "@/lib/pharmacie/proforma";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,12 +21,14 @@ export const maxDuration = 60;
    vente : aucun chemin de code ne peut transformer par accident un devis
    en encaissement.
 
-   Rien n'est persisté non plus. Un devis de comptoir se remet, se compare
-   à une autre officine, et se jette : lui donner une table à archiver
-   ajouterait une charge sans usage. Sa numérotation est donc horodatée,
-   dans une série DISTINCTE de celle des factures — mêler les deux ferait
-   apparaître des trous dans la série comptable, puisque la plupart des
-   devis ne deviennent jamais des ventes.
+   Une TRACE est en revanche conservée, à des fins de pilotage seulement :
+   savoir combien de patients repartent avec un prix et combien reviennent
+   acheter. Cette écriture est best-effort et ne conditionne jamais la
+   remise du devis.
+
+   La numérotation est horodatée, dans une série DISTINCTE de celle des
+   factures — les mêler ferait apparaître des trous dans la série
+   comptable, puisque la plupart des devis ne deviennent jamais des ventes.
    ============================================================ */
 
 const Ligne = z.object({
@@ -42,6 +45,8 @@ const Corps = z.object({
   lignes: z.array(Ligne).min(1).max(100),
   /** Nombre de jours de validité ; borné pour rester une estimation. */
   validiteJours: z.number().int().min(1).max(90).default(7),
+  /** « ticket » (80 mm, comptoir) ou « a4 » (remise formelle). */
+  format: z.enum(["ticket", "a4"]).default("ticket"),
 });
 
 function toWebStream(stream: NodeJS.ReadableStream): ReadableStream<Uint8Array> {
@@ -66,7 +71,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Devis invalide" }, { status: 400 });
   }
-  const { client, lignes, validiteJours } = parsed.data;
+  const { client, lignes, validiteJours, format } = parsed.data;
 
   const maintenant = new Date();
   const validite = new Date(maintenant.getTime() + validiteJours * 86_400_000);
@@ -83,19 +88,32 @@ export async function POST(req: NextRequest) {
   const entite = await chargerEntite();
   const total = lignes.reduce((s, l) => s + l.total, 0);
 
+  const data = {
+    numero,
+    emisLe: maintenant.toISOString(),
+    valideJusquau: validite.toISOString(),
+    client,
+    lignes,
+    total,
+    emisPar: session.user.name || session.user.email || "—",
+  };
+
+  /* Trace de pilotage, écrite AVANT le rendu mais sans le conditionner :
+     enregistrerProforma avale ses erreurs et rend un booléen. Perdre une
+     ligne de statistique est sans gravité ; refuser un devis parce qu'une
+     table de suivi est indisponible le serait beaucoup plus, patient
+     devant le comptoir. */
+  await enregistrerProforma({
+    id: numero,
+    clientNom: client,
+    total,
+    operateurEmail: session.user.email ?? "",
+    valideJusquau: validite.toISOString(),
+    lignes,
+  });
+
   const stream = await renderToStream(
-    <ProformaPdf
-      data={{
-        numero,
-        emisLe: maintenant.toISOString(),
-        valideJusquau: validite.toISOString(),
-        client,
-        lignes,
-        total,
-        emisPar: session.user.name || session.user.email || "—",
-      }}
-      entite={entite}
-    />,
+    format === "a4" ? <ProformaPdf data={data} entite={entite} /> : <ProformaTicket data={data} entite={entite} />,
   );
 
   return new NextResponse(toWebStream(stream), {
