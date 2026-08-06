@@ -173,7 +173,13 @@ export async function sbRpc<T>(
     if (!res.ok) {
       throw new Error(`Supabase rpc ${schema}.${fonction} ${res.status} : ${(await res.text()).slice(0, 200)}`);
     }
-    return (await res.json()) as T;
+    /* Une RPC qui ne rend rien répond avec un CORPS VIDE, sur lequel
+       res.json() lève. L'appel avait pourtant abouti : set_parametre écrivait
+       bien en base, mais l'écran Paramètres affichait « échec » et invitait à
+       recommencer une opération déjà faite. On ne parse donc que s'il y a
+       quelque chose à parser. */
+    const texte = await res.text();
+    return (texte ? JSON.parse(texte) : null) as T;
   } finally {
     clearTimeout(timer);
   }
