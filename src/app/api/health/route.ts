@@ -22,6 +22,9 @@ export async function GET() {
     ok: boolean;
     timestamp: string;
     node: string;
+    /** Commit réellement déployé — sans lui, impossible de savoir si un
+        correctif est en ligne ou si l'on regarde une version antérieure. */
+    version: { commit: string; deployeLe: string };
     /**
      * Région d'exécution des fonctions. DOIT rester dans l'UE : ces
      * fonctions lisent 139 928 dossiers de santé (RGPD art. 9), et les
@@ -46,6 +49,10 @@ export async function GET() {
     ok: true,
     timestamp: new Date().toISOString(),
     node: process.version,
+    version: {
+      commit: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7),
+      deployeLe: process.env.VERCEL_DEPLOYMENT_ID ? (process.env.VERCEL_GIT_COMMIT_MESSAGE ?? "").slice(0, 80) : "développement",
+    },
     region: (() => {
       // Vercel pose VERCEL_REGION à l'exécution ; absent en local.
       const code = process.env.VERCEL_REGION ?? "local";
