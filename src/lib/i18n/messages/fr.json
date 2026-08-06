@@ -297,6 +297,8 @@
     "achats_montant": "Montant (Ar)",
     "achats_ajouter_ligne": "Ajouter la ligne",
     "achats_retirer": "Retirer la ligne",
+    "achat_lot": "N° de lot",
+    "achat_aucune_ligne": "Aucun détail enregistré pour cette entrée.",
     "achats_total": "Total",
     "achats_enregistrer": "Enregistrer l'entrée",
     "achats_success": "Entrée enregistrée.",

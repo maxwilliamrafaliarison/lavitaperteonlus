@@ -176,3 +176,58 @@ export async function enregistrerAchatAction(raw: unknown): Promise<AchatResult>
   revalidatePath("/pharmacie/reception");
   return { ok: true, achatId };
 }
+
+/* ============================================================
+   DÉTAIL D'UNE ENTRÉE — chargé à la demande
+   ============================================================
+   Le registre ne montre que l'en-tête de chaque facture. Ce qui intéresse
+   au moment d'un contrôle, c'est ce qu'elle contenait : quels produits, en
+   quelle quantité, sous quel numéro de lot et à quelle péremption. Les
+   lignes ne voyagent donc pas avec la liste — on les va chercher quand
+   quelqu'un ouvre une entrée.
+   ============================================================ */
+
+export type DetailAchatResult =
+  | {
+      ok: true;
+      lignes: Array<{
+        designation: string;
+        contenance: string;
+        quantite: number;
+        numeroLot: string;
+        dateExpiration: string;
+        montant: number;
+      }>;
+    }
+  | { ok: false; error: string };
+
+export async function detailAchatAction(achatId: string): Promise<DetailAchatResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  const lang = isLang(session.user.lang) ? session.user.lang : "fr";
+  const t = getT(lang);
+  if (!can(session.user.role, "app:pharmacie")) {
+    return { ok: false, error: t("pharmacie.vente_error_forbidden") };
+  }
+  if (!/^[A-Za-z0-9_-]{3,60}$/.test(achatId)) {
+    return { ok: false, error: t("pharmacie.vente_error_invalid") };
+  }
+
+  try {
+    const { listAchatsLignes } = await import("@/lib/pharmacie/sheets");
+    const lignes = await listAchatsLignes(achatId);
+    return {
+      ok: true,
+      lignes: lignes.map((l) => ({
+        designation: l.designation,
+        contenance: l.contenance,
+        quantite: l.quantite,
+        numeroLot: l.numero_lot,
+        dateExpiration: l.date_expiration,
+        montant: l.montant,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 160) };
+  }
+}

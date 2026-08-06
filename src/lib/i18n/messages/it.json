@@ -297,6 +297,8 @@
     "achats_montant": "Importo (Ar)",
     "achats_ajouter_ligne": "Aggiungi la riga",
     "achats_retirer": "Rimuovi la riga",
+    "achat_lot": "N. lotto",
+    "achat_aucune_ligne": "Nessun dettaglio registrato per questo carico.",
     "achats_total": "Totale",
     "achats_enregistrer": "Registra il carico",
     "achats_success": "Carico registrato.",
