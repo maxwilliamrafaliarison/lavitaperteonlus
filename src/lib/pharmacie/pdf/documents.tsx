@@ -45,6 +45,8 @@ function logoDataUri(): string | null {
 }
 
 export interface OrgInfo {
+  /** Noms complets par adresse, pour les pièces remises au patient. */
+  caissiers?: Record<string, string>;
   nom: string;
   sousTitre: string;
   adresse: string;
@@ -161,6 +163,22 @@ const L = {
 /* ================= TICKET 80 mm ================= */
 
 const TICKET_WIDTH = 226.77; // 80 mm
+
+/**
+ * Nom lisible du caissier sur une pièce remise au patient.
+ *
+ * L'adresse électronique identifiait la personne pour la machine, pas
+ * pour le lecteur : « fanilo.lavitaperte » sur un ticket ne dit ni le
+ * nom, ni la fonction. Les noms sont fournis par l'appelant (table des
+ * comptes) ; à défaut, on retombe sur la partie gauche de l'adresse
+ * plutôt que de laisser un blanc.
+ */
+function nomCaissier(email: string, org: OrgInfo): string {
+  const trouve = org.caissiers?.[(email || "").toLowerCase()];
+  if (trouve) return trouve;
+  const avant = (email || "").split("@")[0] ?? "";
+  return avant ? avant.charAt(0).toUpperCase() + avant.slice(1) : "—";
+}
 const tk = StyleSheet.create({
   page: { paddingVertical: 14, paddingHorizontal: 12, fontSize: 8.5, color: "#000" },
   center: { textAlign: "center" },
@@ -259,7 +277,7 @@ function TicketDoc({
           </View>
           <View style={tk.meta}>
             <Text>{t.caissier}</Text>
-            <Text>{vente.operateurEmail.split("@")[0]}</Text>
+            <Text>{nomCaissier(vente.operateurEmail, org)}</Text>
           </View>
           <View style={tk.meta}>
             <Text>{estPec ? t.pecPar : t.client}</Text>
@@ -519,7 +537,7 @@ function FactureDoc({
                 : vente.clientNom || t.clientComptant}
             </Text>
             <Text style={fa.blockLine}>
-              {t.caissier} : {vente.operateurEmail}
+              {t.caissier} : {nomCaissier(vente.operateurEmail, org)}
             </Text>
           </View>
         </View>

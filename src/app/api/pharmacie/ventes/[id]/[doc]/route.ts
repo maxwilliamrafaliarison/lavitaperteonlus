@@ -10,6 +10,21 @@ import {
 } from "@/lib/pharmacie/pdf/documents";
 import { isLang } from "@/lib/i18n";
 
+/** Adresse → nom complet, pour signer les tickets et factures. */
+async function nomsCaissiers(): Promise<Record<string, string>> {
+  try {
+    const { listUsers } = await import("@/lib/sheets/users");
+    const table: Record<string, string> = {};
+    for (const u of await listUsers()) {
+      if (u.email && u.name) table[u.email.toLowerCase()] = u.name;
+    }
+    return table;
+  } catch {
+    // Table indisponible : le document retombe sur l'adresse, jamais vide.
+    return {};
+  }
+}
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // @react-pdf/renderer nécessite Node
 
@@ -60,7 +75,9 @@ export async function GET(
     const stream = await renderVentePdf(
       doc,
       vente,
-      orgInfoFromParams(parametres),
+      /* Les noms complets viennent de la table des comptes : une pièce
+         remise au patient doit porter un nom, pas une adresse. */
+      { ...orgInfoFromParams(parametres), caissiers: await nomsCaissiers() },
       fiscalFromParams(parametres),
       lang,
       recu,
