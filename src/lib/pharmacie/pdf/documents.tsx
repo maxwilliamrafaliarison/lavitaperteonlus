@@ -164,7 +164,6 @@ const TICKET_WIDTH = 226.77; // 80 mm
 const tk = StyleSheet.create({
   page: { paddingVertical: 14, paddingHorizontal: 12, fontSize: 8.5, color: "#000" },
   center: { textAlign: "center" },
-  logo: { width: 46, height: 46, alignSelf: "center", marginBottom: 4 },
   orgName: { fontSize: 12, fontWeight: 700, textAlign: "center" },
   orgSub: { fontSize: 7.5, textAlign: "center", marginTop: 2, color: "#333" },
   hr: { borderBottomWidth: 1, borderBottomColor: "#000", borderStyle: "dashed", marginVertical: 6 },
@@ -216,7 +215,13 @@ function TicketDoc({
   recu?: number;
 }) {
   const t = L[lang];
-  const logo = logoDataUri();
+  /* PAS DE LOGO SUR LE TICKET.
+     Aucune obligation comptable ne l'impose — ni en droit européen, ni
+     malgache : ce qu'un ticket doit porter, c'est l'identification de
+     l'émetteur, la date, le numéro, le détail et le total. Sur un rouleau
+     de 80 mm, cinquante points de hauteur valent mieux en lignes de
+     médicaments qu'en image. La facture, elle, le garde : c'est un
+     document formel qu'on adresse à un tiers. */
   const estPec = vente.typeVente === "pec";
   const valeur = estPec ? vente.valeurPec : vente.total;
   const { ht, tva } = decomposerTva(valeur, fiscal);
@@ -224,12 +229,12 @@ function TicketDoc({
   const montreEspeces = !estPec && typeof recu === "number" && recu > 0;
   // Hauteur dynamique : socle + lignes + suppléments (PEC / TVA / espèces).
   const extra = (estPec ? 34 : 0) + (montreTva ? 24 : 0) + (montreEspeces ? 24 : 0);
-  const height = Math.max(300, 230 + vente.lignes.length * 14 + extra);
+  // Socle abaissé de 50 pt : le logo et sa marge ne sont plus là.
+  const height = Math.max(260, 180 + vente.lignes.length * 14 + extra);
 
   return (
     <Document title={`Ticket ${vente.id}`}>
       <Page size={[TICKET_WIDTH, height]} style={tk.page}>
-        {logo ? <Image src={logo} style={tk.logo} /> : null}
         <Text style={tk.orgName}>{org.nom.toUpperCase()}</Text>
         <Text style={tk.orgSub}>{org.sousTitre}</Text>
         <Text style={tk.orgSub}>{org.adresse}</Text>
