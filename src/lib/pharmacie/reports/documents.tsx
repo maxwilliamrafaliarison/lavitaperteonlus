@@ -85,13 +85,35 @@ function VentesDoc({ data, ctx }: { data: VentesData; ctx: ReportContext }) {
     periode: it ? "Periodo" : "Période",
     payeur: it ? "Preso in carico da" : "Pris en charge par",
   };
-  const periode = `${data.from || "…"} → ${data.to || "…"}`;
+  /* Dates en clair et séparateur ASCII.
+     La flèche « → » n'appartient pas à l'encodage WinAnsi d'Helvetica :
+     le PDF l'imprimait comme une apostrophe, donnant « 2026-08-01
+     '2026-08-06 ». Les bornes ISO, elles, se lisent mal sur un document
+     destiné à la direction. */
+  const periode =
+    data.from && data.to
+      ? `du ${fmtDate(data.from, ctx.lang)} au ${fmtDate(data.to, ctx.lang)}`
+      : `${fmtDate(data.from, ctx.lang) || "…"} - ${fmtDate(data.to, ctx.lang) || "…"}`;
 
-  const Section = ({ titre, lignes, montantLabel }: { titre: string; lignes: VentesData["cash"]; montantLabel: string }) => (
+  const Section = ({
+    titre,
+    lignes,
+    montantLabel,
+    vide,
+  }: {
+    titre: string;
+    lignes: VentesData["cash"];
+    montantLabel: string;
+    /* Message PROPRE À LA SECTION. Le message générique du rapport —
+       « aucune donnée pour ce rapport » — s'affichait dès qu'une seule
+       section était vide, laissant croire que la journée n'avait rien
+       encaissé alors que les ventes figuraient juste au-dessus. */
+    vide: string;
+  }) => (
     <View>
       <SectionHeader title={titre} meta={`${lignes.length} · ${fmtAriary(lignes.reduce((s, x) => s + x.montant, 0))}`} />
       {lignes.length === 0 ? (
-        <Vide lang={ctx.lang} />
+        <EmptyState message={vide} compact />
       ) : (
         <>
           <View style={styles.tableRowHeader}>
@@ -134,9 +156,19 @@ function VentesDoc({ data, ctx }: { data: VentesData; ctx: ReportContext }) {
             { label: l.nb, value: String(data.cash.length + data.pec.length) },
           ]}
         />
-        <Section titre={l.cash} lignes={data.cash} montantLabel={l.encaisse} />
+        <Section
+          titre={l.cash}
+          lignes={data.cash}
+          montantLabel={l.encaisse}
+          vide={it ? "Nessuna vendita in contanti nel periodo." : "Aucune vente comptant sur la période."}
+        />
         <View style={{ height: 10 }} />
-        <Section titre={l.pec} lignes={data.pec} montantLabel={l.valeurPec} />
+        <Section
+          titre={l.pec}
+          lignes={data.pec}
+          montantLabel={l.valeurPec}
+          vide={it ? "Nessuna presa in carico nel periodo." : "Aucune prise en charge sur la période."}
+        />
       </Page>
     </Document>
   );
@@ -215,7 +247,7 @@ function CommandeDoc({ data, ctx }: { data: CommandeData; ctx: ReportContext }) 
         <TitleBlock title={titreRapport("a_commander", ctx.lang)} subtitle={sousTitre(ctx)} />
         <KpiGrid kpis={[{ label: l.nb, value: String(data.lignes.length) }]} />
         {data.lignes.length === 0 ? (
-          <EmptyState message={it ? "Nessun prodotto sotto soglia. ✓" : "Aucun produit sous le seuil. ✓"} />
+          <EmptyState message={it ? "Nessun prodotto sotto soglia." : "Aucun produit sous le seuil."} />
         ) : (
           <>
             <View style={styles.tableRowHeader}>
@@ -253,7 +285,7 @@ function ExpirationDoc({ data, ctx }: { data: ExpirationData; ctx: ReportContext
     jours: it ? "Giorni" : "Jours",
     stock: "Stock",
     perimes: it ? "Scaduti" : "Périmés",
-    bientot: it ? "In scadenza (≤ 90 g)" : "Périment sous 90 jours",
+    bientot: it ? "In scadenza (max 90 gg)" : "Périment sous 90 jours",
   };
   const Table = ({ lignes }: { lignes: ExpirationData["perimes"] }) => (
     <>
@@ -288,7 +320,7 @@ function ExpirationDoc({ data, ctx }: { data: ExpirationData; ctx: ReportContext
           ]}
         />
         {data.perimes.length === 0 && data.bientot.length === 0 ? (
-          <EmptyState message={it ? "Nessuna scadenza imminente. ✓" : "Aucune péremption imminente. ✓"} />
+          <EmptyState message={it ? "Nessuna scadenza imminente." : "Aucune péremption imminente."} />
         ) : (
           <>
             {data.perimes.length > 0 && (
@@ -329,7 +361,7 @@ function RuptureDoc({ data, ctx }: { data: RuptureData; ctx: ReportContext }) {
         <TitleBlock title={titreRapport("rupture", ctx.lang)} subtitle={sousTitre(ctx)} />
         <KpiGrid kpis={[{ label: l.nb, value: String(data.lignes.length) }]} />
         {data.lignes.length === 0 ? (
-          <EmptyState message={it ? "Nessuna rottura di stock. ✓" : "Aucune rupture de stock. ✓"} />
+          <EmptyState message={it ? "Nessuna rottura di stock." : "Aucune rupture de stock."} />
         ) : (
           <>
             <View style={styles.tableRowHeader}>
@@ -367,7 +399,10 @@ function GalleniqueDoc({ data, ctx }: { data: GalleniqueData; ctx: ReportContext
     totalCa: it ? "CA del periodo" : "CA de la période",
     totalVal: it ? "Valore stock" : "Valeur du stock",
   };
-  const periode = `${data.from || "…"} → ${data.to || "…"}`;
+  const periode =
+    data.from && data.to
+      ? `du ${fmtDate(data.from, ctx.lang)} au ${fmtDate(data.to, ctx.lang)}`
+      : `${fmtDate(data.from, ctx.lang) || "…"} - ${fmtDate(data.to, ctx.lang) || "…"}`;
   return (
     <Document title={titreRapport("galenique", ctx.lang)} author="La Vita Per Te">
       <Page size="A4" style={styles.page} wrap>

@@ -125,9 +125,18 @@ export function SectionHeader({
 /* ============================================================
    EMPTY STATE
    ============================================================ */
-export function EmptyState({ message }: { message: string }) {
+export function EmptyState({
+  message,
+  compact = false,
+}: {
+  message: string;
+  /* Une SECTION vide dans un rapport qui a par ailleurs des données ne
+     mérite pas le grand cadre réservé au rapport entièrement vide : il
+     occupait un tiers de page et laissait croire que tout était vide. */
+  compact?: boolean;
+}) {
   return (
-    <View style={styles.emptyBox}>
+    <View style={compact ? styles.emptyBoxCompact : styles.emptyBox}>
       <Text style={styles.emptyText}>{message}</Text>
     </View>
   );

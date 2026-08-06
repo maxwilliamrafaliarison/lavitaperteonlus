@@ -115,7 +115,7 @@ export function EtatCaissePdf({
             { label: "Nature de la pièce", value: "Relevé de caisse — espèces" },
             {
               label: "Période couverte",
-              value: `${heure(s.ouverte_le)} → ${close ? heure(s.fermee_le) : "en cours"}`,
+              value: `${heure(s.ouverte_le)} - ${close ? heure(s.fermee_le) : "en cours"}`,
             },
             { label: "Devise", value: "MGA (ariary)" },
             { label: "Établi par", value: `${nomDe(s.ouverte_par)} à ${heure(s.ouverte_le)}` },

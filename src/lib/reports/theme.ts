@@ -1,4 +1,19 @@
-import { StyleSheet } from "@react-pdf/renderer";
+import { StyleSheet, Font } from "@react-pdf/renderer";
+
+/* ============================================================
+   PAS DE CÉSURE AUTOMATIQUE
+   ============================================================
+   @react-pdf coupe les mots trop longs pour leur colonne, avec un trait
+   d'union. Sur des tuiles étroites, cela donnait « CHIFFRE D'AF-FAIRES »,
+   « RUP-TURES », « ANNUAL-ISÉE » — des mots tranchés au milieu, illisibles
+   sur un document qu'on présente à la direction.
+
+   La bonne réponse n'est pas de couper mais de laisser la place : on
+   désactive donc la césure ici, pour TOUS les rapports, et l'on
+   dimensionne les colonnes en conséquence. Un mot qui ne tient pas est un
+   signal de mise en page, pas un problème de typographie.
+   ============================================================ */
+Font.registerHyphenationCallback((mot) => [mot]);
 
 /**
  * Thème PDF partagé — couleurs alignées sur la palette La Vita Per Te
@@ -242,11 +257,18 @@ export const styles = StyleSheet.create({
   // Summary cards (KPIs en début de rapport)
   kpiGrid: {
     flexDirection: "row",
+    /* Les tuiles PASSENT À LA LIGNE au lieu de se comprimer. Huit
+       indicateurs sur une seule rangée A4 laissaient 60 pt par tuile :
+       « 6 454 607 Ar » s'y étalait sur trois lignes. Quatre par rangée
+       donnent 125 pt, où le montant tient d'un trait. */
+    flexWrap: "wrap",
     marginBottom: 14,
     gap: 8,
   },
   kpi: {
-    flex: 1,
+    /* Base à 22 % : quatre tuiles par rangée, l'espacement compris. */
+    flexBasis: "22%",
+    flexGrow: 1,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 4,
@@ -261,7 +283,7 @@ export const styles = StyleSheet.create({
     marginBottom: 2,
   },
   kpiValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Helvetica-Bold",
     color: COLORS.text,
   },
@@ -272,6 +294,15 @@ export const styles = StyleSheet.create({
   },
 
   // Empty state
+  emptyBoxCompact: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderStyle: "dashed",
+    borderRadius: 4,
+    marginTop: 4,
+  },
   emptyBox: {
     padding: 30,
     borderWidth: 1,

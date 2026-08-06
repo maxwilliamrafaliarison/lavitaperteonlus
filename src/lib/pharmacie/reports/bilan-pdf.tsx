@@ -76,7 +76,7 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
           <View style={b.col}>
             <Text style={[styles.th, { marginBottom: 3 }]}>{it ? "Top prodotti" : "Top produits (par CA)"}</Text>
             {data.topProduits.length === 0 ? (
-              <EmptyState message={it ? "Nessuna vendita." : "Aucune vente."} />
+              <EmptyState message={it ? "Nessuna vendita." : "Aucune vente."} compact />
             ) : (
               <>
                 <View style={styles.tableRowHeader}>
@@ -97,7 +97,7 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
           <View style={b.col}>
             <Text style={[styles.th, { marginBottom: 3 }]}>{it ? "Per classe terapeutica" : "Par classe thérapeutique"}</Text>
             {data.parClasse.length === 0 ? (
-              <EmptyState message={it ? "—" : "—"} />
+              <EmptyState message="—" compact />
             ) : (
               data.parClasse.slice(0, 8).map((c, i) => (
                 <View key={i} style={{ marginTop: 4 }}>
@@ -120,7 +120,7 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
           meta={`${it ? "Entrate" : "Entrées"} ${fmtAriary(data.entreesMois)} · ${it ? "Uscite" : "Sorties"} ${fmtAriary(data.caComptant + data.valeurPec)}`}
         />
         {data.entreesParFournisseur.length === 0 ? (
-          <EmptyState message={it ? "Nessun carico questo mese." : "Aucune entrée ce mois-ci."} />
+          <EmptyState message={it ? "Nessun carico questo mese." : "Aucune entrée ce mois-ci."} compact />
         ) : (
           <>
             <View style={styles.tableRowHeader}>
@@ -198,7 +198,7 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
           meta={`${fmtAriary(data.valeurPec)} ${it ? "dispensati gratuitamente" : "dispensés gratuitement"}`}
         />
         {data.pecParEntite.length === 0 ? (
-          <EmptyState message={it ? "Nessuna presa in carico questo mese." : "Aucune prise en charge ce mois-ci."} />
+          <EmptyState message={it ? "Nessuna presa in carico questo mese." : "Aucune prise en charge ce mois-ci."} compact />
         ) : (
           <>
             <View style={styles.tableRowHeader}>
