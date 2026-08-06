@@ -7,18 +7,21 @@ import { sbSelect } from "@/lib/supabase-server";
 
    Un relevé de caisse n'est une pièce justificative que s'il permet
    d'identifier sans ambiguïté QUI l'a émis, POUR QUELLE PÉRIODE, et sous
-   quel NUMÉRO dans une série continue. Ces trois éléments sont le socle
-   commun des obligations comptables européennes ; pour une organisation de
-   volontariat italienne, ils découlent des articles 2214 à 2220 du Codice
-   Civile (tenue et conservation des livres) et du D.Lgs. 117/2017 qui régit
-   les entités du Terzo Settore.
+   quel NUMÉRO dans une série continue. Ce socle est commun aux droits
+   comptables européen et malgache.
+
+   L'ÉMETTEUR EST L'ÉTABLISSEMENT DE FIANARANTSOA, immatriculé auprès de
+   la Direction générale des impôts sous son NIF et son numéro
+   statistique. Ce sont ces identifiants-là qui engagent une pièce remise
+   à un patient ou transmise à l'administration locale ; ceux de
+   l'organisation mère italienne peuvent l'accompagner, ils ne s'y
+   substituent pas.
 
    Les données d'immatriculation ne sont PAS codées en dur : elles vivent
-   dans les paramètres de l'application, parce qu'un siège social ou un code
-   fiscal se corrige sans redéploiement. Tant qu'un champ n'est pas
-   renseigné, le document l'indique explicitement plutôt que de laisser un
-   blanc — un blanc se lit comme un oubli d'impression, une mention « à
-   renseigner » se lit comme une consigne.
+   dans les paramètres, parce qu'une adresse ou un numéro se corrige sans
+   redéploiement. Tant qu'une mention obligatoire manque, le document le
+   signale plutôt que de laisser un blanc — un blanc se lit comme un
+   défaut d'impression, un avertissement se lit comme une consigne.
    ============================================================ */
 
 export interface EntiteLegale {
@@ -28,13 +31,14 @@ export interface EntiteLegale {
   codeFiscal: string;
   etablissement: string;
   /**
-   * Identifiants fiscaux MALGACHES de l'établissement.
+   * Identifiants fiscaux MALGACHES — les seuls qui engagent ici.
    *
-   * L'organisation est italienne, mais la pharmacie vend à Fianarantsoa :
-   * une pièce remise à un patient relève du droit local, tandis que la
-   * comptabilité consolidée relève du droit italien. Les deux séries
-   * d'identifiants ont donc leur place sur le même document — l'une
-   * n'excuse pas l'absence de l'autre.
+   * L'entité qui émet ces pièces est l'établissement de Fianarantsoa,
+   * immatriculé auprès de la Direction générale des impôts : c'est son
+   * NIF et son numéro statistique qui l'identifient, pas ceux de
+   * l'organisation mère italienne. Le code fiscal italien reste
+   * saisissable, mais à titre de complément — son absence n'affecte
+   * pas la validité d'une pièce émise à Madagascar.
    */
   nif: string;
   stat: string;
@@ -42,8 +46,6 @@ export interface EntiteLegale {
   incomplete: boolean;
   manquants: string[];
 }
-
-const A_RENSEIGNER = "à renseigner";
 
 export async function chargerEntite(site = "REX"): Promise<EntiteLegale> {
   let p: Map<string, string>;
@@ -58,6 +60,7 @@ export async function chargerEntite(site = "REX"): Promise<EntiteLegale> {
   const formeJuridique =
     lire("entite_forme_juridique") || "Organizzazione di Volontariato (ODV) · Ente del Terzo Settore";
   const siegeSocial = lire("entite_siege_social");
+  // Complément facultatif : l'organisation mère, si on veut la citer.
   const codeFiscal = lire("entite_code_fiscal");
   const etablissement =
     lire("entite_etablissement") || `Centre ${site} · Fianarantsoa, Madagascar`;
@@ -70,17 +73,20 @@ export async function chargerEntite(site = "REX"): Promise<EntiteLegale> {
   const nif = lire("entite_nif") || lire("facture_nif");
   const stat = lire("entite_stat") || lire("facture_stat");
 
+  /* Ce qu'une pièce DOIT porter pour identifier son émetteur ici :
+     l'adresse déclarée et les deux identifiants fiscaux malgaches. Le
+     code fiscal italien n'y figure pas — l'établissement de Fianarantsoa
+     est l'émetteur, et c'est son immatriculation locale qui l'engage. */
   const manquants: string[] = [];
-  if (!siegeSocial) manquants.push("siège social");
-  if (!codeFiscal) manquants.push("code fiscal / P. IVA");
+  if (!siegeSocial) manquants.push("adresse de l'établissement");
   if (!nif) manquants.push("NIF");
   if (!stat) manquants.push("STAT");
 
   return {
     denomination,
     formeJuridique,
-    siegeSocial: siegeSocial || A_RENSEIGNER,
-    codeFiscal: codeFiscal || A_RENSEIGNER,
+    siegeSocial,
+    codeFiscal,
     etablissement,
     nif,
     stat,
@@ -129,9 +135,17 @@ export async function numeroPiece(sessionId: string, ouverteLe: string, site = "
   return `CAISSE-${annee}-${String(rang).padStart(4, "0")}`;
 }
 
-/** Durée légale de conservation : 10 ans (art. 2220 Codice Civile). */
+/**
+ * Conservation décennale.
+ *
+ * Dix ans est la durée retenue tant par le droit comptable malgache que
+ * par le Codice Civile italien, ce qui évite d'avoir à trancher entre les
+ * deux. La formulation reste générique à dessein : citer un article précis
+ * exigerait d'en vérifier la rédaction en vigueur, et une référence
+ * erronée sur une pièce vaut moins qu'une obligation énoncée simplement.
+ */
 export const MENTION_CONSERVATION =
-  "Pièce justificative à conserver dix ans à compter de la clôture de l'exercice (art. 2220 Codice Civile).";
+  "Pièce justificative à conserver dix ans à compter de la clôture de l'exercice, conformément à la réglementation comptable en vigueur.";
 
 export const MENTION_DEVISE =
   "Montants exprimés en ariary malgache (MGA). Aucune subdivision décimale en usage.";

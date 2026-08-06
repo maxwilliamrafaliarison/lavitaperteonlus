@@ -100,7 +100,8 @@ export function EtatCaissePdf({
             {entite.formeJuridique}
           </Text>
           <Text style={{ fontSize: 8.5, color: COLORS.textMuted, marginTop: 1.5 }}>
-            Siège social : {entite.siegeSocial} · Code fiscal / P. IVA : {entite.codeFiscal}
+            Adresse : {entite.siegeSocial}
+            {entite.codeFiscal ? ` · Code fiscal ${entite.codeFiscal}` : ""}
           </Text>
           <Text style={{ fontSize: 8.5, color: COLORS.textMuted, marginTop: 1.5 }}>
             Établissement : {entite.etablissement}

@@ -40,8 +40,10 @@ export function ParametresForm({
 
   // Ce qui manque aux pièces comptables, dit ici plutôt que découvert
   // au moment d'archiver un état de caisse.
-  const incomplet =
-    !v.siegeSocial.trim() || !v.codeFiscal.trim() || !v.nif.trim() || !v.stat.trim();
+  /* L'émetteur est l'établissement malgache : ce sont son adresse et ses
+     deux identifiants fiscaux qui font foi. Le code fiscal italien reste
+     saisissable, mais son absence n'invalide aucune pièce. */
+  const incomplet = !v.siegeSocial.trim() || !v.nif.trim() || !v.stat.trim();
 
   async function enregistrer() {
     setLoading(true);
@@ -141,11 +143,11 @@ export function ParametresForm({
         )}
 
         <label className="block">
-          <span className={etiquette}>{t("pharmacie.param_entite_siege")}</span>
+          <span className={etiquette}>{t("pharmacie.param_entite_adresse")}</span>
           <input
             value={v.siegeSocial}
             onChange={(e) => maj("siegeSocial", e.target.value)}
-            placeholder="Via …, 41100 Modena, Italia"
+            placeholder="Lot IN 34 …, Fianarantsoa, Madagascar"
             className={champ}
           />
         </label>
@@ -155,7 +157,7 @@ export function ParametresForm({
           <input
             value={v.codeFiscal}
             onChange={(e) => maj("codeFiscal", e.target.value)}
-            placeholder="94xxxxxxxxx"
+            placeholder="facultatif — organisation mère"
             className={`${champ} font-mono`}
           />
         </label>
