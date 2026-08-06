@@ -77,6 +77,7 @@ export function EtatCaissePdf({
         <ReportHeader
           ctx={{ lang: "fr", generatedBy: "Pharmacie", generatedAt: new Date().toISOString() }}
           reportNumber={numero}
+          sansMarque
         />
         <ReportFooter lang="fr" />
 

@@ -74,6 +74,7 @@ export function ProformaPdf({
         <ReportHeader
           ctx={{ lang: "fr", generatedBy: "Pharmacie", generatedAt: data.emisLe }}
           reportNumber={data.numero}
+          sansMarque
         />
         <ReportFooter lang="fr" />
 

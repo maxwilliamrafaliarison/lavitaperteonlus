@@ -5,12 +5,28 @@ import type { ReportContext } from "./types";
 /* ============================================================
    HEADER — apparaît sur chaque page (fixed via Page wrap)
    ============================================================ */
-export function ReportHeader({ ctx, reportNumber }: { ctx: ReportContext; reportNumber?: string }) {
+export function ReportHeader({
+  ctx,
+  reportNumber,
+  sansMarque = false,
+}: {
+  ctx: ReportContext;
+  reportNumber?: string;
+  /* Les pièces qui portent DÉJÀ un bloc d'identité complet — devis, état
+     de caisse — n'ont pas à répéter la marque deux centimètres plus haut.
+     La redondance mange de la hauteur et brouille la lecture : on cherche
+     l'émetteur une fois, à un seul endroit. */
+  sansMarque?: boolean;
+}) {
   return (
     <View style={styles.header} fixed>
       <View style={styles.headerLeft}>
-        <Text style={styles.headerBrand}>La Vita Per Te</Text>
-        <Text style={styles.headerSubtitle}>ONG-ODV Alfeo Corassori · Fianarantsoa</Text>
+        {!sansMarque && (
+          <>
+            <Text style={styles.headerBrand}>La Vita Per Te</Text>
+            <Text style={styles.headerSubtitle}>ONG-ODV Alfeo Corassori · Fianarantsoa</Text>
+          </>
+        )}
       </View>
       <View style={styles.headerRight}>
         {reportNumber && <Text style={styles.headerReportNum}>Rapport n° {reportNumber}</Text>}
