@@ -38,7 +38,12 @@ export function AppSidebar({
   const AppIcon = navIcon(appIcon);
 
   return (
-    <aside className="hidden lg:flex w-64 shrink-0 flex-col gap-5 px-5 py-6 border-r border-glass-border bg-sidebar/40 backdrop-blur-2xl">
+    /* Menu FIXE : il occupe toute la hauteur de la fenêtre et ne défile pas
+       avec le contenu. Sur une longue liste de produits, il disparaissait
+       vers le haut, et l'on devait remonter toute la page pour changer
+       d'écran — geste absurde à un comptoir. Seule la navigation elle-même
+       défile, si les entrées venaient à dépasser. */
+    <aside className="hidden lg:flex sticky top-0 h-screen w-64 shrink-0 flex-col gap-5 px-5 py-6 border-r border-glass-border bg-sidebar/40 backdrop-blur-2xl">
       <div className="px-2">
         <Link href="/apps" aria-label="La Vita Per Te">
           <BrandLogo size={36} />
@@ -62,7 +67,12 @@ export function AppSidebar({
         {t("hub.back_to_hub")}
       </Link>
 
-      <nav className="flex-1 space-y-1" aria-label={t("nav.aria_label")}>
+      {/* Seule la navigation défile, et seulement si elle dépasse : le logo
+          et le retour au portail restent en place. */}
+      <nav
+        className="flex-1 space-y-1 overflow-y-auto -mx-1 px-1"
+        aria-label={t("nav.aria_label")}
+      >
         {items.map((item, i) => {
           const active =
             pathname === item.href || pathname.startsWith(`${item.href}/`);

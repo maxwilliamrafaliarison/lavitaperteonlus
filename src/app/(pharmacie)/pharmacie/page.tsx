@@ -21,6 +21,7 @@ import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionneme
 import { STATUT_LABELS, estGalenique, type ProduitAvecStock } from "@/lib/pharmacie/types";
 import { BadgeGalenique } from "@/components/pharmacie/badge-galenique";
 import { listProformas, calculerStats } from "@/lib/pharmacie/proforma";
+import { CatalogueRecherche, type LigneCatalogue } from "./catalogue-recherche";
 import { safe, isConfigError } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ export default async function PharmaciePage() {
     ? await listProformas(new Date(Date.now() - 30 * 86_400_000).toISOString())
     : [];
   const statsDevis = calculerStats(devis);
+
   const produits = res.data;
   // Trois états à ne jamais confondre : la source est tombée (res.ok=false),
   // la source répond mais le stock est vide, ou tout va bien. On se fie au
@@ -63,6 +65,51 @@ export default async function PharmaciePage() {
 
   const actifs = produits.filter((p) => p.statut === "actif");
   const aDetruire = produits.filter((p) => p.statut === "a_detruire");
+
+  /* Lignes du catalogue, calculées ICI : la conversion boîte/unité, les
+     seuils et la péremption relèvent du métier et restent côté serveur,
+     en un seul exemplaire. Le composant de recherche ne fait que filtrer
+     et rendre — il n'a aucune règle à connaître. */
+  const lignesCatalogue: LigneCatalogue[] = actifs.map((p) => {
+    const perime = p.joursAvantPeremption !== null && p.joursAvantPeremption < 0;
+    const bientot =
+      p.joursAvantPeremption !== null &&
+      p.joursAvantPeremption >= 0 &&
+      p.joursAvantPeremption <= 90;
+    const rupture = p.stockBase <= 0;
+    const bas = !rupture && p.stock_min > 0 && p.stockBase <= p.stock_min;
+    const etat: LigneCatalogue["etat"] = rupture
+      ? "rupture"
+      : perime
+        ? "perime"
+        : bas
+          ? "bas"
+          : bientot
+            ? "bientot"
+            : "ok";
+    return {
+      id: p.id,
+      designation: p.designation,
+      dci: p.dci ?? "",
+      dosage: p.dosage ?? "",
+      classe: p.classe ?? "",
+      galenique: estGalenique(p),
+      stockLibelle: rupture ? t("pharmacie.vente_stock_zero") : formaterQuantite(p, p.stockBase),
+      prixLibelle: p.prix_vente ? fmtAr(prixParUniteBase(p)) : "—",
+      peremption: p.prochainePeremption || "—",
+      etat,
+      etatLibelle: rupture
+        ? t("pharmacie.badge_rupture")
+        : perime
+          ? t("pharmacie.badge_perime")
+          : bas
+            ? t("pharmacie.badge_stock_bas")
+            : bientot
+              ? t("pharmacie.badge_bientot", { j: String(p.joursAvantPeremption ?? 0) })
+              : STATUT_LABELS[p.statut][lang],
+    };
+  });
+
   const perimes = actifs.filter(
     (p) => p.joursAvantPeremption !== null && p.joursAvantPeremption < 0,
   );
@@ -273,125 +320,14 @@ export default async function PharmaciePage() {
             </section>
           )}
 
-          {/* Liste produits */}
-          <section aria-label={t("pharmacie.list_title")}>
-            <h2 className="font-display text-lg font-semibold mb-4">
-              {t("pharmacie.list_title")}
-            </h2>
-            <GlassCard className="overflow-hidden p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <caption className="sr-only">{t("pharmacie.list_title")}</caption>
-                  <thead>
-                    <tr className="border-b border-glass-border text-left">
-                      <Th>{t("pharmacie.col_designation")}</Th>
-                      <Th className="hidden md:table-cell">{t("pharmacie.col_classe")}</Th>
-                      <Th className="text-right">{t("pharmacie.col_stock")}</Th>
-                      <Th className="text-right hidden sm:table-cell">{t("pharmacie.col_prix")}</Th>
-                      <Th className="hidden lg:table-cell">{t("pharmacie.col_peremption")}</Th>
-                      <Th>{t("pharmacie.col_statut")}</Th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-glass-border">
-                    {actifs
-                      .slice()
-                      .sort((a, b) => a.designation.localeCompare(b.designation))
-                      .map((p) => {
-                        const perime =
-                          p.joursAvantPeremption !== null && p.joursAvantPeremption < 0;
-                        const bientot =
-                          p.joursAvantPeremption !== null &&
-                          p.joursAvantPeremption >= 0 &&
-                          p.joursAvantPeremption <= 90;
-                        const rupture = p.stockBase <= 0;
-                        const lowStock =
-                          !rupture && p.stock_min > 0 && p.stockBase <= p.stock_min;
-                        return (
-                          <tr key={p.id} className="hover:bg-white/3 transition-colors">
-                            <td className="px-4 py-3">
-                              <Link
-                                href={`/pharmacie/produits/${p.id}`}
-                                className="group/link block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
-                              >
-                                <p className="font-medium leading-tight group-hover/link:text-primary transition-colors inline-flex items-center gap-1.5 flex-wrap">
-                                  {p.designation}
-                                  {estGalenique(p) && <BadgeGalenique />}
-                                </p>
-                                <p className="text-[11px] text-muted-foreground font-mono">
-                                  {p.id}
-                                  {p.dosage ? ` · ${p.dosage}` : ""}
-                                </p>
-                              </Link>
-                            </td>
-                            <td className="px-4 py-3 hidden md:table-cell text-muted-foreground text-xs">
-                              {p.classe || "—"}
-                            </td>
-                            <td
-                              className={cn(
-                                "px-4 py-3 text-right font-mono tabular-nums",
-                                rupture && "text-primary font-semibold",
-                                lowStock && "text-[var(--warning)] font-semibold",
-                              )}
-                            >
-                              {formaterQuantite(p, p.stockBase)}
-                            </td>
-                            <td className="px-4 py-3 text-right font-mono tabular-nums hidden sm:table-cell">
-                              {p.prix_vente ? fmtAr(p.prix_vente) : "—"}
-                            </td>
-                            <td className="px-4 py-3 hidden lg:table-cell">
-                              {p.prochainePeremption ? (
-                                <span
-                                  className={cn(
-                                    "text-xs font-mono",
-                                    perime && "text-primary font-semibold",
-                                    bientot && "text-[var(--warning)]",
-                                  )}
-                                >
-                                  {p.prochainePeremption}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="inline-flex flex-wrap gap-1">
-                                {perime && (
-                                  <Badge tone="primary">{t("pharmacie.badge_perime")}</Badge>
-                                )}
-                                {!perime && bientot && (
-                                  <Badge
-                                    tone={
-                                      (p.joursAvantPeremption ?? 0) <= 30
-                                        ? "primary"
-                                        : "warning"
-                                    }
-                                  >
-                                    {t("pharmacie.badge_bientot", {
-                                      j: p.joursAvantPeremption ?? 0,
-                                    })}
-                                  </Badge>
-                                )}
-                                {rupture && (
-                                  <Badge tone="primary">{t("pharmacie.badge_rupture")}</Badge>
-                                )}
-                                {lowStock && (
-                                  <Badge tone="warning">{t("pharmacie.badge_stock_bas")}</Badge>
-                                )}
-                                {!perime && !bientot && !rupture && !lowStock && (
-                                  <Badge tone="success">
-                                    {STATUT_LABELS[p.statut][lang]}
-                                  </Badge>
-                                )}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </GlassCard>
-          </section>
+          {/* Catalogue cherchable : cent produits ne se parcourent pas à
+              l'œil, et tout le monde au centre doit pouvoir répondre
+              « l'avons-nous, à quel prix » sans passer par la vente. */}
+          <CatalogueRecherche
+            lignes={lignesCatalogue}
+            lang={lang}
+            peutModifier={can(session.user.role, "pharmacie:stock")}
+          />
         </>
       )}
 
