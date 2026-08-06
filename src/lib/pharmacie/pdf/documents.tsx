@@ -244,7 +244,13 @@ function TicketDoc({
   const valeur = estPec ? vente.valeurPec : vente.total;
   const { ht, tva } = decomposerTva(valeur, fiscal);
   const montreTva = fiscal.tvaActive && fiscal.tvaTaux > 0 && !estPec;
-  const montreEspeces = !estPec && typeof recu === "number" && recu > 0;
+  /* Le montant reçu vient d'ABORD de la vente enregistrée, et seulement à
+     défaut du paramètre d'impression. Sans cela, un ticket réimprimé
+     depuis l'historique perdait ces deux lignes : l'information ne vivait
+     que le temps de l'encaissement. */
+  const especes = vente.especesRecues ?? (typeof recu === "number" ? recu : null);
+  const rendu = vente.monnaieRendue ?? (especes == null ? null : Math.max(0, especes - vente.total));
+  const montreEspeces = !estPec && especes != null && especes > 0;
   // Hauteur dynamique : socle + lignes + suppléments (PEC / TVA / espèces).
   const extra = (estPec ? 34 : 0) + (montreTva ? 24 : 0) + (montreEspeces ? 24 : 0);
   // Socle abaissé de 50 pt : le logo et sa marge ne sont plus là.
@@ -336,11 +342,11 @@ function TicketDoc({
               <>
                 <View style={tk.subRow}>
                   <Text>{t.especesRecu}</Text>
-                  <Text>{fmtAriary(recu!)}</Text>
+                  <Text>{fmtAriary(especes!)}</Text>
                 </View>
                 <View style={tk.subRow}>
                   <Text>{t.rendu}</Text>
-                  <Text>{fmtAriary(Math.max(0, recu! - vente.total))}</Text>
+                  <Text>{fmtAriary(rendu ?? 0)}</Text>
                 </View>
               </>
             ) : (

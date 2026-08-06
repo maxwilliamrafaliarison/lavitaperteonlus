@@ -383,6 +383,7 @@ export function VenteForm({
         // Rattache la vente au devis dont elle découle, s'il y en a un.
         proformaId: devisEnCours ?? undefined,
         dateVente: retroActif && dateRetro ? dateRetro : undefined,
+        especesRecues: !estPec && recu > 0 ? recu : undefined,
         clientNom,
         typeVente,
         pecPayeur,

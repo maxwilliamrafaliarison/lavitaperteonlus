@@ -94,6 +94,8 @@ const VenteInput = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide")
     .optional(),
+  /** Espèces remises par le patient ; sert au ticket et au contrôle de caisse. */
+  especesRecues: z.number().nonnegative().max(100_000_000).optional(),
 });
 
 export type VenteResult =
@@ -121,6 +123,7 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
     return { ok: false, error: t("pharmacie.vente_error_invalid") };
   }
   const { clientNom, typeVente, pecPayeur, lignes } = parsed.data;
+  const recu = parsed.data.especesRecues ?? null;
 
   // Une prise en charge sans payeur ne serait pas vérifiable dans les
   // rapports : on refuse une vente à 0 Ar dont personne n'assume la dépense.
@@ -306,6 +309,11 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
         "active",
         estPec ? pecPayeur.trim() : "",
         valeurPec,
+        /* Espèces reçues et monnaie rendue : null si non saisies, jamais 0
+           — zéro dirait « rien reçu », ce qui est faux. Une prise en charge
+           n'encaisse rien, la question ne se pose donc pas. */
+        estPec || recu == null ? null : recu,
+        estPec || recu == null ? null : Math.max(0, recu - totalEncaisse),
       ],
       lignesRows,
       mouvementsRows,

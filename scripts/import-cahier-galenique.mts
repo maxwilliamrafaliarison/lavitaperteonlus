@@ -173,7 +173,7 @@ for (const [jour, duJour] of [...parJour.entries()].sort()) {
     const pu = l.qte > 0 ? Math.round(l.montant / l.qte) : 0;
     try {
       await enregistrerVente({
-        venteRow: [venteId, timestamp, "", "cash", l.montant, "informatique.lavitaperte@gmail.com", "active", "", 0],
+        venteRow: [venteId, timestamp, "", "cash", l.montant, "informatique.lavitaperte@gmail.com", "active", "", 0, null, null],
         /* Neuf colonnes, lot_id compris : sans lui, « boite » atterrissait
            dans prix_unitaire et Postgres refusait la ligne. Lot vide — le
            cahier ne le note pas, et une préparation galénique n'en porte

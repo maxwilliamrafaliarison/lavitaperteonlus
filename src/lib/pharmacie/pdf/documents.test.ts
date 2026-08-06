@@ -14,6 +14,8 @@ function venteBase(over: Partial<VenteComplete> = {}): VenteComplete {
     valeurPec: 0,
     operateurEmail: "eugenio@example.com",
     statut: "active",
+    especesRecues: null,
+    monnaieRendue: null,
     lignes: [
       { produitId: "P1", lotId: "L1", designation: "Paracétamol", dosage: "500mg", quantite: 2, prixUnitaire: 5000, sousTotal: 10000, galenique: false },
       { produitId: "P2", lotId: "L2", designation: "Amoxicilline", dosage: "250mg", quantite: 1, prixUnitaire: 2500, sousTotal: 2500, galenique: true },

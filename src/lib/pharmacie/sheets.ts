@@ -53,7 +53,9 @@ const COLUMN_ORDER: Record<PharmaSheetName, string[]> = {
   // une colonne décalerait tout, sans la moindre erreur.
   produits: ["id", "code", "designation", "dci", "classe", "forme", "dosage", "conditionnement", "prix_achat", "prix_vente", "prix_unitaire", "stock_min", "fournisseur", "emplacement", "statut", "createdAt", "facteur_conversion", "unite_detail", "prix_vente_detail", "origine"],
   mouvements: ["id", "timestamp", "produit_id", "lot_id", "type", "quantite", "prix_unitaire", "reference", "user_email", "note", "unite_saisie", "facteur_applique", "compartiment"],
-  ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut", "pec_payeur", "valeur_pec"],
+  /* « especes_recues » et « monnaie_rendue » ajoutées EN FIN : insérer au
+     milieu aurait décalé toutes les lignes déjà construites ailleurs. */
+  ventes: ["id", "timestamp", "client_nom", "type_vente", "total", "operateur_email", "statut", "pec_payeur", "valeur_pec", "especes_recues", "monnaie_rendue"],
   lignes_vente: ["id", "vente_id", "produit_id", "lot_id", "quantite", "prix_unitaire", "sous_total", "mode_vente", "qte_stock_deduire"],
   lots: ["id", "produit_id", "numero_lot", "date_expiration", "date_reception", "contenance"],
   fournisseurs: ["id", "nom", "telephone", "email", "adresse"],
@@ -66,7 +68,7 @@ const COLUMN_ORDER: Record<PharmaSheetName, string[]> = {
 const NUMERIC_COLS: Record<PharmaSheetName, Set<string>> = {
   produits: new Set(["prix_achat", "prix_vente", "prix_unitaire", "stock_min", "facteur_conversion", "prix_vente_detail"]),
   mouvements: new Set(["quantite", "prix_unitaire", "facteur_applique"]),
-  ventes: new Set(["total", "valeur_pec"]),
+  ventes: new Set(["total", "valeur_pec", "especes_recues", "monnaie_rendue"]),
   lignes_vente: new Set(["quantite", "prix_unitaire", "sous_total", "qte_stock_deduire"]),
   lots: new Set(),
   fournisseurs: new Set(),
@@ -342,6 +344,9 @@ export interface VenteComplete {
   valeurPec: number;
   operateurEmail: string;
   statut: string;
+  /** Espèces remises par le patient ; null si l'information n'a pas été saisie. */
+  especesRecues: number | null;
+  monnaieRendue: number | null;
   lignes: Array<{
     produitId: string;
     lotId: string;
@@ -407,6 +412,10 @@ export async function getVenteComplete(
     valeurPec: Number(vente.valeur_pec ?? 0),
     operateurEmail: String(vente.operateur_email ?? ""),
     statut: String(vente.statut ?? "active"),
+    /* null et non 0 : les ventes antérieures à la migration n'ont pas
+       l'information, et zéro dirait faussement « rien reçu ». */
+    especesRecues: vente.especes_recues == null ? null : Number(vente.especes_recues),
+    monnaieRendue: vente.monnaie_rendue == null ? null : Number(vente.monnaie_rendue),
     lignes: venteLignes,
   };
 }
