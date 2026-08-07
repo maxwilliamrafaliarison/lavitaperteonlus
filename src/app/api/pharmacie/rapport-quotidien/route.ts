@@ -3,6 +3,7 @@ import nodemailer from "nodemailer";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
+import { getUserByEmail } from "@/lib/sheets/users";
 import {
   listProduitsAvecStock,
   listVentes,
@@ -26,6 +27,9 @@ export const maxDuration = 60;
  * soit session admin/pharmacien.
  * Envoi : SMTP Gmail (GMAIL_USER + GMAIL_APP_PASSWORD).
  * Destinataires : paramètre email_rapports_destinataires du Sheet.
+ *
+ * `?apercu=<adresse>` envoie le même récapitulatif à cette seule adresse,
+ * pour voir le modèle sans écrire à toute la liste.
  */
 export async function GET(req: NextRequest) {
   // --- Autorisation : cron OU admin connecté ---
@@ -70,6 +74,23 @@ export async function GET(req: NextRequest) {
         { error: "Aucun destinataire dans parametres!email_rapports_destinataires" },
         { status: 503 },
       );
+    }
+
+    /* APERÇU — voir le modèle sans écrire à toute la liste.
+       L'adresse doit être celle d'un COMPTE ACTIF de l'application :
+       sans ce garde-fou, la route deviendrait un relais ouvert pour qui
+       détient le secret du cron ou une session pharmacie. */
+    const apercu = req.nextUrl.searchParams.get("apercu")?.trim().toLowerCase() ?? "";
+    let envoiA = destinataires;
+    if (apercu) {
+      const compte = await getUserByEmail(apercu).catch(() => null);
+      if (!compte?.active) {
+        return NextResponse.json(
+          { error: "Aperçu refusé : cette adresse n'est pas celle d'un compte actif." },
+          { status: 400 },
+        );
+      }
+      envoiA = [compte.email];
     }
 
     // --- Calculs ---
@@ -144,6 +165,14 @@ export async function GET(req: NextRequest) {
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#111">
   <h1 style="color:#E30613;font-size:20px">Pharmacie — Récapitulatif de fin de journée</h1>
   <p style="color:#666;font-size:13px">${dateStr} · Centre REX, La Vita Per Te</p>
+${
+  apercu
+    ? `  <p style="background:#fff7ed;border-left:3px solid #b45309;padding:10px 12px;font-size:12px;color:#7c2d12;margin:16px 0">
+    <strong>Aperçu</strong> — ce courriel n'est parti qu'à vous. En fin de journée, le récapitulatif
+    est adressé à : ${destinataires.join(", ")}.
+  </p>`
+    : ""
+}
 
   <h2 style="font-size:15px;margin-top:24px">💰 Activité du jour</h2>
   <table cellspacing="0" style="width:100%">
@@ -240,14 +269,15 @@ export async function GET(req: NextRequest) {
 
     await transporter.sendMail({
       from: `"Pharmacie — La Vita Per Te" <${gmailUser}>`,
-      to: destinataires.join(", "),
-      subject: `Pharmacie · Fin de journée ${new Date().toLocaleDateString("fr-FR")} — ${ventes24h.length} vente(s), ${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(caComptant)} Ar`,
+      to: envoiA.join(", "),
+      subject: `${apercu ? "[Aperçu] " : ""}Pharmacie · Fin de journée ${new Date().toLocaleDateString("fr-FR")} — ${ventes24h.length} vente(s), ${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(caComptant)} Ar`,
       html,
     });
 
     return NextResponse.json({
       ok: true,
-      destinataires: destinataires.length,
+      apercu: apercu || undefined,
+      destinataires: envoiA.length,
       ventes24h: ventes24h.length,
       alertes: perimes.length + bientot.length + stockBas.length,
     });
