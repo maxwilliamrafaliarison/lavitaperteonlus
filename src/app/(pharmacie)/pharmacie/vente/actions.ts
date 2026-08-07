@@ -73,27 +73,6 @@ const VenteInput = z.object({
     .regex(/^DEV-[0-9]{8,20}$/, "Identifiant de devis invalide")
     .optional(),
 
-  /* ------------------------------------------------------------------
-     SAISIE RÉTROACTIVE — dispositif TEMPORAIRE de rattrapage.
-
-     Des ventes réelles de juillet n'ont pas été enregistrées : le stock
-     de l'application est donc supérieur au stock physique. Les saisir à
-     leur vraie date corrige l'écart et reconstitue l'historique.
-
-     Trois propriétés en découlent, et elles sont voulues :
-       • le stock sort NORMALEMENT — c'est le but de l'opération ;
-       • la caisse du jour n'est PAS touchée, le rapprochement ne
-         retenant que les ventes postérieures à son ouverture ;
-       • la vente porte la date déclarée, si bien que les rapports de
-         juillet la comptent, et non ceux d'août.
-
-     Bornée au passé et à un an : antidater sert à rattraper, jamais à
-     projeter, et une date lointaine trahirait une faute de frappe.
-     ------------------------------------------------------------------ */
-  dateVente: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Date invalide")
-    .optional(),
   /** Espèces remises par le patient ; sert au ticket et au contrôle de caisse. */
   especesRecues: z.number().nonnegative().max(100_000_000).optional(),
 });
@@ -136,21 +115,15 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
      vérification vit côté serveur — le bouton grisé du client n'est qu'un
      confort. Si la table n'existe pas encore (migration 017 non passée), la
      lecture échoue : on laisse passer, l'écran vit sans caisse. */
-  if (!parsed.data.dateVente) {
-    try {
-      const { getCaisseOuverte } = await import("@/lib/pharmacie/caisse");
-      const caisse = await getCaisseOuverte();
-      if (caisse === null) {
-        return { ok: false, error: t("pharmacie.caisse_requise") };
-      }
-    } catch {
-      // Caisse indisponible (pré-migration) : ne jamais bloquer la vente.
+  try {
+    const { getCaisseOuverte } = await import("@/lib/pharmacie/caisse");
+    const caisse = await getCaisseOuverte();
+    if (caisse === null) {
+      return { ok: false, error: t("pharmacie.caisse_requise") };
     }
+  } catch {
+    // Caisse indisponible (pré-migration) : ne jamais bloquer la vente.
   }
-  /* Une saisie rétroactive n'exige AUCUNE caisse ouverte : elle n'encaisse
-     rien aujourd'hui, l'argent ayant été perçu à la date déclarée. Exiger
-     une session ouverte reviendrait à rattacher au tiroir du jour une
-     recette qui n'y est jamais entrée. */
 
   // On lit l'état courant du catalogue (pour valider produit, statut, prix).
   // Le stock ventilé par lot est lu juste avant l'allocation FEFO.
@@ -191,24 +164,7 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   // Identifiant fourni par le panier ; on n'en engendre un que pour les
   // appels anciens qui n'en portent pas (compatibilité ascendante).
   const venteId = parsed.data.venteId ?? genId("VTE");
-  /* Horodatage de la vente : maintenant, ou la date déclarée en saisie
-     rétroactive. Midi plutôt que minuit — une vente datée de 00:00 heure
-     locale bascule la veille en UTC, et se rangerait dans le mauvais mois
-     un premier du mois. */
-  let timestamp = new Date().toISOString();
-  if (parsed.data.dateVente) {
-    if (!can(session.user.role, "pharmacie:stock")) {
-      return { ok: false, error: t("pharmacie.retro_interdit") };
-    }
-    const jour = parsed.data.dateVente;
-    const aujourdhui = new Date().toLocaleDateString("sv-SE", { timeZone: "Indian/Antananarivo" });
-    const ilYaUnAn = new Date(Date.now() - 366 * 86_400_000)
-      .toLocaleDateString("sv-SE", { timeZone: "Indian/Antananarivo" });
-    if (jour > aujourdhui || jour < ilYaUnAn) {
-      return { ok: false, error: t("pharmacie.retro_date_invalide") };
-    }
-    timestamp = new Date(`${jour}T12:00:00.000Z`).toISOString();
-  }
+  const timestamp = new Date().toISOString();
   const heure = timestamp.slice(11, 19);
   const email = session.user.email ?? "";
   const nomAffiche = typeVente === "pec" ? pecPayeur.trim() : clientNom;
