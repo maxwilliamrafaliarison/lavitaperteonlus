@@ -26,6 +26,8 @@ export default async function HubPage() {
      que dans la page de connexion : elle vaut ainsi pour tous les chemins
      (connexion, favori sur /apps, lien « Toutes les applications »). */
   if (role === "pharmacien") redirect("/pharmacie/vente");
+  // Même logique pour la RH : son rôle n'ouvre que le pointage.
+  if (role === "rh") redirect("/pointage");
 
   const t = getT(lang);
 

@@ -33,7 +33,9 @@ export const PERMISSIONS = {
   "app:pharmacie": ["admin", "direction", "pharmacien"],
   "app:patients": ["admin", "direction"],
   // Pointage : la direction consulte la présence en temps réel, l'admin gère.
-  "app:pointage": ["admin", "direction"],
+  // La RH y entre aussi : la présence du personnel est son métier — et c'est
+  // la SEULE app que son rôle ouvre.
+  "app:pointage": ["admin", "direction", "rh"],
 
   // Pharmacie — écriture (la direction reste en lecture seule)
   "pharmacie:vendre": ["admin", "pharmacien"],
@@ -43,17 +45,18 @@ export const PERMISSIONS = {
   // comptable, réservé à la direction/administration.
   "pharmacie:config": ["admin"],
 
-  // Pointage — la DIRECTION lit (présence, états mensuels) ; seul l'ADMIN
-  // importe, corrige un pointage ou valide des heures supplémentaires :
+  // Pointage — la DIRECTION et la RH lisent (présence, états mensuels) ;
+  // seul l'ADMIN corrige un pointage ou valide des heures supplémentaires :
   // ces gestes engagent la paie et doivent rester traçables à une personne.
-  "pointage:lire": ["admin", "direction"],
+  "pointage:lire": ["admin", "direction", "rh"],
   "pointage:gerer": ["admin"],
   /* COLLECTER n'est pas GÉRER. Récupérer les badgeages depuis la pointeuse
      ou importer le fichier MIARAKA constitue la donnée brute — c'est le
      geste quotidien du poste d'Aliniaina (direction). Corriger un pointage
      ou valider des heures supplémentaires engage la paie et reste à
-     l'administrateur. */
-  "pointage:collecter": ["admin", "direction"],
+     l'administrateur. La RH collecte aussi : constituer le registre des
+     présences est le cœur de sa fonction. */
+  "pointage:collecter": ["admin", "direction", "rh"],
   // Planning — la DIRECTION peut planifier (décision du responsable) : établir
   // un emploi du temps est un acte d'organisation, pas de paie. Corriger un
   // pointage ou valider des heures sup reste en revanche réservé à l'admin.

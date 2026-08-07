@@ -15,7 +15,8 @@ export const metadata: Metadata = { title: "Import des pointages" };
 export default async function ImportPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  // Importer engage la paie : réservé à l'administrateur.
+  // Importer CONSTITUE la donnée brute (collecte) : admin, direction et RH.
+  // Corriger un pointage ou valider des HS reste à l'admin — voir la matrice.
   if (!can(session.user.role, "pointage:collecter")) redirect("/pointage");
   const lang = session.user.lang;
   const t = getT(lang);

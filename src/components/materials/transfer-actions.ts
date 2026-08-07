@@ -107,31 +107,10 @@ export async function transferMaterialAction(
   }
 }
 
-/* ============================================================
-   MARK CREATION — utilisé lors de la création initiale d'un matériel
-   (Phase 6.1 — appelé par createMaterialAction plus tard)
-   ============================================================ */
-export async function recordCreationMovement(
-  materialId: string,
-  siteId: string,
-  roomId: string,
-  assignedTo: string | undefined,
-  byUserId: string,
-): Promise<void> {
-  try {
-    await createMovement({
-      materialId,
-      type: "creation",
-      toSiteId: siteId,
-      toRoomId: roomId,
-      toAssignedTo: assignedTo,
-      byUserId,
-      reason: "Création initiale",
-    });
-  } catch (e) {
-    console.error("[movement] failed to log creation", { materialId, error: e });
-  }
-}
+/* recordCreationMovement a été SUPPRIMÉE : jamais appelée (createMaterialAction
+   trace déjà son mouvement en ligne), elle restait pourtant un endpoint —
+   chaque export d'un module "use server" est invocable par toute session —
+   et c'était le seul de ce fichier sans auth() ni can(). */
 
 // Wrapper utilisable directement depuis un <form> (redirect après succès)
 export async function transferMaterialFormAction(formData: FormData): Promise<void> {

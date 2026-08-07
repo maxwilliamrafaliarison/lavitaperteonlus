@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   UserPlus, MoreVertical, Pencil, KeyRound, UserCheck, UserX,
-  Loader2, X, Shield, Wrench, Briefcase, Package, Pill,
+  Loader2, X, Shield, Wrench, Briefcase, Package, Pill, Fingerprint,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -46,6 +46,11 @@ const ROLE_META: Record<UserRole, { icon: LucideIcon; tone: string }> = {
   pharmacien: {
     icon: Pill,
     tone: "bg-[var(--success)/15] text-[var(--success)] border-[var(--success)/30]",
+  },
+  // Même empreinte que l'app Pointage : le rôle n'ouvre qu'elle.
+  rh: {
+    icon: Fingerprint,
+    tone: "bg-[oklch(0.65_0.20_265_/_0.15)] text-[oklch(0.65_0.20_265)] border-[oklch(0.65_0.20_265_/_0.3)]",
   },
 };
 
@@ -378,6 +383,7 @@ function InviteModal({
               <option value="direction">{t("roles.direction")}</option>
               <option value="logistique">{t("roles.logistique")}</option>
               <option value="pharmacien">{t("roles.pharmacien")}</option>
+              <option value="rh">{t("roles.rh")}</option>
             </select>
           </Field>
           <Field label={t("users.field_lang")} required requiredLabel={t("a11y.required_indicator")}>
@@ -490,6 +496,7 @@ function EditUserModal({
               <option value="direction">{t("roles.direction")}</option>
               <option value="logistique">{t("roles.logistique")}</option>
               <option value="pharmacien">{t("roles.pharmacien")}</option>
+              <option value="rh">{t("roles.rh")}</option>
             </select>
           </Field>
           <Field label={t("users.field_lang")} required requiredLabel={t("a11y.required_indicator")}>

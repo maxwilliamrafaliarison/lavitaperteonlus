@@ -95,7 +95,7 @@ Le script Apps Script [`scripts/google-sheet-setup.gs`](scripts/google-sheet-set
 | Onglet | Rôle |
 |---|---|
 | `config` | Paramètres globaux |
-| `users` | Utilisateurs de l'app (4 rôles) |
+| `users` | Utilisateurs de l'app (6 rôles) |
 | `sites` | Centres (REX, MIARAKA, ...) |
 | `rooms` | Salles par site |
 | `materials` | Parc matériel (~222 entrées) |
@@ -109,7 +109,7 @@ Le script Apps Script [`scripts/google-sheet-setup.gs`](scripts/google-sheet-set
 
 - [x] **Phase 0** · Setup Next.js + design system liquid glass + GitHub + Vercel
 - [x] **Phase 1** · Guide GCP + structure Google Sheet ([guide](docs/PHASE1-GCP.md))
-- [x] **Phase 2** · Auth.js + 4 rôles + middleware
+- [x] **Phase 2** · Auth.js + rôles + middleware
 - [x] **Phase 3** · CRUD matériels (sites → salles → fiche)
 - [x] **Phase 4** · Chiffrement AES MDP + audit log
 - [x] **Phase 5** · Dashboard Direction (KPIs + obsolescence + budget + export CSV)
@@ -133,7 +133,7 @@ src/
 │   ├── providers/        ThemeProvider
 │   └── ui/               shadcn/ui
 ├── lib/
-│   ├── auth/             Permissions (4 rôles)
+│   ├── auth/             Permissions (6 rôles)
 │   ├── crypto/           AES-256-GCM
 │   ├── i18n/             Messages FR / IT
 │   ├── sheets/           Google Sheets API client

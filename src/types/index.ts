@@ -12,6 +12,9 @@ export const UserRole = z.enum([
   "direction",
   "logistique",
   "pharmacien",
+  // RH : le personnel et sa présence, rien d'autre. Le rôle n'ouvre que
+  // l'app Pointage — ni pharmacie, ni patients, ni logistique.
+  "rh",
 ]);
 export type UserRole = z.infer<typeof UserRole>;
 
@@ -31,6 +34,7 @@ export const ROLE_LABELS: Record<UserRole, { fr: string; it: string }> = {
   direction: { fr: "Direction", it: "Direzione" },
   logistique: { fr: "Responsable logistique", it: "Responsabile logistica" },
   pharmacien: { fr: "Dispensatrice", it: "Dispensatrice" },
+  rh: { fr: "Ressources humaines", it: "Risorse umane" },
 };
 
 // --- Utilisateurs de l'application ------------------------------------------
