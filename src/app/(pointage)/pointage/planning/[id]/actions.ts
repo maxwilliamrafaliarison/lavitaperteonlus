@@ -110,7 +110,9 @@ export async function affecterAction(formData: FormData): Promise<AffecterResult
       await sbInsert("planning", "affectations", [{ id, ...ligne }]);
     }
 
-    const alertes = await verifierSeuilsAgent(agentId, jour);
+    // Les clients attendent des phrases ; le panneau, lui, lit les alertes
+    // entières côté serveur, drapeau `bloquant` compris.
+    const alertes = (await verifierSeuilsAgent(agentId, jour)).map((a) => a.message);
     revalidatePath(`/pointage/planning/${planningId}`);
     return { ok: true, alertes };
   } catch (e) {
@@ -163,7 +165,9 @@ export async function deplacerAffectationAction(formData: FormData): Promise<Aff
       id: idApres, planning_id: planningId, agent_id: agentId, jour,
       creneau_id: creneauId, service_id: serviceId, debut, fin, lieu: "", note: "",
     }]);
-    const alertes = await verifierSeuilsAgent(agentId, jour);
+    // Les clients attendent des phrases ; le panneau, lui, lit les alertes
+    // entières côté serveur, drapeau `bloquant` compris.
+    const alertes = (await verifierSeuilsAgent(agentId, jour)).map((a) => a.message);
     revalidatePath(`/pointage/planning/${planningId}`);
     return { ok: true, alertes };
   } catch (e) {

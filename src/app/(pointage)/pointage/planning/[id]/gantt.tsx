@@ -218,9 +218,93 @@ export function PlanningGantt({
               ))}
             </tbody>
           ))}
+          <LigneCouverture jours={jours} groupes={groupes} valeurs={valeurs} parId={parId} compact={compact} />
         </table>
       </div>
     </div>
+  );
+}
+
+/* ============================================================
+   COUVERTURE — la seule ligne qui réponde à la vraie question
+   ============================================================
+   Un responsable qui ouvre un planning ne se demande pas « qui travaille ? »
+   mais « est-ce que c'est couvert ? ». La grille répond à la première
+   question, ligne par ligne ; il faut la lire en entier pour répondre à la
+   seconde.
+
+   On ne compare PAS à un effectif cible : le centre n'en a jamais écrit un,
+   et l'inventer ferait afficher des « sous-effectif » qui ne veulent rien
+   dire. On compare le jour AUX AUTRES JOURS DU MÊME SERVICE sur la période
+   affichée : un service tenu tous les jours sauf un, c'est un trou, et
+   c'est un fait, pas une norme supposée.
+   ============================================================ */
+function LigneCouverture({
+  jours, groupes, valeurs, parId, compact,
+}: {
+  jours: GanttProps["jours"];
+  groupes: GanttProps["groupes"];
+  valeurs: GanttProps["affectations"];
+  parId: Map<string, CreneauOption>;
+  compact: boolean;
+}) {
+  /** Personnes réellement en poste : un repos ou un congé ne couvre rien. */
+  const enPoste = (agentId: string, jour: string) => {
+    const v = valeurs[`${agentId}|${jour}`];
+    if (!v) return false;
+    return parId.get(v.creneauId)?.type !== "repos";
+  };
+
+  const parJour = jours.map((j) => {
+    const total = groupes.reduce(
+      (n, g) => n + g.agents.filter((a) => enPoste(a.id, j.date)).length,
+      0,
+    );
+    // Un service qui tourne les autres jours et personne aujourd'hui : un trou.
+    const trous = groupes.filter((g) => {
+      const aujourdhui = g.agents.some((a) => enPoste(a.id, j.date));
+      const ailleurs = jours.some(
+        (k) => k.date !== j.date && g.agents.some((a) => enPoste(a.id, k.date)),
+      );
+      return !aujourdhui && ailleurs;
+    });
+    return { jour: j, total, trous };
+  });
+
+  return (
+    <tfoot>
+      <tr className="border-t-2 border-glass-border">
+        <th
+          scope="row"
+          className="sticky left-0 z-10 bg-[var(--background)] px-3 py-2 text-left text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground"
+        >
+          Couverture
+        </th>
+        {parJour.map(({ jour, total, trous }) => (
+          <td
+            key={jour.date}
+            className={cn(
+              "border-l border-glass-border px-0.5 py-2 text-center align-middle",
+              jour.weekend && "bg-black/[0.02] dark:bg-white/[0.02]",
+            )}
+            title={
+              trous.length
+                ? `${total} en poste · sans personne : ${trous.map((t) => t.libelle).join(", ")}`
+                : `${total} en poste`
+            }
+          >
+            <span className="block text-xs font-medium tabular-nums">{total}</span>
+            {trous.length > 0 && (
+              /* Le signe double la couleur : la grille finit photocopiée. */
+              <span className="block text-[10px] font-medium text-[var(--warning)]">
+                <span aria-hidden="true">▽</span>
+                {compact ? "" : ` ${trous.length}`}
+              </span>
+            )}
+          </td>
+        ))}
+      </tr>
+    </tfoot>
   );
 }
 

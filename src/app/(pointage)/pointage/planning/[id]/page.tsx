@@ -19,6 +19,8 @@ import { SelecteurVue, dureeDe, decalerJour, type Vue } from "./selecteur-vue";
 import { type BlocEdt } from "./edt";
 import { DupliquerSemaine } from "./dupliquer-semaine";
 import { EdtSolo } from "./edt-solo";
+import { PanneauAlertes } from "./panneau-alertes";
+import { verifierFenetre } from "./verif";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -142,6 +144,16 @@ export default async function EditionPlanningPage({
   // ── Données de la grille horaire ─────────────────────────────────────────
   const parCreneauMap = new Map(creneauxRes.data.map((c) => [c.id, c]));
   const infoAgent = new Map(agents.map((a) => [a.id, a]));
+  /* CE QUE LA GRILLE SIGNALE D'ELLE-MÊME. Le contrôle légal ne s'exécutait
+     qu'après une saisie : une semaine recopiée depuis la précédente pouvait
+     être illégale sans qu'un seul message n'apparaisse. Il tourne désormais
+     sur la fenêtre affichée, à chaque rendu. */
+  const nomsAgents = new Map(agents.map((a) => [a.id, a.nom]));
+  const alertes = await safe(
+    () => verifierFenetre(debut, finFenetre, (id) => nomsAgents.get(id) ?? id),
+    [],
+  );
+
   const blocsParService: Record<string, BlocEdt[]> = {};
   const reposParService: Record<string, Array<{ jour: string; agentNom: string; motif: string }>> = {};
   for (const a of affRes.data) {
@@ -311,6 +323,8 @@ export default async function EditionPlanningPage({
           />
         )}
       </GlassCard>
+
+      <PanneauAlertes alertes={alertes.data} />
 
       <p className="text-[11px] text-muted-foreground">
         Chaque modification est enregistrée immédiatement et reste soumise aux contrôles légaux
