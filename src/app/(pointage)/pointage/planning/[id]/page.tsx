@@ -21,7 +21,9 @@ import { DupliquerSemaine } from "./dupliquer-semaine";
 import { EdtSolo } from "./edt-solo";
 import { PanneauAlertes } from "./panneau-alertes";
 import { BarreSemaines, type SemaineBarre } from "./barre-semaines";
-import { verifierFenetre } from "./verif";
+import { PostesAttente, type PosteAttente } from "./postes-attente";
+
+import { verifierFenetre, PREFIXE_ATTENTE } from "./verif";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Édition du planning" };
@@ -240,6 +242,25 @@ export default async function EditionPlanningPage({
     semaines.push({ debut: l, numero: numeroIso(l), affectations: affParSemaine.get(l) ?? 0 });
   }
 
+  /* POSTES À POURVOIR — des affectations sans titulaire, sur la fenêtre
+     affichée. Elles ne figurent pas dans la grille : aucune ligne d'agent
+     ne leur correspond, et c'est justement ce qui les rend visibles ici. */
+  const libelleCreneau = new Map(creneauxRes.data.map((c) => [c.id, c.libelle]));
+  const postesAttente: PosteAttente[] = affRes.data
+    .filter(
+      (a) => a.agent_id.startsWith(PREFIXE_ATTENTE) && a.jour >= debut && a.jour <= finFenetre,
+    )
+    .sort((x, y) => x.jour.localeCompare(y.jour))
+    .map((a) => ({
+      id: a.id,
+      jour: a.jour,
+      creneauId: a.creneau_id,
+      creneauLibelle: libelleCreneau.get(a.creneau_id) ?? a.creneau_id,
+      serviceId: a.service_id,
+      serviceLibelle: libelleService.get(a.service_id) ?? "",
+      note: a.note ?? "",
+    }));
+
   const semainePrecedente = decalerJour(debut, -7);
   const peutRecopier = mode === "edt" && vue === "semaine" && semainePrecedente >= planning.du;
 
@@ -380,6 +401,18 @@ export default async function EditionPlanningPage({
           />
         )}
       </GlassCard>
+
+      <PostesAttente
+        planningId={id}
+        postes={postesAttente}
+        jours={jours.map((j) => j.date)}
+        creneaux={creneaux}
+        services={servicesRes.data
+          .filter((s2) => s2.centre === planning.centre)
+          .map((s2) => ({ id: s2.id, libelle: s2.libelle }))}
+        agents={agents.map((a) => ({ id: a.id, nom: a.nom }))}
+        editable={planning.statut !== "archive"}
+      />
 
       <BarreSemaines
         planningId={id}

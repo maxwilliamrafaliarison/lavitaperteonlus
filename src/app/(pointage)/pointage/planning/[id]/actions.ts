@@ -6,7 +6,7 @@ import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { sbInsert, sbUpdate, sbDelete, sbSelect } from "@/lib/supabase-server";
 import { estValidateur } from "@/lib/planning/validation";
-import { listCreneaux, verifierSeuilsAgent } from "./verif";
+import { listCreneaux, verifierSeuilsAgent, PREFIXE_ATTENTE } from "./verif";
 
 /**
  * Un planning PUBLIÉ est visible du personnel en direct : le modifier sans
@@ -277,6 +277,125 @@ export async function propagerSemaineAction(formData: FormData): Promise<
     resultats.push({ semaine: cible, copiees: r.copiees, ignorees: r.ignorees });
   }
   return { ok: true, resultats };
+}
+
+/* ============================================================
+   POSTES À POURVOIR
+   ============================================================
+   Un poste qu'on sait devoir exister sans savoir encore qui le tiendra.
+   C'est la ligne griffonnée en bas de la feuille Excel — « il faut
+   quelqu'un samedi soir » — à laquelle on donne enfin un lieu dans
+   l'application, au lieu de la garder en tête ou sur un papier.
+
+   Techniquement, une affectation SANS AGENT : le jour, le service et le
+   créneau sont posés, seule la personne manque. L'attribuer ne crée donc
+   rien, elle remplit un trou déjà décrit — et le poste garde son horaire,
+   son service et son lieu au passage.
+
+   L'identifiant d'agent porte le préfixe `__attente-` : il ne peut se
+   confondre avec aucune fiche, il satisfait la contrainte d'unicité (deux
+   postes à pourvoir le même jour dans le même service restent distincts),
+   et tout ce qui parcourt le référentiel l'ignore naturellement.
+   ============================================================ */
+
+export async function ajouterPosteAttenteAction(formData: FormData): Promise<
+  { ok: true } | { ok: false; error: string }
+> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  if (!can(session.user.role, "planning:gerer")) {
+    return { ok: false, error: "Votre rôle ne permet pas de modifier un planning." };
+  }
+  const planningId = String(formData.get("planningId") ?? "").trim();
+  const jour = String(formData.get("jour") ?? "").trim();
+  const creneauId = String(formData.get("creneauId") ?? "").trim();
+  const serviceId = String(formData.get("serviceId") ?? "").trim();
+  const note = String(formData.get("note") ?? "").slice(0, 200);
+  if (!planningId || !/^\d{4}-\d{2}-\d{2}$/.test(jour) || !creneauId) {
+    return { ok: false, error: "Jour et créneau sont nécessaires." };
+  }
+  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
+  if (verrou) return { ok: false, error: verrou };
+
+  /* Le suffixe distingue deux postes à pourvoir le même jour dans le même
+     service — un centre de garde peut en manquer deux. Il vient du compte
+     des postes déjà en attente ce jour-là, pas d'un hasard : relancer la
+     même demande deux fois ne doit pas créer deux lignes. */
+  const { rows: deja } = await sbSelect<{ agent_id: string }>("planning", "affectations", {
+    select: "agent_id",
+    order: "id.asc",
+    limit: 100,
+    filters: { planning_id: `eq.${planningId}`, jour: `eq.${jour}` },
+  });
+  const n = deja.filter((r) => r.agent_id.startsWith(PREFIXE_ATTENTE)).length + 1;
+  const agentId = `${PREFIXE_ATTENTE}${n}`;
+
+  try {
+    await sbInsert("planning", "affectations", [
+      {
+        id: `AFF-ATT-${planningId}-${jour.replace(/-/g, "")}-${n}`,
+        planning_id: planningId,
+        agent_id: agentId,
+        jour,
+        creneau_id: creneauId,
+        service_id: serviceId,
+        debut: "",
+        fin: "",
+        lieu: "",
+        note,
+      },
+    ]);
+    revalidatePath(`/pointage/planning/${planningId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: `Ajout impossible : ${String(e).slice(0, 150)}` };
+  }
+}
+
+/**
+ * Attribue un poste à pourvoir, ou le retire.
+ *
+ * L'attribution est une simple bascule d'agent : le jour, le créneau et le
+ * service sont déjà décrits, et c'est précisément ce qui fait la valeur de
+ * la file d'attente — la décision prise il y a trois jours n'est pas à
+ * reprendre au moment d'y mettre un nom.
+ */
+export async function attribuerPosteAction(formData: FormData): Promise<
+  { ok: true; alertes: string[] } | { ok: false; error: string }
+> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  if (!can(session.user.role, "planning:gerer")) {
+    return { ok: false, error: "Votre rôle ne permet pas de modifier un planning." };
+  }
+  const planningId = String(formData.get("planningId") ?? "").trim();
+  const affectationId = String(formData.get("affectationId") ?? "").trim();
+  const agentId = String(formData.get("agentId") ?? "").trim();
+  if (!planningId || !affectationId) return { ok: false, error: "Paramètres incomplets." };
+  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
+  if (verrou) return { ok: false, error: verrou };
+
+  try {
+    if (!agentId) {
+      await sbDelete("planning", "affectations", { id: `eq.${affectationId}` });
+      revalidatePath(`/pointage/planning/${planningId}`);
+      return { ok: true, alertes: [] };
+    }
+    const { rows } = await sbSelect<{ jour: string }>("planning", "affectations", {
+      select: "jour",
+      order: "id.asc",
+      limit: 1,
+      filters: { id: `eq.${affectationId}` },
+    });
+    await sbUpdate("planning", "affectations", { agent_id: agentId }, { id: `eq.${affectationId}` });
+    const alertes = rows[0]
+      ? (await verifierSeuilsAgent(agentId, rows[0].jour)).map((a) => a.message)
+      : [];
+    revalidatePath(`/pointage/planning/${planningId}`);
+    return { ok: true, alertes };
+  } catch (e) {
+    return { ok: false, error: `Attribution impossible : ${String(e).slice(0, 150)}` };
+  }
 }
 
 export { listCreneaux };

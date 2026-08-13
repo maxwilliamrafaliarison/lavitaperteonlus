@@ -3,6 +3,15 @@ import { dureeCreneau, plagesDuJour, verifierSeuils, type AlerteLegale } from "@
 
 export const listCreneaux = _listCreneaux;
 
+/**
+ * Préfixe des POSTES À POURVOIR — une affectation sans titulaire.
+ *
+ * Il vit ici plutôt que dans `actions.ts` : un module « use server » ne peut
+ * exporter que des fonctions, chacune devenant un point d'entrée HTTP. Une
+ * constante y est refusée à la compilation, et c'est une bonne règle.
+ */
+export const PREFIXE_ATTENTE = "__attente-";
+
 /** Une alerte, rattachée à la personne qu'elle concerne. */
 export interface AlerteAgent extends AlerteLegale {
   agentId: string;
@@ -85,6 +94,9 @@ export async function verifierFenetre(
 
   const out: AlerteAgent[] = [];
   for (const agentId of new Set(affectations.map((a) => a.agent_id))) {
+    /* Un poste à pourvoir n'a pas de titulaire : lui appliquer le repos de
+       onze heures ferait alerter sur une personne qui n'existe pas. */
+    if (agentId.startsWith(PREFIXE_ATTENTE)) continue;
     for (const alerte of verifierSeuils(journeesDe(affectations, parCreneau, agentId))) {
       /* On ne remonte que ce qui touche la fenêtre affichée : signaler un
          dépassement d'une semaine qu'on ne voit pas laisserait le lecteur
