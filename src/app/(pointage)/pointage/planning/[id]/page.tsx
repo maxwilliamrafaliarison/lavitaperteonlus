@@ -14,7 +14,7 @@ import { versHeures } from "@/lib/pointage/calcul";
 import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
 
 import { type CreneauOption } from "./grille";
-import { PlanningGantt } from "./gantt";
+import { PlanningGantt, type Teinte } from "./gantt";
 import { SelecteurVue, dureeDe, decalerJour, type Vue } from "./selecteur-vue";
 import { type BlocEdt } from "./edt";
 import { DupliquerSemaine } from "./dupliquer-semaine";
@@ -40,7 +40,7 @@ export default async function EditionPlanningPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vue?: string; debut?: string; mode?: string; agent?: string }>;
+  searchParams: Promise<{ vue?: string; debut?: string; mode?: string; agent?: string; teinte?: string }>;
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -71,6 +71,9 @@ export default async function EditionPlanningPage({
   const sp = await searchParams;
   const VUES_OK = ["jour", "semaine", "mois", "six"];
   const vue = (VUES_OK.includes(sp.vue ?? "") ? sp.vue : "mois") as Vue;
+  /* Ce qui pilote la couleur vit dans l'URL, comme l'étendue : la vue se
+     partage, se met en favori et survit au rafraîchissement. */
+  const teinte = (sp.teinte === "service" ? "service" : "type") as Teinte;
   const debut =
     /^\d{4}-\d{2}-\d{2}$/.test(sp.debut ?? "") && sp.debut! >= planning.du && sp.debut! <= planning.au
       ? sp.debut!
@@ -128,6 +131,12 @@ export default async function EditionPlanningPage({
   const parAgentService = new Map<string, string>();
   for (const a of affRes.data) if (a.service_id) parAgentService.set(a.agent_id, a.service_id);
   const libelleService = new Map(servicesRes.data.map((s2) => [s2.id, s2.libelle]));
+  /* Les teintes viennent de la base : la DRH peut les changer sans qu'on
+     redéploie. Un service sans couleur retombe sur un gris qui se voit — ce
+     n'est pas un défaut discret, c'est un réglage qui manque. */
+  const couleursServices = Object.fromEntries(
+    servicesRes.data.filter((s2) => s2.couleur).map((s2) => [s2.id, s2.couleur]),
+  );
   const rangService = new Map(servicesRes.data.map((s2) => [s2.id, s2.rang]));
   const groupesMap = new Map<string, typeof agents>();
   for (const a of agents) {
@@ -295,6 +304,25 @@ export default async function EditionPlanningPage({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
+        <nav className="flex gap-1 rounded-xl border border-glass-border p-1" aria-label="Ce qui pilote la couleur">
+          {([
+            { id: "type", libelle: "Couleur : forme du poste" },
+            { id: "service", libelle: "Couleur : service" },
+          ] as const).map((t) => (
+            <Link
+              key={t.id}
+              href={`/pointage/planning/${id}?vue=${vue}&debut=${debut}&mode=${mode}&teinte=${t.id}`}
+              className={
+                teinte === t.id
+                  ? "rounded-lg bg-accent/15 px-3 py-1 text-xs font-medium text-accent"
+                  : "rounded-lg px-3 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              }
+            >
+              {t.libelle}
+            </Link>
+          ))}
+        </nav>
+
         <SelecteurVue
           planningId={id}
           vue={vue}
@@ -347,6 +375,8 @@ export default async function EditionPlanningPage({
             affectations={affectations}
             editable
             densite={densite}
+            teinte={teinte}
+            couleursServices={couleursServices}
           />
         )}
       </GlassCard>

@@ -42,6 +42,25 @@ export const FAMILLES: FamilleCreneau[] = [
 export const classeDe = (type?: string) =>
   FAMILLES.find((f) => f.type === type)?.classe ?? "bg-[oklch(0.75_0_0)] text-[oklch(0.30_0_0)]";
 
+/* ── CE QUI PILOTE LA COULEUR ──────────────────────────────────────────────
+   Une même grille répond à deux questions différentes selon ce qu'on peint.
+   Par TYPE : quelle forme de poste ? — on repère les gardes de nuit et les
+   journées coupées. Par SERVICE : qui tient quoi ? — on voit d'un regard
+   qu'un service n'est plus servi. Le choix vit dans l'URL, donc il se
+   partage, se met en favori et survit au rafraîchissement.
+
+   Les teintes des services viennent de la base (`services.couleur`), donc
+   la DRH peut les changer sans qu'on redéploie. Le gris de secours n'est
+   pas une couleur par défaut : c'est le signe qu'un service n'en a pas. */
+export type Teinte = "type" | "service";
+
+/** Style en ligne : la teinte est une donnée, Tailwind ne peut pas la connaître. */
+export function styleService(couleur?: string): React.CSSProperties {
+  return couleur
+    ? { backgroundColor: couleur, color: "white" }
+    : { backgroundColor: "oklch(0.75 0 0)", color: "oklch(0.30 0 0)" };
+}
+
 export interface GanttProps {
   planningId: string;
   jours: Array<{ date: string; num: string; abrege: string; weekend: boolean }>;
@@ -49,6 +68,10 @@ export interface GanttProps {
   creneaux: CreneauOption[];
   affectations: Record<string, { creneauId: string; debut: string; fin: string; lieu: string }>;
   editable: boolean;
+  /** Ce qui pilote la couleur des barres. Par défaut : le type de créneau. */
+  teinte?: Teinte;
+  /** Couleur de chaque service, lue en base. */
+  couleursServices?: Record<string, string>;
   /**
    * Densité d'affichage. Sur six mois, 183 colonnes ne peuvent pas porter le
    * même détail qu'une semaine : les barres se réduisent à leur couleur, et
@@ -60,6 +83,7 @@ export interface GanttProps {
 
 export function PlanningGantt({
   planningId, jours, groupes, creneaux, affectations, editable, densite = "large",
+  teinte = "type", couleursServices = {},
 }: GanttProps) {
   const compact = densite !== "large";
   const mini = densite === "minimale";
@@ -101,7 +125,7 @@ export function PlanningGantt({
 
   return (
     <div className="space-y-3">
-      <Legende />
+      <Legende teinte={teinte} groupes={groupes} couleursServices={couleursServices} />
 
       <div className="overflow-x-auto rounded-xl border border-glass-border">
         <table className="w-full border-collapse text-xs">
@@ -178,10 +202,14 @@ export function PlanningGantt({
                             disabled={!editable}
                             onClick={() => setEdition({ agentId: a.id, jour: j.date, service: g.service })}
                             title={`${a.nom} · ${j.abrege} ${j.num} · ${c.libelle}${v?.lieu ? ` · ${v.lieu}` : ""}`}
+                            style={teinte === "service" ? styleService(couleursServices[g.service]) : undefined}
                             className={cn(
                               "flex w-full items-center justify-center rounded font-medium leading-none",
                               mini ? "h-5" : compact ? "h-6" : "h-7 px-1 text-[10px]",
-                              classeDe(c.type),
+                              /* Un repos garde toujours son gris : quel que
+                                 soit le mode, ne pas travailler n'est pas
+                                 une couleur de service. */
+                              teinte === "service" && c.type !== "repos" ? "" : classeDe(c.type),
                               editable && "cursor-pointer hover:brightness-110",
                             )}
                           >
@@ -309,7 +337,36 @@ function LigneCouverture({
 }
 
 /** Légende des couleurs — sans elle, le code couleur est une devinette. */
-function Legende() {
+function Legende({
+  teinte, groupes, couleursServices,
+}: {
+  teinte: Teinte;
+  groupes: GanttProps["groupes"];
+  couleursServices: Record<string, string>;
+}) {
+  /* En mode « service », la légende ne liste que les services PRÉSENTS à
+     l'écran : afficher vingt-et-une pastilles quand la grille n'en montre
+     que six, c'est faire chercher au lecteur celles qui le concernent. */
+  if (teinte === "service") {
+    return (
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
+        {groupes.map((g) => (
+          <span key={g.service} className="inline-flex items-center gap-1.5">
+            <span
+              className="size-3 rounded"
+              style={{ backgroundColor: couleursServices[g.service] || "oklch(0.75 0 0)" }}
+              aria-hidden="true"
+            />
+            <span className="text-muted-foreground">{g.libelle}</span>
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <span className={cn("size-3 rounded", classeDe("repos"))} aria-hidden="true" />
+          <span className="text-muted-foreground">Repos, congé, férié</span>
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
       {FAMILLES.map((f) => (
