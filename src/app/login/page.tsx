@@ -152,6 +152,9 @@ export default function LoginPage() {
                     type="email"
                     required
                     autoComplete="email"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     placeholder={t.login.email_placeholder}
                     className="w-full h-12 rounded-2xl glass border pl-11 pr-4 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
@@ -174,6 +177,14 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     autoComplete="current-password"
+                    /* Le clavier d'un téléphone met une majuscule au premier
+                       caractère et corrige les mots : sur un mot de passe,
+                       les deux fabriquent un secret que personne n'a choisi.
+                       C'est la cause la plus fréquente d'un « identifiants
+                       invalides » sur un mot de passe pourtant juste. */
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     placeholder={t.login.password_placeholder}
                     className="w-full h-12 rounded-2xl glass border pl-11 pr-12 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/30 transition-all"
                   />
