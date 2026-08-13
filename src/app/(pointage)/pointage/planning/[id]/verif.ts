@@ -1,7 +1,12 @@
-import { affectationsPeriode, listCreneaux as _listCreneaux } from "@/lib/planning/data";
+import {
+  affectationsPeriode,
+  listCreneaux as _listCreneaux,
+  listParametresPlanning,
+} from "@/lib/planning/data";
 import {
   plagesDuJour,
   verifierSeuils,
+  seuilsDepuisParametres,
   type AlerteLegale,
   type PlageAbsolue,
 } from "@/lib/planning/creneau";
@@ -100,12 +105,14 @@ export async function verifierSeuilsAgent(agentId: string, jour: string): Promis
     return d.toISOString().slice(0, 10);
   };
 
-  const [affectations, creneaux] = await Promise.all([
+  const [affectations, creneaux, parametres] = await Promise.all([
     affectationsPeriode(decale(-7), decale(7)),
     listCreneaux(),
+    listParametresPlanning(),
   ]);
   const parCreneau = new Map(creneaux.map((c) => [c.id, c]));
-  return verifierSeuils(journeesDe(affectations, parCreneau, agentId));
+  const seuils = seuilsDepuisParametres(new Map(parametres.map((p) => [p.cle, p.valeur])));
+  return verifierSeuils(journeesDe(affectations, parCreneau, agentId), seuils);
 }
 
 /**
@@ -139,18 +146,23 @@ export async function verifierFenetre(
       ? decale(du, MAX_JOURS)
       : au;
 
-  const [affectations, creneaux] = await Promise.all([
+  const [affectations, creneaux, parametres] = await Promise.all([
     affectationsPeriode(decale(du, -7), decale(finUtile, 7), agents),
     listCreneaux(),
+    listParametresPlanning(),
   ]);
   const parCreneau = new Map(creneaux.map((c) => [c.id, c]));
+  /* Les seuils viennent de la BASE : le centre est régi par le droit
+     malgache, et la valeur d'un plafond légal n'a rien à faire dans du
+     code compilé. */
+  const seuils = seuilsDepuisParametres(new Map(parametres.map((p) => [p.cle, p.valeur])));
 
   const out: AlerteAgent[] = [];
   for (const agentId of new Set(affectations.map((a) => a.agent_id))) {
     /* Un poste à pourvoir n'a pas de titulaire : lui appliquer le repos de
        onze heures ferait alerter sur une personne qui n'existe pas. */
     if (agentId.startsWith(PREFIXE_ATTENTE)) continue;
-    for (const alerte of verifierSeuils(journeesDe(affectations, parCreneau, agentId))) {
+    for (const alerte of verifierSeuils(journeesDe(affectations, parCreneau, agentId), seuils)) {
       /* On ne remonte que ce qui touche la fenêtre affichée : signaler un
          dépassement d'une semaine qu'on ne voit pas laisserait le lecteur
          sans moyen d'agir. */

@@ -93,12 +93,22 @@ export function plagesDuJour(
   return out;
 }
 
-/* ── Conformité — directive 2003/88/CE ───────────────────────────────── */
+/* ── Conformité — seuils réglables ─────────────────────────────────────
+   Les valeurs par défaut viennent de la directive européenne 2003/88/CE,
+   faute de mieux au moment où ce module a été écrit. Le centre est régi par
+   le DROIT MALGACHE : les seuils doivent donc venir de la base, où la
+   direction les corrige sans qu'on redéploie, et non de constantes gravées
+   dans le code.
+
+   Un seuil à ZÉRO n'est pas « aucune limite » : c'est « on ne contrôle pas
+   ce point ». La distinction compte — une valeur inventée accuse ou
+   acquitte à tort, une valeur absente se voit et s'assume. */
 
 export interface SeuilsLegaux {
-  reposJournalierMinMinutes: number; // art. 3 — 11 h
-  reposHebdoMinMinutes: number; // art. 5 — 35 h
-  maxHebdoMinutes: number; // art. 6 — 48 h en moyenne
+  /** 0 = non contrôlé. */
+  reposJournalierMinMinutes: number;
+  reposHebdoMinMinutes: number;
+  maxHebdoMinutes: number;
 }
 
 export const SEUILS_DEFAUT: SeuilsLegaux = {
@@ -106,6 +116,27 @@ export const SEUILS_DEFAUT: SeuilsLegaux = {
   reposHebdoMinMinutes: 2100,
   maxHebdoMinutes: 2880,
 };
+
+/**
+ * Seuils lus dans `planning.parametres`.
+ *
+ * Les trois clés existaient depuis la migration 014 et n'étaient lues nulle
+ * part : le moteur travaillait sur ses constantes, si bien que changer la
+ * valeur en base ne changeait rien. C'est réparé.
+ */
+export function seuilsDepuisParametres(parametres: Map<string, string>): SeuilsLegaux {
+  const lire = (cle: string, defaut: number) => {
+    const brut = parametres.get(cle);
+    if (brut === undefined || brut === "") return defaut;
+    const v = Number(brut);
+    return Number.isFinite(v) && v >= 0 ? v : defaut;
+  };
+  return {
+    reposJournalierMinMinutes: lire("repos_journalier_min_minutes", SEUILS_DEFAUT.reposJournalierMinMinutes),
+    reposHebdoMinMinutes: lire("repos_hebdo_min_minutes", SEUILS_DEFAUT.reposHebdoMinMinutes),
+    maxHebdoMinutes: lire("max_hebdo_minutes", SEUILS_DEFAUT.maxHebdoMinutes),
+  };
+}
 
 export interface AlerteLegale {
   jour: string;
@@ -137,6 +168,8 @@ export function verifierSeuils(
   const tri = [...journees].sort((a, b) => a.jour.localeCompare(b.jour));
 
   // Repos journalier entre la fin d'un service et la prise du suivant.
+  // Un seuil à zéro dit « on ne contrôle pas » : on ne contrôle pas.
+  if (seuils.reposJournalierMinMinutes > 0)
   for (let i = 0; i < tri.length - 1; i++) {
     const fins = tri[i].plages.map((p) => p.fin).sort();
     const debuts = tri[i + 1].plages.map((p) => p.debut).sort();
@@ -146,7 +179,7 @@ export function verifierSeuils(
       alertes.push({
         jour: tri[i + 1].jour,
         regle: "repos_journalier",
-        message: `Repos de ${versHeures(Math.max(0, repos))} entre deux services — le minimum légal est de ${versHeures(seuils.reposJournalierMinMinutes)} (directive 2003/88/CE, art. 3).`,
+        message: `Repos de ${versHeures(Math.max(0, repos))} entre deux services — le minimum légal est de ${versHeures(seuils.reposJournalierMinMinutes)}.`,
         bloquant: true,
       });
     }
@@ -157,11 +190,11 @@ export function verifierSeuils(
     const fenetre = tri.slice(i, i + 7);
     if (fenetre.length < 7) break;
     const total = fenetre.reduce((s, j) => s + j.minutes, 0);
-    if (total > seuils.maxHebdoMinutes) {
+    if (seuils.maxHebdoMinutes > 0 && total > seuils.maxHebdoMinutes) {
       alertes.push({
         jour: fenetre[0].jour,
         regle: "max_hebdomadaire",
-        message: `${versHeures(total)} sur 7 jours consécutifs à partir du ${fenetre[0].jour} — le plafond est de ${versHeures(seuils.maxHebdoMinutes)} (directive 2003/88/CE, art. 6).`,
+        message: `${versHeures(total)} sur 7 jours consécutifs à partir du ${fenetre[0].jour} — le plafond est de ${versHeures(seuils.maxHebdoMinutes)}.`,
         bloquant: true,
       });
     }
@@ -176,11 +209,11 @@ export function verifierSeuils(
       }
       plusLongue = Math.max(plusLongue, minutesEntre(fins[fins.length - 1], debuts[0]));
     }
-    if (plusLongue < seuils.reposHebdoMinMinutes) {
+    if (seuils.reposHebdoMinMinutes > 0 && plusLongue < seuils.reposHebdoMinMinutes) {
       alertes.push({
         jour: fenetre[0].jour,
         regle: "repos_hebdomadaire",
-        message: `Aucun repos de ${versHeures(seuils.reposHebdoMinMinutes)} consécutives sur la semaine du ${fenetre[0].jour} (directive 2003/88/CE, art. 5).`,
+        message: `Aucun repos de ${versHeures(seuils.reposHebdoMinMinutes)} consécutives sur la semaine du ${fenetre[0].jour}.`,
         bloquant: false,
       });
     }
