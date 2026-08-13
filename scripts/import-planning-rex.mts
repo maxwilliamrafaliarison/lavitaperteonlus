@@ -27,7 +27,7 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
 const { parserFeuilleRex, normaliserNom } = await import("../src/lib/planning/parseur-rex.ts");
-const { resoudreAgent } = await import("../src/lib/pointage/alias.ts");
+const { resoudreAgent, HORS_REFERENTIEL, normaliserUsuel } = await import("../src/lib/pointage/alias.ts");
 
 const APPLY = process.argv.includes("--apply");
 const arg = (nom: string) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.slice(nom.length + 3);
@@ -157,6 +157,14 @@ for (const nom of wb.SheetNames) {
 console.log(`${wb.SheetNames.length} feuilles lues`);
 console.log(`  ${plannings.size} plannings · ${affectations.size} affectations`);
 console.log(`  ${joursEcartes} jour(s) écarté(s) pour date incohérente · ${anomalies.length} anomalie(s)`);
+/* Les personnes volontairement hors référentiel — agents de sécurité
+   extérieurs — ne sont pas des oublis : les compter avec eux ferait
+   revenir un avertissement que personne n'a plus de raison de lire. */
+const exterieurs = [...inconnus].filter(([n]) => HORS_REFERENTIEL.has(normaliserUsuel(n)));
+for (const [n] of exterieurs) inconnus.delete(n);
+if (exterieurs.length) {
+  console.log(`  ${exterieurs.length} nom(s) hors référentiel par décision : ${exterieurs.map(([n, c]) => `${n} (${c})`).join(" · ")}`);
+}
 console.log(`  ${inconnus.size} nom(s) non rattaché(s) à un agent connu`);
 if (ambigus.size) {
   console.log(`  ⚠ ${ambigus.size} nom(s) AMBIGU(S) — à trancher avant import :`);

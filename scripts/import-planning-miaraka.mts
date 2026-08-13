@@ -28,7 +28,7 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
 const { parserFeuilleMiaraka } = await import("../src/lib/planning/parseur-miaraka.ts");
 const { normaliserNom } = await import("../src/lib/planning/parseur-rex.ts");
 const { traverseMinuit } = await import("../src/lib/planning/creneau.ts");
-const { resoudreAgent } = await import("../src/lib/pointage/alias.ts");
+const { resoudreAgent, HORS_REFERENTIEL, normaliserUsuel } = await import("../src/lib/pointage/alias.ts");
 
 const APPLY = process.argv.includes("--apply");
 const arg = (nom: string) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.slice(nom.length + 3);
@@ -143,6 +143,9 @@ for (const nomFeuille of wb.SheetNames) {
 console.log(`${wb.SheetNames.length} feuilles lues`);
 console.log(`  ${plannings.size} plannings · ${affectations.size} affectations`);
 console.log(`  ${anomalies} date(s) écartée(s) · ${nonReconnues} écriture(s) non comprise(s)`);
+const exterieurs = [...inconnus].filter(([n]) => HORS_REFERENTIEL.has(normaliserUsuel(n)));
+for (const [n] of exterieurs) inconnus.delete(n);
+if (exterieurs.length) console.log(`  ${exterieurs.length} nom(s) hors référentiel par décision`);
 console.log(`  ${inconnus.size} agent(s) non rattaché(s)`);
 if (ambigus.size) {
   console.log(`  ⚠ ${ambigus.size} nom(s) AMBIGU(S) — à trancher avant import :`);

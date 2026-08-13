@@ -59,7 +59,35 @@ export const ALIAS_CENTRE: Record<string, string> = {
      le manutentionnaire. */
   manitra: "AG-REX-21",
   felana: "AG-REX-17",
+  /* « Jim » est Onésime, prestataire des deux centres, déjà au référentiel
+     avec 266 passages. Un même homme, deux noms au planning. */
+  jim: "AG-REX-16",
+  /* « Herve (UM) » est le chauffeur des deux centres, le même que « Herve ».
+     Le planning le prouve : le nom long n'apparaît que le 14 août, seul jour
+     de la quinzaine où le nom court est absent — sortie en unité mobile. */
+  herveum: "AG-REX-26",
+  /* Emma du siège travaille à REX et n'est PAS Emma RASOLOMAMPIONONA : les
+     deux figurent au planning les mêmes jours (11, 12, 13 et 14 août), et
+     deux lignes du même jour ne peuvent désigner une seule personne. */
+  emmasiege: "AG-REX-EMMASIEGE",
+  // Prestataires, sans badge : le planning les reconnaît, la pointeuse non.
+  profhaja: "AG-REX-HAJA",
+  haja: "AG-REX-HAJA",
+  mahefa: "AG-REX-MAHEFA",
+  rsnoro: "AG-REX-NORO",
+  noro: "AG-REX-NORO",
 };
+
+/**
+ * Noms cités aux plannings qui ne DOIVENT PAS entrer au référentiel.
+ *
+ * « Diricks » désigne des agents de sécurité extérieurs au centre : ils
+ * tiennent un poste tous les après-midi mais ne relèvent pas de sa paie.
+ * Les lister ici évite qu'un import les signale à chaque passage comme un
+ * oubli — un avertissement qui revient sans jamais rien appeler finit par
+ * être ignoré, et emporte les vrais avec lui.
+ */
+export const HORS_REFERENTIEL = new Set(["diricks"]);
 
 /** Noms usuels propres à MIARAKA : le même mot y désigne quelqu'un d'autre. */
 export const ALIAS_MIARAKA: Record<string, string> = {
