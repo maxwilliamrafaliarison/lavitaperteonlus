@@ -45,20 +45,26 @@ export interface SemaineBarre {
   /** Numéro ISO, tel qu'on le dit à l'oral : « la semaine 34 ». */
   numero: number;
   affectations: number;
+  /**
+   * URL de la semaine, calculée par le serveur.
+   *
+   * Elle est portée par la DONNÉE et non par une fonction passée en
+   * propriété : une fonction ne franchit pas la frontière serveur/client,
+   * et Next.js rompt le rendu — c'est exactement ce qui a mis la page en
+   * erreur le 13 août. Ce qui traverse doit être sérialisable, toujours.
+   */
+  href: string;
 }
 
 export function BarreSemaines({
   planningId,
   semaines,
   courante,
-  lien,
   editable,
 }: {
   planningId: string;
   semaines: SemaineBarre[];
   courante: string;
-  /** Construit l'URL d'une semaine — la navigation reste des liens. */
-  lien: (debut: string) => string;
   editable: boolean;
 }) {
   const router = useRouter();
@@ -163,7 +169,7 @@ export function BarreSemaines({
               )}
             >
               <a
-                href={lien(s.debut)}
+                href={s.href}
                 title={`Semaine du ${s.debut} · ${s.affectations} affectation(s)`}
                 className={cn(
                   "text-xs font-medium tabular-nums",

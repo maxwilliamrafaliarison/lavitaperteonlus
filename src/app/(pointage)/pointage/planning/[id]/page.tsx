@@ -239,7 +239,12 @@ export default async function EditionPlanningPage({
   }
   const semaines: SemaineBarre[] = [];
   for (let l = lundiDe(planning.du); l <= planning.au; l = decalerJour(l, 7)) {
-    semaines.push({ debut: l, numero: numeroIso(l), affectations: affParSemaine.get(l) ?? 0 });
+    semaines.push({
+      debut: l,
+      numero: numeroIso(l),
+      affectations: affParSemaine.get(l) ?? 0,
+      href: `/pointage/planning/${id}?vue=semaine&debut=${l}`,
+    });
   }
 
   /* POSTES À POURVOIR — des affectations sans titulaire, sur la fenêtre
@@ -418,7 +423,6 @@ export default async function EditionPlanningPage({
         planningId={id}
         semaines={semaines}
         courante={lundiDe(debut)}
-        lien={(d) => `/pointage/planning/${id}?vue=semaine&debut=${d}`}
         /* Un planning archivé se consulte, ne se propage pas : proposer
            un geste que le serveur refusera ensuite est pire que de ne pas
            le proposer. */
