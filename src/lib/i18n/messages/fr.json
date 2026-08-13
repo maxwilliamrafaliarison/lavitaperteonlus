@@ -1064,6 +1064,7 @@
     "aucune_donnee": "Aucune donnée sur la période.",
     "nav_corrections": "Corrections",
     "nav_creneaux": "Créneaux",
-    "nav_planning": "Plannings"
+    "nav_planning": "Plannings",
+    "nav_ecarts": "Écarts au planning"
   }
 }

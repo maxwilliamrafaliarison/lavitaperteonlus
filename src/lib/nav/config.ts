@@ -97,6 +97,11 @@ export const APP_NAV: Record<AppKey, AppNav> = {
     items: [
       { href: "/pointage", labelKey: "nav.dashboard", icon: "LayoutDashboard" },
       { href: "/pointage/presence", labelKey: "pointage.nav_presence", icon: "UserCheck" },
+      /* Placé juste après la présence : c'est l'écran de TRAVAIL de la RH,
+         celui qu'elle ouvre chaque matin. Il vit sous `app:pointage` et non
+         sous `pointage:gerer` — lire les écarts est une lecture ; seules
+         les corriger engage la paie. */
+      { href: "/pointage/ecarts", labelKey: "pointage.nav_ecarts", icon: "TriangleAlert" },
       { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2" },
       { href: "/pointage/agents", labelKey: "pointage.nav_agents", icon: "Users" },
       { href: "/pointage/planning", labelKey: "pointage.nav_planning", icon: "CalendarDays", permission: "planning:gerer" },
