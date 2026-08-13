@@ -238,4 +238,45 @@ export async function dupliquerSemaineAction(formData: FormData): Promise<
   }
 }
 
+/**
+ * Propage la semaine affichée sur PLUSIEURS semaines à la fois.
+ *
+ * C'est le geste qui remplace la recopie manuelle : la DRH tient un
+ * roulement — une semaine type qui se répète — et le reportait jusqu'ici
+ * semaine après semaine, à la main, dans un onglet Excel. Ici on allume les
+ * semaines voulues dans la barre du bas et on applique en une fois.
+ *
+ * Les jours DÉJÀ planifiés sont préservés, jamais écrasés : propager sur un
+ * trimestre ne doit pas effacer les ajustements qu'on y a faits. Chaque
+ * semaine est traitée séparément et rend son compte, pour qu'on sache
+ * exactement où la propagation a mordu et où elle s'est effacée.
+ */
+export async function propagerSemaineAction(formData: FormData): Promise<
+  | { ok: true; resultats: Array<{ semaine: string; copiees: number; ignorees: number }> }
+  | { ok: false; error: string }
+> {
+  const cibles = String(formData.get("cibles") ?? "")
+    .split(",")
+    .map((c) => c.trim())
+    .filter((c) => /^\d{4}-\d{2}-\d{2}$/.test(c));
+  if (!cibles.length) return { ok: false, error: "Aucune semaine sélectionnée." };
+  if (cibles.length > 26) {
+    // Un semestre d'un coup est déjà beaucoup ; au-delà, c'est une fausse
+    // manœuvre plus probablement qu'une intention.
+    return { ok: false, error: "Trop de semaines d'un coup : 26 au maximum." };
+  }
+
+  const resultats: Array<{ semaine: string; copiees: number; ignorees: number }> = [];
+  for (const cible of cibles) {
+    const fd = new FormData();
+    fd.set("planningId", String(formData.get("planningId") ?? ""));
+    fd.set("source", String(formData.get("source") ?? ""));
+    fd.set("cible", cible);
+    const r = await dupliquerSemaineAction(fd);
+    if (!r.ok) return { ok: false, error: `Semaine du ${cible} : ${r.error}` };
+    resultats.push({ semaine: cible, copiees: r.copiees, ignorees: r.ignorees });
+  }
+  return { ok: true, resultats };
+}
+
 export { listCreneaux };

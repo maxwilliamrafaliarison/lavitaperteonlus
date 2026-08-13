@@ -20,6 +20,7 @@ import { type BlocEdt } from "./edt";
 import { DupliquerSemaine } from "./dupliquer-semaine";
 import { EdtSolo } from "./edt-solo";
 import { PanneauAlertes } from "./panneau-alertes";
+import { BarreSemaines, type SemaineBarre } from "./barre-semaines";
 import { verifierFenetre } from "./verif";
 
 export const dynamic = "force-dynamic";
@@ -204,6 +205,32 @@ export default async function EditionPlanningPage({
     .sort((x, y) => x.libelle.localeCompare(y.libelle));
 
   const tousAgents = agents.map((a) => ({ id: a.id, nom: a.nom }));
+  /* BARRE DES SEMAINES. Une semaine par case, avec son nombre
+     d'affectations : une semaine encore vide se voit alors sans qu'on
+     l'ouvre. C'est ce qui manquait le 13 août, où la semaine en cours
+     n'existait pas et où l'écran des écarts affichait vingt-deux personnes
+     « hors planning » sans que personne ne l'ait remarqué. */
+  const lundiDe = (j: string) => {
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.toISOString().slice(0, 10);
+  };
+  const numeroIso = (j: string) => {
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 4 - ((d.getUTCDay() + 6) % 7));
+    const debutAn = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - debutAn.getTime()) / 86400000 + 1) / 7);
+  };
+  const affParSemaine = new Map<string, number>();
+  for (const a of affRes.data) {
+    const l = lundiDe(a.jour);
+    affParSemaine.set(l, (affParSemaine.get(l) ?? 0) + 1);
+  }
+  const semaines: SemaineBarre[] = [];
+  for (let l = lundiDe(planning.du); l <= planning.au; l = decalerJour(l, 7)) {
+    semaines.push({ debut: l, numero: numeroIso(l), affectations: affParSemaine.get(l) ?? 0 });
+  }
+
   const semainePrecedente = decalerJour(debut, -7);
   const peutRecopier = mode === "edt" && vue === "semaine" && semainePrecedente >= planning.du;
 
@@ -323,6 +350,17 @@ export default async function EditionPlanningPage({
           />
         )}
       </GlassCard>
+
+      <BarreSemaines
+        planningId={id}
+        semaines={semaines}
+        courante={lundiDe(debut)}
+        lien={(d) => `/pointage/planning/${id}?vue=semaine&debut=${d}`}
+        /* Un planning archivé se consulte, ne se propage pas : proposer
+           un geste que le serveur refusera ensuite est pire que de ne pas
+           le proposer. */
+        editable={planning.statut !== "archive"}
+      />
 
       <PanneauAlertes alertes={alertes.data} />
 
