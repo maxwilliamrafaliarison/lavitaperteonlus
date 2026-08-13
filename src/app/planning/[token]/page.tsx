@@ -86,7 +86,15 @@ export default async function PlanningPublicPage({
   const sp = await searchParams;
   const jourJ = aujourdhui();
   const vue = sp.vue === "mois" ? "mois" : "semaine";
-  const filtreService = sp.service ?? "";
+  /* « Autres » regroupe les affectations SANS service. Son lien portait
+     donc `service=` — une chaîne vide, que l'URL n'écrit pas : le bouton
+     produisait exactement la même adresse que « Tous » et ne filtrait rien.
+     D'où une sentinelle explicite, qui distingue « aucun filtre » de
+     « filtrer sur l'absence de service ». */
+  const SANS_SERVICE = "_autres";
+  const filtreBrut = sp.service ?? "";
+  const filtreService = filtreBrut === SANS_SERVICE ? "" : filtreBrut;
+  const filtreActif = filtreBrut !== "";
 
   // Semaine affichée : celle demandée, sinon celle du jour, bornée au planning.
   let ancre = /^\d{4}-\d{2}-\d{2}$/.test(sp.s ?? "") ? sp.s! : jourJ;
@@ -115,7 +123,7 @@ export default async function PlanningPublicPage({
     if (!c || !agent) continue;
     const sid = a.service_id ?? "";
     servicesVus.add(sid);
-    if (filtreService && sid !== filtreService) continue;
+    if (filtreActif && sid !== filtreService) continue;
     const repos = c.type === "repos";
     const d0 = a.debut || c.debut;
     const f0 = a.fin || c.fin;
@@ -149,12 +157,27 @@ export default async function PlanningPublicPage({
   const lien = (q: { s?: string; service?: string; vue?: string }) => {
     const p = new URLSearchParams();
     p.set("s", q.s ?? ancre);
-    const svc = q.service !== undefined ? q.service : filtreService;
+    const svc = q.service !== undefined ? q.service : filtreBrut;
     if (svc) p.set("service", svc);
     if ((q.vue ?? vue) === "mois") p.set("vue", "mois");
     return `/planning/${token}?${p.toString()}`;
   };
   const pas = vue === "mois" ? 31 : 7;
+
+  /* L'ancre est BORNÉE au planning : demander une date hors période ramène
+     la même page. Les flèches et « Aujourd'hui » pointaient donc des
+     adresses qui ne changeaient rien — on cliquait, il ne se passait rien,
+     ce qui est pire qu'un bouton visiblement éteint. Chaque semaine étant un
+     planning distinct, un planning d'une semaine n'a NI précédent NI
+     suivant : on le dit au lieu de le laisser deviner. */
+  const dansLaPeriode = (j: string) => j >= planning.du && j <= planning.au;
+  const precedent = decaler(ancre, -pas);
+  const suivant = decaler(ancre, pas);
+  const peutReculer = dansLaPeriode(precedent);
+  const peutAvancer = dansLaPeriode(suivant);
+  const peutAujourdhui = dansLaPeriode(jourJ) && lundiDe(jourJ) !== lundiDe(ancre);
+  const inerte =
+    "inline-flex items-center justify-center rounded-lg border border-black/10 text-neutral-300 dark:border-white/10 dark:text-neutral-600";
 
   return (
     <main className="mx-auto min-h-dvh max-w-6xl px-4 py-6 print:max-w-none print:px-0 print:py-0">
@@ -193,28 +216,50 @@ export default async function PlanningPublicPage({
       {/* Navigation + filtre service. */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
         <div className="flex items-center gap-2">
-          <Link href={lien({ s: decaler(ancre, -pas) })} aria-label="Période précédente" className="inline-flex size-8 items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-white/5">
-            <ChevronLeft className="size-4" aria-hidden="true" />
-          </Link>
-          <Link href={lien({ s: decaler(ancre, pas) })} aria-label="Période suivante" className="inline-flex size-8 items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-white/5">
-            <ChevronRight className="size-4" aria-hidden="true" />
-          </Link>
-          <Link href={lien({ s: jourJ })} className="rounded-lg border border-black/15 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-black/5 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-white/5">
-            Aujourd&apos;hui
-          </Link>
+          {peutReculer ? (
+            <Link href={lien({ s: precedent })} aria-label="Période précédente" className="inline-flex size-8 items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-white/5">
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </Link>
+          ) : (
+            <span aria-disabled="true" title="Ce planning commence ici" className={`${inerte} size-8`}>
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </span>
+          )}
+          {peutAvancer ? (
+            <Link href={lien({ s: suivant })} aria-label="Période suivante" className="inline-flex size-8 items-center justify-center rounded-lg border border-black/15 text-neutral-600 hover:bg-black/5 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-white/5">
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </Link>
+          ) : (
+            <span aria-disabled="true" title="Ce planning s'arrête ici" className={`${inerte} size-8`}>
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </span>
+          )}
+          {peutAujourdhui ? (
+            <Link href={lien({ s: jourJ })} className="rounded-lg border border-black/15 px-2.5 py-1.5 text-xs text-neutral-600 hover:bg-black/5 dark:border-white/15 dark:text-neutral-300 dark:hover:bg-white/5">
+              Aujourd&apos;hui
+            </Link>
+          ) : (
+            <span
+              aria-disabled="true"
+              title={dansLaPeriode(jourJ) ? "Vous y êtes" : "Aujourd'hui n'est pas couvert par ce planning"}
+              className={`${inerte} px-2.5 py-1.5 text-xs`}
+            >
+              Aujourd&apos;hui
+            </span>
+          )}
         </div>
         <nav className="flex flex-wrap gap-1.5" aria-label="Filtrer par service">
           <Link
             href={lien({ service: "" })}
-            className={!filtreService ? "rounded-full bg-black/10 px-2.5 py-1 text-[11px] font-medium dark:bg-white/15" : "rounded-full border border-black/15 px-2.5 py-1 text-[11px] text-neutral-500 dark:border-white/15"}
+            className={!filtreActif ? "rounded-full bg-black/10 px-2.5 py-1 text-[11px] font-medium dark:bg-white/15" : "rounded-full border border-black/15 px-2.5 py-1 text-[11px] text-neutral-500 dark:border-white/15"}
           >
             Tous
           </Link>
           {listeServices.map((sid) => (
             <Link
               key={sid || "autres"}
-              href={lien({ service: sid })}
-              className={filtreService === sid ? "rounded-full bg-black/10 px-2.5 py-1 text-[11px] font-medium dark:bg-white/15" : "rounded-full border border-black/15 px-2.5 py-1 text-[11px] text-neutral-500 dark:border-white/15"}
+              href={lien({ service: sid || SANS_SERVICE })}
+              className={filtreBrut === (sid || SANS_SERVICE) ? "rounded-full bg-black/10 px-2.5 py-1 text-[11px] font-medium dark:bg-white/15" : "rounded-full border border-black/15 px-2.5 py-1 text-[11px] text-neutral-500 dark:border-white/15"}
             >
               {nomService(sid)}
             </Link>
@@ -228,7 +273,7 @@ export default async function PlanningPublicPage({
           const jours = Array.from({ length: 7 }, (_, i) => decaler(lundi, i));
           const servicesSemaine = listeServices.filter(
             (sid) =>
-              (!filtreService || sid === filtreService) &&
+              (!filtreActif || sid === filtreService) &&
               jours.some((j) => (cellule.get(`${sid}|${j}`) ?? []).length > 0),
           );
           return (
