@@ -4,11 +4,30 @@ import { revalidatePath } from "next/cache";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
-import { creerPlanning, majPlanning, genererToken } from "@/lib/planning/data";
+import {
+  creerPlanning,
+  majPlanning,
+  genererToken,
+  listPlannings,
+  listAffectations,
+  listCreneaux,
+  listServices,
+  listParametresPlanning,
+} from "@/lib/planning/data";
+import {
+  lireExigences,
+  trousCritiques,
+  resumerTrous,
+  EXIGENCES_DEFAUT,
+} from "@/lib/planning/postes-critiques";
 import { estValidateur, VALIDATEURS } from "@/lib/planning/validation";
 import { envoyerMail } from "@/lib/mail";
 
-export type PlanningResult = { ok: true; id: string; token?: string; avertissement?: string } | { ok: false; error: string };
+export type PlanningResult =
+  | { ok: true; id: string; token?: string; avertissement?: string }
+  /* `trous` accompagne un refus de publication : l'appelant sait alors quoi
+     montrer, et peut proposer de passer outre en saisissant un motif. */
+  | { ok: false; error: string; trous?: string };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -84,6 +103,23 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
   const tokenExistant = String(formData.get("token") ?? "").trim();
   if (!id) return { ok: false, error: "Planning inconnu." };
 
+  /* ── LE SEUL REFUS DE TOUT LE MODULE ─────────────────────────────────
+     Publier, c'est annoncer la semaine au personnel. Une semaine où la
+     garde de nuit de MIARAKA, ou la sécurité et l'accueil de REX, n'ont
+     personne ne doit pas partir sans que quelqu'un l'ait vu et assumé.
+     On ne bloque JAMAIS la saisie — seulement l'annonce, et le motif
+     saisi lève le refus tout en restant écrit sur le planning. */
+  const motif = String(formData.get("motif") ?? "").trim().slice(0, 300);
+  const trous = await trousDuPlanning(id).catch(() => []);
+  if (trous.length > 0 && !motif) {
+    const resume = resumerTrous(trous);
+    return {
+      ok: false,
+      error: `Un poste critique n'est tenu par personne : ${resume}. Complétez le planning, ou publiez en indiquant pourquoi ce poste reste vide.`,
+      trous: resume,
+    };
+  }
+
   const token = /^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : genererToken();
   const maintenant = new Date().toISOString();
   try {
@@ -93,12 +129,72 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
       publie_par: session.user.email ?? "",
       publie_le: maintenant,
       modifie_le: maintenant,
+      /* Le motif reste attaché au planning : une dérogation dont personne
+         ne retrouve la raison six mois plus tard n'en est pas une. */
+      ...(motif && trous.length
+        ? { note: `Publié malgré un poste vide (${resumerTrous(trous)}) — ${motif}` }
+        : {}),
     });
     revalidatePath("/pointage/planning");
-    return { ok: true, id, token };
+    return {
+      ok: true,
+      id,
+      token,
+      ...(trous.length ? { avertissement: `Publié malgré : ${resumerTrous(trous)}` } : {}),
+    };
   } catch (e) {
     return { ok: false, error: `Publication impossible : ${String(e).slice(0, 150)}` };
   }
+}
+
+/**
+ * Postes critiques laissés vides sur toute la période d'un planning.
+ *
+ * La règle vit dans `planning.parametres` sous la clé
+ * `postes_critiques_<CENTRE>` : la direction peut la changer sans qu'on
+ * redéploie. À défaut, on retombe sur ce qu'elle a énoncé le 13 août 2026.
+ */
+async function trousDuPlanning(planningId: string) {
+  const [plannings, affectations, creneaux, services, parametres] = await Promise.all([
+    listPlannings(),
+    listAffectations(planningId),
+    listCreneaux(),
+    listServices(),
+    listParametresPlanning(),
+  ]);
+  const planning = plannings.find((p) => p.id === planningId);
+  if (!planning) return [];
+
+  const cle = `postes_critiques_${planning.centre.toUpperCase()}`;
+  const brut =
+    parametres.find((p) => p.cle === cle)?.valeur ?? EXIGENCES_DEFAUT[planning.centre.toUpperCase()];
+  const libelles = new Map<string, string>([
+    ...services.map((s) => [s.id, s.libelle] as [string, string]),
+    ["garde_nuit", "Garde de nuit"],
+  ]);
+  const exigences = lireExigences(brut, libelles);
+  if (!exigences.length) return [];
+
+  const typeDe = new Map(creneaux.map((c) => [c.id, c.type]));
+  const jours: string[] = [];
+  for (let j = planning.du; j <= planning.au; ) {
+    jours.push(j);
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    j = d.toISOString().slice(0, 10);
+  }
+
+  return trousCritiques(
+    jours,
+    affectations.map((a) => ({
+      jour: a.jour,
+      serviceId: a.service_id,
+      creneauType: typeDe.get(a.creneau_id) ?? "",
+      repos: typeDe.get(a.creneau_id) === "repos",
+      sansTitulaire: a.agent_id.startsWith("__attente-"),
+    })),
+    exigences,
+  );
 }
 
 /** Soumet un brouillon à la validation de la direction. */
@@ -166,6 +262,23 @@ export async function validerPlanningAction(formData: FormData): Promise<Plannin
   const id = String(formData.get("id") ?? "").trim();
   const tokenExistant = String(formData.get("token") ?? "").trim();
   if (!id) return { ok: false, error: "Planning inconnu." };
+  /* ── LE SEUL REFUS DE TOUT LE MODULE ─────────────────────────────────
+     Publier, c'est annoncer la semaine au personnel. Une semaine où la
+     garde de nuit de MIARAKA, ou la sécurité et l'accueil de REX, n'ont
+     personne ne doit pas partir sans que quelqu'un l'ait vu et assumé.
+     On ne bloque JAMAIS la saisie — seulement l'annonce, et le motif
+     saisi lève le refus tout en restant écrit sur le planning. */
+  const motif = String(formData.get("motif") ?? "").trim().slice(0, 300);
+  const trous = await trousDuPlanning(id).catch(() => []);
+  if (trous.length > 0 && !motif) {
+    const resume = resumerTrous(trous);
+    return {
+      ok: false,
+      error: `Un poste critique n'est tenu par personne : ${resume}. Complétez le planning, ou publiez en indiquant pourquoi ce poste reste vide.`,
+      trous: resume,
+    };
+  }
+
   const token = /^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : genererToken();
   const maintenant = new Date().toISOString();
   try {

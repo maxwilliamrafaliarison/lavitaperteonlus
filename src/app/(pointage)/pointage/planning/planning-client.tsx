@@ -124,10 +124,27 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
         valider: validerPlanningAction,
         renvoyer: renvoyerBrouillonAction,
       } as const;
-      const r = await actions[quoi](fd);
+      let r = await actions[quoi](fd);
+
+      /* PASSER OUTRE, MAIS EN LE DISANT. Une semaine dont la garde de nuit
+         ou l'accueil n'a personne peut devoir être publiée quand même —
+         c'est parfois la réalité du centre. On demande alors POURQUOI, et
+         la raison reste écrite sur le planning : une dérogation dont
+         personne ne retrouve le motif six mois plus tard n'en est pas une. */
+      if (!r.ok && "trous" in r && r.trous) {
+        const motif = window.prompt(
+          `Poste critique sans personne — ${r.trous}.\n\n` +
+            "Publier quand même ? Indiquez pourquoi ce poste reste vide (la raison sera conservée sur le planning) :",
+        );
+        if (motif && motif.trim()) {
+          fd.set("motif", motif.trim());
+          r = await actions[quoi](fd);
+        }
+      }
+
       if (r.ok) {
         if ("avertissement" in r && r.avertissement) {
-          toast.warning("Notification non envoyée", { description: r.avertissement, duration: 10000 });
+          toast.warning("À savoir", { description: r.avertissement, duration: 10000 });
         }
         toast.success(
           quoi === "publier" ? "Planning publié"
