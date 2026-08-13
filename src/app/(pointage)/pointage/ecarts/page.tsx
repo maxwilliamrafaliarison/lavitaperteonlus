@@ -67,7 +67,12 @@ export default async function EcartsPage({
   /* GESTION PAR EXCEPTION. Une journée conforme n'a rien à dire : la faire
      défiler noierait les quatre lignes qui comptent sous cinquante qui ne
      comptent pas. Elles restent accessibles, repliées. */
-  const aTraiter = lignes.filter((l) => l.ecarts.etat !== "conforme" && l.ecarts.etat !== "repos");
+  /* « Au travail » et « prend son poste plus tard » ne sont pas des écarts :
+     ce sont les états normaux d'une journée qui n'est pas finie. Les laisser
+     dans la file ferait clignoter trente alertes chaque matin. */
+  const CALME = new Set(["conforme", "repos", "en_cours", "a_venir"]);
+  const aTraiter = lignes.filter((l) => !CALME.has(l.ecarts.etat));
+  const enCours = lignes.filter((l) => l.ecarts.etat === "en_cours" || l.ecarts.etat === "a_venir");
   const conformes = lignes.filter((l) => l.ecarts.etat === "conforme");
   const repos = lignes.filter((l) => l.ecarts.etat === "repos");
 
@@ -215,15 +220,24 @@ export default async function EcartsPage({
           )}
 
           {/* Repliées : présentes pour qui les cherche, absentes pour qui travaille. */}
+          {enCours.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              <span aria-hidden="true" className="font-mono">→</span> {enCours.filter((l) => l.ecarts.etat === "en_cours").length} au
+              travail en ce moment · {enCours.filter((l) => l.ecarts.etat === "a_venir").length} prennent leur poste plus tard.
+              La journée n'est pas finie : ces lignes ne sont pas des écarts.
+            </p>
+          )}
+
           {(conformes.length > 0 || repos.length > 0) && (
             <details className="rounded-2xl glass border px-5 py-3">
               <summary className="cursor-pointer text-sm text-muted-foreground">
                 {conformes.length} journée{conformes.length > 1 ? "s" : ""} conforme
                 {conformes.length > 1 ? "s" : ""}
+                {enCours.length > 0 && ` · ${enCours.length} en cours`}
                 {repos.length > 0 && ` · ${repos.length} en repos`}
               </summary>
               <ul className="mt-3 grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                {[...conformes, ...repos].map(({ agent, ecarts, creneauLibelle }) => (
+                {[...conformes, ...enCours, ...repos].map(({ agent, ecarts, creneauLibelle }) => (
                   <li key={agent.id} className="flex items-baseline gap-2">
                     <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
                       {HABILLAGE[ecarts.etat].signe}
@@ -243,7 +257,7 @@ export default async function EcartsPage({
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             <strong>Lecture.</strong> ▲ retard · ▼ sortie anticipée · ◆ les deux · ! écart trop large pour un
             simple retard, un passage manque probablement · ? aucun passage enregistré alors qu'un créneau
-            était prévu · + a badgé sans créneau prévu. Les minutes d'un jour « à vérifier » sont affichées
+            était prévu · + a badgé sans créneau prévu · → au travail en ce moment. Les minutes d'un jour « à vérifier » sont affichées
             mais ne comptent dans aucun total tant qu'elles n'ont pas été tranchées.
           </p>
         </>

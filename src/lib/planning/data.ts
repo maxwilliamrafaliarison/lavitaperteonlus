@@ -138,8 +138,13 @@ export async function planifiePourAgents(
   for (const a of affectations) {
     const c = parCreneau.get(a.creneau_id);
     if (!c) continue;
-    // Un horaire dérogatoire saisi sur l'affectation prime sur le modèle.
-    const eff = a.debut && a.fin ? { ...c, debut: a.debut, fin: a.fin, minutes: 0 } : c;
+    /* Un horaire dérogatoire saisi sur l'affectation prime sur le modèle —
+       ENTIÈREMENT. Il remplaçait jusqu'ici la seule première plage, et la
+       coupure de l'après-midi du modèle survivait : Aliniaina, dérogation
+       « 07:00-17:00 » sur un modèle « 8h-12h / 14h-17h », ressortait en
+       « 07:00–17:00 / 14:00–17:00 » — trois heures comptées deux fois.
+       Écrire un horaire à la main, c'est décrire toute la journée. */
+    const eff = a.debut && a.fin ? { ...c, debut: a.debut, fin: a.fin, debut2: "", fin2: "", minutes: 0 } : c;
     const parJour = out.get(a.agent_id) ?? new Map<string, JourPlanifie>();
     parJour.set(a.jour, {
       jour: a.jour,

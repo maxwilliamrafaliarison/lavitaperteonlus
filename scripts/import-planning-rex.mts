@@ -27,11 +27,23 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
 const { parserFeuilleRex, normaliserNom } = await import("../src/lib/planning/parseur-rex.ts");
+const { resoudreAgent } = await import("../src/lib/pointage/alias.ts");
 
 const APPLY = process.argv.includes("--apply");
-const D = "/Users/maxwilliamrafaliarison/Library/CloudStorage/OneDrive-Personnel/Documents/Centre REX/Planning/";
-// Le plus récent et le plus complet des 6 fichiers REX (31 feuilles).
-const FICHIER = "Planning REX_2707-0208.xlsx";
+const arg = (nom: string) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.slice(nom.length + 3);
+/* Le fichier et le statut sont paramétrables : la reprise historique
+   importait des semaines révolues (« archive »), une semaine à venir se
+   dépose en « brouillon » et c'est la RH qui la publie — publier, c'est
+   rendre le planning visible au personnel, et cela ne se fait pas par
+   effet de bord d'un import. */
+const CHEMIN = arg("fichier");
+const D = CHEMIN
+  ? CHEMIN.slice(0, CHEMIN.lastIndexOf("/") + 1)
+  : "/Users/maxwilliamrafaliarison/Library/CloudStorage/OneDrive-Personnel/Documents/Centre REX/Planning/";
+const FICHIER = CHEMIN ? CHEMIN.slice(CHEMIN.lastIndexOf("/") + 1) : "Planning REX_2707-0208.xlsx";
+const STATUT = arg("statut") ?? "archive";
+/** Restreint l'import à certaines feuilles (« 1008-1608,0308-0908 »). */
+const FEUILLES = arg("feuilles")?.split(",").map((f) => f.trim()).filter(Boolean);
 
 const U = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const K = (process.env.SUPABASE_SERVICE_KEY || process.env.PATIENTS_SUPABASE_SERVICE_KEY || "").replace(/[^A-Za-z0-9._-]/g, "");
@@ -44,15 +56,27 @@ async function pg(schema: string, method: string, path: string, body?: unknown) 
 }
 
 // ── Référentiels ──────────────────────────────────────────────────────────
-const agents: Array<{ id: string; nom: string; prenom: string; site: string }> =
-  await pg("pointage", "GET", "agents?select=id,nom,prenom,site&limit=1000");
+/* `actif` est indispensable : les fiches fusionnées puis archivées
+   répondraient encore aux noms usuels et rendraient « Hervé » ambigu. */
+const agents: Array<{ id: string; nom: string; prenom: string; site: string; actif: boolean }> =
+  await pg("pointage", "GET", "agents?select=id,nom,prenom,site,actif&limit=1000");
 const services: Array<{ id: string; libelle: string }> =
   await pg("planning", "GET", "services?select=id,libelle&limit=200");
 
-const parNomAgent = new Map<string, string>();
-for (const a of agents) {
-  const cle = normaliserNom(a.prenom);
-  if (cle && !parNomAgent.has(cle)) parNomAgent.set(cle, a.id);
+/* La résolution des noms usuels vit dans `src/lib/pointage/alias.ts` : les
+   plannings écrivent « Voahangy » quand le référentiel porte
+   « VOLOLOMBOAHANGY NIVONTSOA TIANA RAZAFIMALALA ». Un nom qui désigne
+   plusieurs agents n'est PAS tranché ici — il est signalé, et la RH
+   arbitre. Coller un planning à la mauvaise personne lui inventerait des
+   retards qu'elle n'a pas faits. */
+const ambigus = new Map<string, string[]>();
+const cachePersonne = new Map<string, string | null>();
+function resoudre(brut: string): string | null {
+  if (cachePersonne.has(brut)) return cachePersonne.get(brut)!;
+  const r = resoudreAgent(brut, agents, "REX");
+  if (r.voie === "ambigu") ambigus.set(brut, r.candidats ?? []);
+  cachePersonne.set(brut, r.agentId);
+  return r.agentId;
 }
 const parLibelleService = new Map<string, string>();
 for (const s of services) parLibelleService.set(normaliserNom(s.libelle), s.id);
@@ -66,6 +90,7 @@ const anomalies: string[] = [];
 let joursEcartes = 0;
 
 for (const nom of wb.SheetNames) {
+  if (FEUILLES && !FEUILLES.includes(nom)) continue;
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[nom], { header: 1, raw: false });
   const r = parserFeuilleRex(nom, rows);
   anomalies.push(...r.anomalies);
@@ -87,7 +112,7 @@ for (const nom of wb.SheetNames) {
     du: jours[0],
     au: jours[jours.length - 1],
     libelle: `Planning REX du ${jours[0]} au ${jours[jours.length - 1]}`,
-    statut: "archive",
+    statut: STATUT,
     token_public: "",
     publie_par: "",
     publie_le: "",
@@ -103,7 +128,7 @@ for (const nom of wb.SheetNames) {
     const tous = new Set([...a.matin, ...a.apresMidi]);
     for (const brut of tous) {
       const cle = normaliserNom(brut);
-      const agentId = parNomAgent.get(cle);
+      const agentId = resoudre(brut);
       if (!agentId) {
         inconnus.set(brut, (inconnus.get(brut) ?? 0) + 1);
         continue;
@@ -133,6 +158,10 @@ console.log(`${wb.SheetNames.length} feuilles lues`);
 console.log(`  ${plannings.size} plannings · ${affectations.size} affectations`);
 console.log(`  ${joursEcartes} jour(s) écarté(s) pour date incohérente · ${anomalies.length} anomalie(s)`);
 console.log(`  ${inconnus.size} nom(s) non rattaché(s) à un agent connu`);
+if (ambigus.size) {
+  console.log(`  ⚠ ${ambigus.size} nom(s) AMBIGU(S) — à trancher avant import :`);
+  for (const [n, c] of ambigus) console.log(`      « ${n} » → ${c.join("  |  ")}`);
+}
 if (inconnus.size) {
   const top = [...inconnus].sort((a, b) => b[1] - a[1]).slice(0, 12);
   console.log("    " + top.map(([n, c]) => `${n} (${c})`).join(" · "));

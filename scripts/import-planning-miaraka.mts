@@ -28,10 +28,16 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
 const { parserFeuilleMiaraka } = await import("../src/lib/planning/parseur-miaraka.ts");
 const { normaliserNom } = await import("../src/lib/planning/parseur-rex.ts");
 const { traverseMinuit } = await import("../src/lib/planning/creneau.ts");
+const { resoudreAgent } = await import("../src/lib/pointage/alias.ts");
 
 const APPLY = process.argv.includes("--apply");
-const D = "/Users/maxwilliamrafaliarison/Library/CloudStorage/OneDrive-Personnel/Documents/Centre REX/Planning/";
-const FICHIER = "Planning Miaraka 2026_AOUT 26.xlsx";
+const arg = (nom: string) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.slice(nom.length + 3);
+const CHEMIN = arg("fichier");
+const D = CHEMIN
+  ? CHEMIN.slice(0, CHEMIN.lastIndexOf("/") + 1)
+  : "/Users/maxwilliamrafaliarison/Library/CloudStorage/OneDrive-Personnel/Documents/Centre REX/Planning/";
+const FICHIER = CHEMIN ? CHEMIN.slice(CHEMIN.lastIndexOf("/") + 1) : "Planning Miaraka 2026_AOUT 26.xlsx";
+const STATUT = arg("statut") ?? "archive";
 
 const U = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const K = (process.env.SUPABASE_SERVICE_KEY || process.env.PATIENTS_SUPABASE_SERVICE_KEY || "").replace(/[^A-Za-z0-9._-]/g, "");
@@ -44,30 +50,26 @@ async function pg(schema: string, method: string, path: string, body?: unknown) 
 }
 
 // ── Référentiel des agents ────────────────────────────────────────────────
-const agents: Array<{ id: string; nom: string; prenom: string; site: string }> =
-  await pg("pointage", "GET", "agents?select=id,nom,prenom,site&limit=1000");
-// On privilégie les agents rattachés à MIARAKA : les prénoms se répètent
-// entre les deux centres (Emma, Herve, Maurice…) et un rapprochement
-// indifférencié attribuerait les heures à la mauvaise personne.
-const parNom = new Map<string, string>();
-for (const a of [...agents].sort((x, y) => (x.site === "MIARAKA" ? -1 : 1))) {
-  const cle = normaliserNom(a.prenom);
-  if (cle && !parNom.has(cle)) parNom.set(cle, a.id);
-}
-
-// Abréviations employées dans les en-têtes de colonnes du planning, qui ne
-// correspondent à aucun prénom du référentiel. « J.CLAUDE » représente à lui
-// seul 473 affectations : le laisser de côté amputerait le planning d'un
-// agent à temps plein.
-const ALIAS: Record<string, string> = {
-  "j claude": "jeanclaude",
-  "jean claude": "jeanclaude",
-  "j.claude": "jeanclaude",
-  toma: "tome",
-};
+/* On passe TOUTES les fiches, archivées comprises : le module d'alias en a
+   besoin pour suivre une fiche absorbée jusqu'à celle qui l'a remplacée. */
+const agents: Array<{ id: string; nom: string; prenom: string; site: string; actif: boolean }> =
+  await pg("pointage", "GET", "agents?select=id,nom,prenom,site,actif&limit=1000");
+/* La résolution des noms usuels est CENTRALISÉE dans
+   `src/lib/pointage/alias.ts`. Elle porte les arbitrages vérifiés sur les
+   données : « Isabelle » désigne la médecin généraliste à MIARAKA et une
+   collaboratrice à REX, « Lalao » est la FIN de « TINALALAO » et aucune
+   règle mécanique ne la trouve, « J.CLAUDE » à lui seul porte 473
+   affectations. Un nom qui répond pour plusieurs agents n'est pas tranché :
+   il est signalé, et la RH arbitre. */
+const ambigus = new Map<string, string[]>();
+const cacheNom = new Map<string, string | undefined>();
 const resoudre = (nom: string): string | undefined => {
-  const cle = normaliserNom(nom);
-  return parNom.get(cle) ?? parNom.get(ALIAS[cle] ?? "");
+  if (cacheNom.has(nom)) return cacheNom.get(nom);
+  const r = resoudreAgent(nom, agents, "MIARAKA");
+  if (r.voie === "ambigu") ambigus.set(nom, r.candidats ?? []);
+  const id = r.agentId ?? undefined;
+  cacheNom.set(nom, id);
+  return id;
 };
 
 // ── Lecture ───────────────────────────────────────────────────────────────
@@ -92,7 +94,7 @@ for (const nomFeuille of wb.SheetNames) {
     du: jours[0],
     au: jours[jours.length - 1],
     libelle: `Planning MIARAKA du ${jours[0]} au ${jours[jours.length - 1]}`,
-    statut: "archive",
+    statut: STATUT,
     token_public: "",
     publie_par: "",
     publie_le: "",
@@ -142,6 +144,10 @@ console.log(`${wb.SheetNames.length} feuilles lues`);
 console.log(`  ${plannings.size} plannings · ${affectations.size} affectations`);
 console.log(`  ${anomalies} date(s) écartée(s) · ${nonReconnues} écriture(s) non comprise(s)`);
 console.log(`  ${inconnus.size} agent(s) non rattaché(s)`);
+if (ambigus.size) {
+  console.log(`  ⚠ ${ambigus.size} nom(s) AMBIGU(S) — à trancher avant import :`);
+  for (const [n, c] of ambigus) console.log(`      « ${n} » → ${c.join("  |  ")}`);
+}
 if (inconnus.size) {
   console.log("    " + [...inconnus].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([n, c]) => `${n} (${c})`).join(" · "));
 }
@@ -158,15 +164,31 @@ const nvP = [...plannings.values()].filter((p) => !idsP.has(p.id as string));
 if (nvP.length) await pg("planning", "POST", "plannings", nvP);
 console.log(`✅ ${nvP.length} plannings créés`);
 
+/* Deux garde-fous, et non un seul. L'identifiant protège du doublon exact ;
+   la CLÉ MÉTIER (planning, agent, jour, service) protège du doublon
+   déguisé — celui qu'a créé la fusion des fiches, où une affectation
+   importée jadis sous « AG-MIARAKA-23 » occupe désormais la place de
+   « AG-REX-40 » sous un identifiant différent. Sans ce second filtre,
+   l'import s'arrête sur une violation de contrainte à mi-course. */
 const dejaA = new Set<string>();
+const dejaCle = new Set<string>();
 for (let off = 0; ; off += 1000) {
-  const page: Array<{ id: string }> = await pg("planning", "GET", `affectations?select=id&order=id.asc&limit=1000&offset=${off}`);
-  page.forEach((x) => dejaA.add(x.id));
+  const page: Array<{ id: string; planning_id: string; agent_id: string; jour: string; service_id: string }> =
+    await pg("planning", "GET", `affectations?select=id,planning_id,agent_id,jour,service_id&order=id.asc&limit=1000&offset=${off}`);
+  for (const x of page) {
+    dejaA.add(x.id);
+    dejaCle.add(`${x.planning_id}|${x.agent_id}|${x.jour}|${x.service_id}`);
+  }
   if (page.length < 1000) break;
 }
-const nvA = [...affectations.values()].filter((a) => !dejaA.has(a.id as string));
+const cleMetier = (a: Record<string, unknown>) =>
+  `${a.planning_id}|${a.agent_id}|${a.jour}|${a.service_id}`;
+const nvA = [...affectations.values()].filter(
+  (a) => !dejaA.has(a.id as string) && !dejaCle.has(cleMetier(a)),
+);
+const ecartes = affectations.size - nvA.length;
 for (let i = 0; i < nvA.length; i += 500) {
   await pg("planning", "POST", "affectations", nvA.slice(i, i + 500));
   process.stdout.write(`\r  affectations : ${Math.min(i + 500, nvA.length)}/${nvA.length}`);
 }
-console.log(`\n✅ ${nvA.length} affectations créées`);
+console.log(`\n✅ ${nvA.length} affectations créées · ${ecartes} déjà présentes`);

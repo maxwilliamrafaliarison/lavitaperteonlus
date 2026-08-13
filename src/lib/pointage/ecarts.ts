@@ -155,6 +155,8 @@ export type EtatJour =
   | "retard_et_sortie" // les deux le même jour
   | "sans_badge" // planifié, mais aucun passage : à vérifier, pas à sanctionner
   | "a_verifier" // écart si large qu'un passage manque sûrement
+  | "en_cours" // entré, pas encore ressorti — la journée n'est pas finie
+  | "a_venir" // le créneau du jour n'a pas encore commencé
   | "hors_planning"; // a badgé alors que rien n'était prévu
 
 export interface EcartsJour {
@@ -223,6 +225,17 @@ export function ecartsDuJour(
   passages: PassageSite[],
   creneau: CreneauDuJour | null,
   reglage: ReglageEcarts = REGLAGE_DEFAUT,
+  /**
+   * Heure courante ("HH:MM"), UNIQUEMENT quand `jour` est la journée en
+   * cours. Sans elle, la fonction juge une journée révolue.
+   *
+   * Elle change tout : à dix heures du matin, celui qui prend son poste à
+   * 14 h n'est pas « sans badge », il est attendu ; et celui qui est entré
+   * à 8 h sans être ressorti n'a pas oublié de badger, il travaille. Sans
+   * cette distinction, l'écran affiche trente alertes chaque matin et la
+   * RH cesse de le lire — le pire sort possible pour un outil d'alerte.
+   */
+  maintenant?: string,
 ): EcartsJour {
   const motifs: string[] = [];
   const tries = [...passages].sort((a, b) => a.horodatage.localeCompare(b.horodatage));
@@ -253,8 +266,14 @@ export function ecartsDuJour(
   const debutPrevu = versMinutes(creneau.debut);
   const finPrevue = versMinutes(creneau.fin2 || creneau.fin);
 
+  const heureCourante = maintenant ? versMinutes(maintenant) : null;
+
   // 2. Prévu, mais aucun passage. On ne conclut RIEN d'autre que le fait.
   if (heures.length === 0) {
+    if (heureCourante !== null && debutPrevu !== null && heureCourante < debutPrevu) {
+      motifs.push(`Prend son poste à ${creneau.debut}`);
+      return { ...vide, etat: "a_venir", motifs };
+    }
     motifs.push(
       `Aucun passage enregistré pour le créneau ${creneau.libelle || `${creneau.debut}–${creneau.fin}`}`,
     );
@@ -287,18 +306,23 @@ export function ecartsDuJour(
   }
 
   const dernier = versMinutes(heures.at(-1)!)!;
+  /* Journée en cours et nombre IMPAIR de passages : la personne est entrée
+     et n'est pas ressortie. Elle est au travail, pas en faute. */
+  const encorePresent = heureCourante !== null && heures.length % 2 === 1;
+
   let departAnticipeMinutes = 0;
   /* Un seul passage ne dit pas une sortie anticipée : il dit une sortie non
      badgée. Confondre les deux ferait payer à la personne l'oubli de la
      machine. */
-  if (finPrevue !== null && heures.length >= 2) {
+  if (finPrevue !== null && heures.length >= 2 && !encorePresent) {
     const a = finPrevue - dernier - reglage.toleranceRetardMinutes;
     if (a > 0) {
       departAnticipeMinutes = a;
       motifs.push(`Sortie ${a} min avant la fin prévue à ${creneau.fin2 || creneau.fin}`);
     }
   }
-  if (heures.length === 1) motifs.push("Un seul passage : la sortie n'a pas été badgée");
+  if (encorePresent) motifs.push(`Au travail depuis ${heures.at(-1)}`);
+  else if (heures.length === 1) motifs.push("Un seul passage : la sortie n'a pas été badgée");
 
   // 5. Heures de nuit sur les plages réellement travaillées.
   let minutesNuit = 0;
@@ -324,16 +348,19 @@ export function ecartsDuJour(
   /* Un écart démesuré n'est pas une faute, c'est un passage manquant.
      On le dit, et on ne reproche rien tant qu'un humain n'a pas tranché. */
   const douteux =
-    retardMinutes >= reglage.seuilDouteMinutes ||
-    departAnticipeMinutes >= reglage.seuilDouteMinutes ||
-    heures.length === 1;
+    !encorePresent &&
+    (retardMinutes >= reglage.seuilDouteMinutes ||
+      departAnticipeMinutes >= reglage.seuilDouteMinutes ||
+      heures.length === 1);
   if (douteux && (retardMinutes > 0 || departAnticipeMinutes > 0)) {
     motifs.push("Écart trop large pour un simple retard : un passage manque probablement");
   }
 
   const etat: EtatJour = douteux
     ? "a_verifier"
-    : retardMinutes > 0 && departAnticipeMinutes > 0
+    : encorePresent && retardMinutes === 0
+      ? "en_cours"
+      : retardMinutes > 0 && departAnticipeMinutes > 0
       ? "retard_et_sortie"
       : retardMinutes > 0
         ? "retard"
@@ -378,6 +405,8 @@ export const HABILLAGE: Record<EtatJour, { signe: string; mot: string; ton: stri
   retard_et_sortie: { signe: "◆", mot: "Retard et sortie anticipée", ton: "alerte" },
   sans_badge: { signe: "?", mot: "Sans badge", ton: "attention" },
   a_verifier: { signe: "!", mot: "À vérifier", ton: "attention" },
+  en_cours: { signe: "→", mot: "Au travail", ton: "neutre" },
+  a_venir: { signe: "·", mot: "Prend son poste plus tard", ton: "neutre" },
   hors_planning: { signe: "+", mot: "Hors planning", ton: "attention" },
   repos: { signe: "—", mot: "Repos", ton: "neutre" },
 };
@@ -390,7 +419,7 @@ export const HABILLAGE: Record<EtatJour, { signe: string; mot: string; ton: stri
  * doivent peser sur la fiche de personne.
  */
 export function agregerEcarts(jours: EcartsJour[]) {
-  const avérés = jours.filter((j) => j.etat !== "a_verifier");
+  const avérés = jours.filter((j) => j.etat !== "a_verifier" && j.etat !== "en_cours" && j.etat !== "a_venir");
   return {
     joursEnRetard: avérés.filter((j) => j.retardMinutes > 0).length,
     minutesRetard: avérés.reduce((s, j) => s + j.retardMinutes, 0),

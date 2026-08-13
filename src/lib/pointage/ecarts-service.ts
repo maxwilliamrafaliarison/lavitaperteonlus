@@ -78,6 +78,11 @@ export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJ
     parAgent.set(p.agent_id, arr);
   }
 
+  /* L'heure n'est transmise QUE pour la journée en cours : sur un jour
+     révolu, « il est encore au travail » n'a aucun sens. */
+  const nowMada = new Date(Date.now() + 3 * 3600 * 1000);
+  const maintenant = nowMada.toISOString().slice(0, 10) === jour ? nowMada.toISOString().slice(11, 16) : undefined;
+
   const out: EcartsAgentJour[] = [];
   for (const agent of agents.filter((a) => a.actif)) {
     const creneau = versCreneauDuJour(jour, planifie.get(agent.id)?.get(jour));
@@ -86,7 +91,7 @@ export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJ
     if (!creneau && passages.length === 0) continue;
     out.push({
       agent,
-      ecarts: ecartsDuJour(jour, passages, creneau, reglagePourPoste(agent.poste ?? "", params)),
+      ecarts: ecartsDuJour(jour, passages, creneau, reglagePourPoste(agent.poste ?? "", params), maintenant),
       creneauLibelle: creneau?.repos
         ? "Repos"
         : creneau
@@ -101,10 +106,13 @@ export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJ
     retard_et_sortie: 0,
     retard: 1,
     sortie_anticipee: 2,
-    hors_planning: 3,
-    sans_badge: 4,
-    conforme: 5,
-    repos: 6,
+    a_verifier: 3,
+    hors_planning: 4,
+    sans_badge: 5,
+    en_cours: 6,
+    a_venir: 7,
+    conforme: 8,
+    repos: 9,
   };
   return out.sort(
     (a, b) =>
