@@ -1,5 +1,10 @@
 import { affectationsPeriode, listCreneaux as _listCreneaux } from "@/lib/planning/data";
-import { dureeCreneau, plagesDuJour, verifierSeuils, type AlerteLegale } from "@/lib/planning/creneau";
+import {
+  plagesDuJour,
+  verifierSeuils,
+  type AlerteLegale,
+  type PlageAbsolue,
+} from "@/lib/planning/creneau";
 
 export const listCreneaux = _listCreneaux;
 
@@ -18,25 +23,61 @@ export interface AlerteAgent extends AlerteLegale {
   agentNom: string;
 }
 
+/**
+ * Réunit des plages qui se chevauchent ou se touchent, et rend leur durée.
+ *
+ * Une même personne peut tenir DEUX SERVICES le même jour — Lida est aux
+ * vaccins et à la pharmacie le 10 août, et quinze cas existent sur la seule
+ * semaine du 10. Chaque affectation portant ses propres plages, les traiter
+ * séparément revenait à croire qu'elle travaille deux journées : le contrôle
+ * annonçait « 0:00 de repos entre deux services » — entre elle et elle-même —
+ * et comptait ses heures en double, jusqu'à faire sauter le plafond
+ * hebdomadaire sur des semaines parfaitement normales.
+ *
+ * Soixante et une alertes « bloquantes » sur une semaine sans qu'aucune ne
+ * soit vraie : c'est ainsi qu'on apprend à ne plus lire un panneau d'alertes.
+ */
+function fusionnerPlages(plages: PlageAbsolue[]): { plages: PlageAbsolue[]; minutes: number } {
+  const tri = [...plages].sort((a, b) => a.debut.localeCompare(b.debut));
+  const out: PlageAbsolue[] = [];
+  for (const p of tri) {
+    const dernier = out[out.length - 1];
+    if (dernier && p.debut <= dernier.fin) {
+      if (p.fin > dernier.fin) dernier.fin = p.fin;
+      continue;
+    }
+    out.push({ ...p });
+  }
+  const minutes = out.reduce((s, p) => {
+    const a = Date.parse(`${p.debut.replace(" ", "T")}:00Z`);
+    const b = Date.parse(`${p.fin.replace(" ", "T")}:00Z`);
+    return s + (Number.isNaN(a) || Number.isNaN(b) ? 0 : Math.max(0, (b - a) / 60000));
+  }, 0);
+  return { plages: out, minutes };
+}
+
 /** Journées d'un agent, prêtes pour le contrôle des seuils. */
 function journeesDe(
   affectations: Array<{ agent_id: string; jour: string; creneau_id: string; debut: string; fin: string }>,
-  parCreneau: Map<string, Parameters<typeof dureeCreneau>[0] & { debut2: string; fin2: string }>,
+  parCreneau: Map<string, { type: string; debut: string; fin: string; debut2: string; fin2: string; minutes: number }>,
   agentId: string,
 ) {
-  return affectations
-    .filter((a) => a.agent_id === agentId)
-    .map((a) => {
-      const c = parCreneau.get(a.creneau_id);
-      if (!c) return null;
+  /* UNE JOURNÉE, PAS UNE AFFECTATION. On regroupe par date avant de juger :
+     deux services tenus le même jour font une seule journée de travail. */
+  const parJour = new Map<string, PlageAbsolue[]>();
+  for (const a of affectations.filter((x) => x.agent_id === agentId)) {
+    const c = parCreneau.get(a.creneau_id);
+    if (!c) continue;
       /* Même règle que dans `planifiePourAgents` : un horaire dérogatoire
          décrit TOUTE la journée, il ne se superpose pas à la coupure du
          modèle. Sans `debut2`/`fin2` vidés, l'après-midi serait compté deux
          fois et le plafond hebdomadaire sauterait à tort. */
-      const eff = a.debut && a.fin ? { ...c, debut: a.debut, fin: a.fin, debut2: "", fin2: "", minutes: 0 } : c;
-      return { jour: a.jour, plages: plagesDuJour(a.jour, eff), minutes: dureeCreneau(eff) };
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
+    const eff = a.debut && a.fin ? { ...c, debut: a.debut, fin: a.fin, debut2: "", fin2: "", minutes: 0 } : c;
+    parJour.set(a.jour, [...(parJour.get(a.jour) ?? []), ...plagesDuJour(a.jour, eff)]);
+  }
+  return [...parJour.entries()]
+    .sort((x, y) => x[0].localeCompare(y[0]))
+    .map(([jour, plages]) => ({ jour, ...fusionnerPlages(plages) }));
 }
 
 /**
@@ -80,14 +121,26 @@ export async function verifierFenetre(
   du: string,
   au: string,
   nomDe: (agentId: string) => string,
+  /** Les agents à contrôler — ceux du centre affiché, et eux seuls. */
+  agents?: string[],
 ): Promise<AlerteAgent[]> {
   const decale = (jour: string, n: number) => {
     const d = new Date(`${jour}T12:00:00Z`);
     d.setUTCDate(d.getUTCDate() + n);
     return d.toISOString().slice(0, 10);
   };
+  /* La fenêtre de contrôle est BORNÉE. Sur une vue de six mois, déborder de
+     sept jours de chaque côté ferait lire deux cents jours d'affectations
+     pour un panneau que personne ne lit à cette échelle. Au-delà d'un mois,
+     on contrôle le premier mois et on le dit. */
+  const MAX_JOURS = 31;
+  const finUtile =
+    (Date.parse(`${au}T12:00:00Z`) - Date.parse(`${du}T12:00:00Z`)) / 86400000 > MAX_JOURS
+      ? decale(du, MAX_JOURS)
+      : au;
+
   const [affectations, creneaux] = await Promise.all([
-    affectationsPeriode(decale(du, -7), decale(au, 7)),
+    affectationsPeriode(decale(du, -7), decale(finUtile, 7), agents),
     listCreneaux(),
   ]);
   const parCreneau = new Map(creneaux.map((c) => [c.id, c]));
@@ -101,7 +154,7 @@ export async function verifierFenetre(
       /* On ne remonte que ce qui touche la fenêtre affichée : signaler un
          dépassement d'une semaine qu'on ne voit pas laisserait le lecteur
          sans moyen d'agir. */
-      if (alerte.jour && (alerte.jour < du || alerte.jour > au)) continue;
+      if (alerte.jour && (alerte.jour < du || alerte.jour > finUtile)) continue;
       out.push({ ...alerte, agentId, agentNom: nomDe(agentId) });
     }
   }

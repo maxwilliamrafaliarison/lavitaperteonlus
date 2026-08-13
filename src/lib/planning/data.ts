@@ -64,9 +64,20 @@ export const listPlannings = () => lireTout<Planning>("plannings", "du.desc");
 export const listAffectations = (planningId: string) =>
   lireTout<Affectation>("affectations", "jour.asc", { planning_id: `eq.${planningId}` });
 
-/** Affectations d'une période, tous plannings confondus (pour le calcul). */
-export const affectationsPeriode = (du: string, au: string) =>
-  lireTout<Affectation>("affectations", "jour.asc", { and: `(jour.gte.${du},jour.lte.${au})` });
+/**
+ * Affectations d'une période, tous plannings confondus (pour le calcul).
+ *
+ * `agents` restreint la lecture aux personnes qui intéressent l'appelant.
+ * Sans ce filtre, contrôler une semaine de REX chargeait aussi tout MIARAKA
+ * — plusieurs milliers de lignes lues page par page — et la page finissait
+ * par expirer. La règle générale du module tient en une phrase : ne jamais
+ * ramener ce qu'on ne va pas regarder.
+ */
+export const affectationsPeriode = (du: string, au: string, agents?: string[]) =>
+  lireTout<Affectation>("affectations", "jour.asc", {
+    and: `(jour.gte.${du},jour.lte.${au})`,
+    ...(agents?.length ? { agent_id: `in.(${agents.map((a) => `"${a}"`).join(",")})` } : {}),
+  });
 
 export interface ParametrePlanning {
   cle: string;

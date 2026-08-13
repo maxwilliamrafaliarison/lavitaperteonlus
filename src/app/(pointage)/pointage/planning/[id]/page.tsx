@@ -162,7 +162,7 @@ export default async function EditionPlanningPage({
      sur la fenêtre affichée, à chaque rendu. */
   const nomsAgents = new Map(agents.map((a) => [a.id, a.nom]));
   const alertes = await safe(
-    () => verifierFenetre(debut, finFenetre, (id) => nomsAgents.get(id) ?? id),
+    () => verifierFenetre(debut, finFenetre, (id) => nomsAgents.get(id) ?? id, agents.map((a) => a.id)),
     [],
   );
 
