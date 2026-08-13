@@ -68,6 +68,20 @@ export const listAffectations = (planningId: string) =>
 export const affectationsPeriode = (du: string, au: string) =>
   lireTout<Affectation>("affectations", "jour.asc", { and: `(jour.gte.${du},jour.lte.${au})` });
 
+export interface ParametrePlanning {
+  cle: string;
+  valeur: string;
+  note: string;
+}
+
+/**
+ * Réglages du planning, en table plutôt qu'en dur : le plafond d'avance
+ * varie d'un poste à l'autre (quinze minutes pour la sécurité, trente
+ * ailleurs) et la RH doit pouvoir le changer sans qu'on redéploie.
+ */
+export const listParametresPlanning = () =>
+  lireTout<ParametrePlanning>("parametres", "cle.asc");
+
 /**
  * Jeton de consultation : 32 caractères hexadécimaux tirés au sort
  * cryptographiquement (128 bits d'entropie).

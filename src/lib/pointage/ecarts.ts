@@ -65,12 +65,65 @@ export interface ReglageEcarts {
   avanceMaxMinutes: number;
   /** Minutes de battement avant qu'un retard soit compté. 0 au centre. */
   toleranceRetardMinutes: number;
+  /**
+   * Au-delà de cet écart, on cesse de parler de retard.
+   *
+   * Éprouvé sur les données du 28 juillet : un agent dont le premier badge
+   * tombe à 12:02 pour un service à 8 h n'a pas quatre heures de retard —
+   * il a un badge du matin qui manque. Une autre est partie « 4 h 49 en
+   * avance » : elle a travaillé le matin et n'a pas badgé l'après-midi.
+   * Compter ces minutes comme une faute accuserait des gens présents, et
+   * ferait perdre à l'outil la confiance qu'il doit inspirer. Passé ce
+   * seuil, la journée est donc mise À VÉRIFIER : les minutes restent
+   * affichées, mais rien n'est reproché tant qu'un humain n'a pas tranché.
+   */
+  seuilDouteMinutes: number;
 }
 
 export const REGLAGE_DEFAUT: ReglageEcarts = {
   avanceMaxMinutes: 15,
   toleranceRetardMinutes: 0,
+  seuilDouteMinutes: 90,
 };
+
+/** Normalise un intitulé de poste en clé de réglage : « Agent de sécurité »
+    → « agent_de_securite ». Les fiches agents portent des libellés saisis à
+    la main, avec accents, majuscules et abréviations variables. */
+export function clePoste(poste: string): string {
+  return poste
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+/**
+ * Réglage applicable à un poste, lu dans `planning.parametres`.
+ *
+ * Cherche d'abord `avance_max_minutes_<poste>`, puis retombe sur
+ * `avance_max_minutes`. Un poste sans réglage propre n'est pas une erreur :
+ * treize agents n'ont aucun intitulé en fiche, et ils doivent quand même
+ * être calculés.
+ */
+export function reglagePourPoste(
+  poste: string,
+  parametres: Map<string, string>,
+): ReglageEcarts {
+  const lire = (cle: string, defaut: number) => {
+    const v = Number(parametres.get(cle));
+    return Number.isFinite(v) && v >= 0 ? v : defaut;
+  };
+  const specifique = poste ? parametres.get(`avance_max_minutes_${clePoste(poste)}`) : undefined;
+  const avance = Number(specifique);
+  return {
+    avanceMaxMinutes:
+      Number.isFinite(avance) && avance >= 0 ? avance : lire("avance_max_minutes", 30),
+    toleranceRetardMinutes: lire("tolerance_retard_minutes", 0),
+    seuilDouteMinutes: lire("seuil_doute_minutes", 90),
+  };
+}
 
 /** Le créneau planifié pour ce jour-là, tel que le planning le porte. */
 export interface CreneauDuJour {
@@ -101,6 +154,7 @@ export type EtatJour =
   | "sortie_anticipee"
   | "retard_et_sortie" // les deux le même jour
   | "sans_badge" // planifié, mais aucun passage : à vérifier, pas à sanctionner
+  | "a_verifier" // écart si large qu'un passage manque sûrement
   | "hors_planning"; // a badgé alors que rien n'était prévu
 
 export interface EcartsJour {
@@ -267,8 +321,19 @@ export function ecartsDuJour(
     motifs.push(`Passages sur deux sites le même jour : ${sitesBadges.join(" et ")}`);
   }
 
-  const etat: EtatJour =
-    retardMinutes > 0 && departAnticipeMinutes > 0
+  /* Un écart démesuré n'est pas une faute, c'est un passage manquant.
+     On le dit, et on ne reproche rien tant qu'un humain n'a pas tranché. */
+  const douteux =
+    retardMinutes >= reglage.seuilDouteMinutes ||
+    departAnticipeMinutes >= reglage.seuilDouteMinutes ||
+    heures.length === 1;
+  if (douteux && (retardMinutes > 0 || departAnticipeMinutes > 0)) {
+    motifs.push("Écart trop large pour un simple retard : un passage manque probablement");
+  }
+
+  const etat: EtatJour = douteux
+    ? "a_verifier"
+    : retardMinutes > 0 && departAnticipeMinutes > 0
       ? "retard_et_sortie"
       : retardMinutes > 0
         ? "retard"
@@ -312,17 +377,26 @@ export const HABILLAGE: Record<EtatJour, { signe: string; mot: string; ton: stri
   sortie_anticipee: { signe: "▼", mot: "Sortie anticipée", ton: "alerte" },
   retard_et_sortie: { signe: "◆", mot: "Retard et sortie anticipée", ton: "alerte" },
   sans_badge: { signe: "?", mot: "Sans badge", ton: "attention" },
+  a_verifier: { signe: "!", mot: "À vérifier", ton: "attention" },
   hors_planning: { signe: "+", mot: "Hors planning", ton: "attention" },
   repos: { signe: "—", mot: "Repos", ton: "neutre" },
 };
 
-/** Agrège les écarts d'un mois pour l'état d'un agent. */
+/**
+ * Agrège les écarts d'un mois pour l'état d'un agent.
+ *
+ * Les journées « à vérifier » sont comptées à part et n'entrent PAS dans
+ * les totaux de retard : tant qu'un humain n'a pas tranché, ces minutes ne
+ * doivent peser sur la fiche de personne.
+ */
 export function agregerEcarts(jours: EcartsJour[]) {
+  const avérés = jours.filter((j) => j.etat !== "a_verifier");
   return {
-    joursEnRetard: jours.filter((j) => j.retardMinutes > 0).length,
-    minutesRetard: jours.reduce((s, j) => s + j.retardMinutes, 0),
-    joursSortieAnticipee: jours.filter((j) => j.departAnticipeMinutes > 0).length,
-    minutesDepartAnticipe: jours.reduce((s, j) => s + j.departAnticipeMinutes, 0),
+    joursEnRetard: avérés.filter((j) => j.retardMinutes > 0).length,
+    minutesRetard: avérés.reduce((s, j) => s + j.retardMinutes, 0),
+    joursSortieAnticipee: avérés.filter((j) => j.departAnticipeMinutes > 0).length,
+    minutesDepartAnticipe: avérés.reduce((s, j) => s + j.departAnticipeMinutes, 0),
+    joursAVerifier: jours.filter((j) => j.etat === "a_verifier").length,
     minutesNuit: jours.reduce((s, j) => s + j.minutesNuit, 0),
     joursSansBadge: jours.filter((j) => j.etat === "sans_badge").length,
     joursHorsPlanning: jours.filter((j) => j.etat === "hors_planning").length,

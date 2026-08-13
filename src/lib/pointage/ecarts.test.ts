@@ -128,6 +128,7 @@ describe("sans badge — la pointeuse de MIARAKA ne voit pas tout", () => {
   it("un seul passage dit une sortie non badgée, jamais une sortie anticipée", () => {
     const e = ecartsDuJour("2026-07-08", passages("2026-07-08", "MIARAKA", "07:00"), CRENEAU_7_12);
     expect(e.departAnticipeMinutes).toBe(0);
+    expect(e.etat).toBe("a_verifier");
     expect(e.motifs.some((m) => m.includes("sortie n'a pas été badgée"))).toBe(true);
   });
 
@@ -146,6 +147,47 @@ describe("sans badge — la pointeuse de MIARAKA ne voit pas tout", () => {
     });
     expect(e.etat).toBe("hors_planning");
     expect(e.retardMinutes).toBe(0);
+  });
+});
+
+describe("écart démesuré — un passage manque, ce n'est pas une faute", () => {
+  it("28/07, Manitrarivo : premier badge 12:02 pour un service à 8 h → à vérifier, pas 4 h de retard", () => {
+    const e = ecartsDuJour(
+      "2026-07-28",
+      passages("2026-07-28", "REX", "12:02", "17:00"),
+      { debut: "08:00", fin: "17:00", site: "REX", libelle: "8H-12H / 14H-17H" },
+    );
+    expect(e.etat).toBe("a_verifier");
+    expect(e.retardMinutes).toBe(242); // la minute est dite…
+    expect(e.motifs.some((m) => m.includes("passage manque"))).toBe(true); // …mais pas reprochée
+  });
+
+  it("28/07, Lauria : dernier badge 12:11 pour une fin à 17 h → à vérifier", () => {
+    const e = ecartsDuJour(
+      "2026-07-28",
+      passages("2026-07-28", "REX", "08:39", "12:11"),
+      { debut: "08:00", fin: "17:00", site: "REX" },
+    );
+    expect(e.etat).toBe("a_verifier");
+  });
+
+  it("les journées à vérifier ne pèsent pas sur les totaux du mois", () => {
+    const mois = [
+      ecartsDuJour("2026-07-27", passages("2026-07-27", "REX", "08:05", "17:00"), {
+        debut: "08:00",
+        fin: "17:00",
+        site: "REX",
+      }),
+      ecartsDuJour("2026-07-28", passages("2026-07-28", "REX", "12:02", "17:00"), {
+        debut: "08:00",
+        fin: "17:00",
+        site: "REX",
+      }),
+    ];
+    const a = agregerEcarts(mois);
+    expect(a.minutesRetard).toBe(5); // et non 5 + 242
+    expect(a.joursEnRetard).toBe(1);
+    expect(a.joursAVerifier).toBe(1);
   });
 });
 
