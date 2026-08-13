@@ -38,18 +38,29 @@ export function SelecteurVue({
   vue,
   debut,
   bornes,
+  planningPour,
 }: {
   planningId: string;
   vue: Vue;
   debut: string;
-  /** Bornes du planning, pour ne pas proposer de naviguer hors période. */
+  /** Bornes de TOUS les plannings du centre, pas du seul planning affiché. */
   bornes: { du: string; au: string };
+  /**
+   * Le planning qui couvre une date donnée.
+   *
+   * Chaque semaine de REX est un planning distinct : reculer d'une semaine,
+   * c'est CHANGER de planning. Sans cette résolution, la flèche pointait la
+   * semaine précédente du planning courant — qui n'existe pas — et ne menait
+   * nulle part. C'est ce qui la rendait inerte.
+   */
+  planningPour?: (jour: string) => string;
 }) {
   const pas = dureeDe(vue);
-  const lien = (v: Vue, d: string) => `/pointage/planning/${planningId}?vue=${v}&debut=${d}`;
+  const lien = (v: Vue, d: string) =>
+    `/pointage/planning/${planningPour?.(d) ?? planningId}?vue=${v}&debut=${d}`;
 
-  // On borne la navigation au planning : sortir de la période afficherait
-  // des colonnes vides sans qu'on comprenne pourquoi.
+  // On borne la navigation à la période COUVERTE PAR LE CENTRE : sortir
+  // au-delà afficherait des colonnes vides sans qu'on comprenne pourquoi.
   const precedent = decalerJour(debut, -pas);
   const suivant = decalerJour(debut, pas);
   const peutReculer = precedent >= decalerJour(bornes.du, -pas);

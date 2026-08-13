@@ -9,7 +9,14 @@ import { safe } from "@/lib/sheets/safe";
 import { GlassCard } from "@/components/glass/glass-card";
 import { BadgeSite } from "@/components/pointage/badge-site";
 import { listAgents, type Agent, nomAffiche } from "@/lib/pointage/data";
-import { listAffectations, listCreneaux, listPlannings, listServices, type Planning } from "@/lib/planning/data";
+import {
+  listAffectations,
+  listCreneaux,
+  listPlannings,
+  listServices,
+  affectationsPeriode,
+  type Planning,
+} from "@/lib/planning/data";
 import { versHeures } from "@/lib/pointage/calcul";
 import { dureeCreneau, type Creneau } from "@/lib/planning/creneau";
 
@@ -216,37 +223,6 @@ export default async function EditionPlanningPage({
     .sort((x, y) => x.libelle.localeCompare(y.libelle));
 
   const tousAgents = agents.map((a) => ({ id: a.id, nom: a.nom }));
-  /* BARRE DES SEMAINES. Une semaine par case, avec son nombre
-     d'affectations : une semaine encore vide se voit alors sans qu'on
-     l'ouvre. C'est ce qui manquait le 13 août, où la semaine en cours
-     n'existait pas et où l'écran des écarts affichait vingt-deux personnes
-     « hors planning » sans que personne ne l'ait remarqué. */
-  const lundiDe = (j: string) => {
-    const d = new Date(`${j}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
-    return d.toISOString().slice(0, 10);
-  };
-  const numeroIso = (j: string) => {
-    const d = new Date(`${j}T12:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 4 - ((d.getUTCDay() + 6) % 7));
-    const debutAn = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d.getTime() - debutAn.getTime()) / 86400000 + 1) / 7);
-  };
-  const affParSemaine = new Map<string, number>();
-  for (const a of affRes.data) {
-    const l = lundiDe(a.jour);
-    affParSemaine.set(l, (affParSemaine.get(l) ?? 0) + 1);
-  }
-  const semaines: SemaineBarre[] = [];
-  for (let l = lundiDe(planning.du); l <= planning.au; l = decalerJour(l, 7)) {
-    semaines.push({
-      debut: l,
-      numero: numeroIso(l),
-      affectations: affParSemaine.get(l) ?? 0,
-      href: `/pointage/planning/${id}?vue=semaine&debut=${l}`,
-    });
-  }
-
   /* POSTES À POURVOIR — des affectations sans titulaire, sur la fenêtre
      affichée. Elles ne figurent pas dans la grille : aucune ligne d'agent
      ne leur correspond, et c'est justement ce qui les rend visibles ici. */
@@ -265,6 +241,66 @@ export default async function EditionPlanningPage({
       serviceLibelle: libelleService.get(a.service_id) ?? "",
       note: a.note ?? "",
     }));
+
+  /* BARRE DES SEMAINES — SUR TOUT LE CENTRE, PAS SUR LE SEUL PLANNING.
+     Chaque semaine de REX est un planning distinct : `PLN-REX-20260810` ne
+     contient que le 10 au 16 août. Bâtir la barre sur les bornes du planning
+     courant n'affichait donc qu'UNE case, et la flèche de navigation n'avait
+     nulle part où aller — impossible de revenir à juillet. La barre couvre
+     maintenant tous les plannings du centre, et chaque semaine porte l'adresse
+     du planning qui la contient. */
+  const lundiDe = (j: string) => {
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    return d.toISOString().slice(0, 10);
+  };
+  const numeroIso = (j: string) => {
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 4 - ((d.getUTCDay() + 6) % 7));
+    const debutAn = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - debutAn.getTime()) / 86400000 + 1) / 7);
+  };
+
+  const plansDuCentre = plannings.data
+    .filter((p) => p.centre === planning.centre)
+    .sort((a, b) => a.du.localeCompare(b.du));
+
+  /* Une semaine → le planning qui la couvre. Quand deux plannings se
+     chevauchent (MIARAKA couvre six semaines d'un bloc, REX une par une),
+     le plus RÉCENT gagne : c'est celui qu'on vient d'établir. */
+  const planningDeLaSemaine = new Map<string, string>();
+  const semainesVues = new Set<string>();
+  for (const p of plansDuCentre) {
+    for (let l = lundiDe(p.du); l <= p.au; l = decalerJour(l, 7)) {
+      semainesVues.add(l);
+      planningDeLaSemaine.set(l, p.id);
+    }
+  }
+
+  /* Le nombre d'affectations par semaine se lit sur TOUT le centre : c'est
+     lui qui fait voir une semaine vide sans avoir à l'ouvrir. */
+  const bornes = [...semainesVues].sort();
+  const affCentre = bornes.length
+    ? await safe(
+        () => affectationsPeriode(bornes[0], decalerJour(bornes[bornes.length - 1], 6)),
+        [],
+      )
+    : { data: [] as Array<{ jour: string; planning_id: string }> };
+  const affParSemaine = new Map<string, number>();
+  for (const a of affCentre.data) {
+    if (!planningDeLaSemaine.has(lundiDe(a.jour))) continue;
+    // Une affectation d'un autre centre partage la date, pas le planning.
+    if (!plansDuCentre.some((p) => p.id === a.planning_id)) continue;
+    const l = lundiDe(a.jour);
+    affParSemaine.set(l, (affParSemaine.get(l) ?? 0) + 1);
+  }
+
+  const semaines: SemaineBarre[] = bornes.map((l) => ({
+    debut: l,
+    numero: numeroIso(l),
+    affectations: affParSemaine.get(l) ?? 0,
+    href: `/pointage/planning/${planningDeLaSemaine.get(l)}?vue=semaine&debut=${l}`,
+  }));
 
   const semainePrecedente = decalerJour(debut, -7);
   const peutRecopier = mode === "edt" && vue === "semaine" && semainePrecedente >= planning.du;
@@ -353,7 +389,16 @@ export default async function EditionPlanningPage({
           planningId={id}
           vue={vue}
           debut={debut}
-          bornes={{ du: planning.du, au: planning.au }}
+          /* Les bornes sont celles du CENTRE, pas du planning affiché :
+             chaque semaine de REX étant un planning distinct, se borner à
+             lui rendait les flèches inertes dès le premier clic. */
+          bornes={{
+            du: plansDuCentre[0]?.du ?? planning.du,
+            au: plansDuCentre[plansDuCentre.length - 1]?.au ?? planning.au,
+          }}
+          planningPour={(jour) =>
+            planningDeLaSemaine.get(lundiDe(jour)) ?? id
+          }
         />
         <div className="flex flex-wrap items-center gap-2">
           {peutRecopier && (
