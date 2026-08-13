@@ -88,11 +88,16 @@ export const ALIAS_MIARAKA: Record<string, string> = {
      par erreur la seconde « Jeanine RALAIVOAVY », ce qui a fait verser ses
      heures sur la fiche de Jeanine lors de la fusion du 13 août. Corrigé. */
   rova: "AG-REX-28",
-  /* Menja n'a pas de badge : les quatorze identifiants enrôlés sur la
-     pointeuse MIARAKA ne comptent pas le sien. Sa fiche n'existe que pour
-     que le planning la reconnaisse. */
-  menja: "AG-MIARAKA-MENJA",
-  nomenjanahary: "AG-MIARAKA-MENJA",
+  /* « Menja » est MANAMPISOA SUZANNE CLAUDINE NOMENJANAHARY. Son planning
+     est tenu dans le classeur de MIARAKA, mais elle badge à REX sous
+     l'identifiant 39 — 58 passages en mai, 92 en juin. La preuve est
+     horaire : l'onglet « Menja » du classeur porte 8:06, 12:01, 13:54,
+     16:00 le 1er juin, et ce sont à la seconde les passages d'AG-REX-39.
+     Chercher son badge sur la seule pointeuse de son planning était une
+     erreur : au centre, le lieu du badge ne dit pas le lieu du travail.
+     On ne met PAS « nomenjanahary » en alias : Faniloniaina Nomenjanahary
+     porte le même patronyme, et l'ambiguïté serait tranchée à tort. */
+  menja: "AG-REX-39",
   naina: "AG-REX-18",
 };
 
