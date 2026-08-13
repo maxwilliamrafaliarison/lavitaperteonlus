@@ -83,7 +83,16 @@ export const ALIAS_MIARAKA: Record<string, string> = {
   /* « Lalao » est la fin de « TINALALAO », pas son début : aucune règle
      mécanique ne le trouve. */
   lalao: "AG-REX-22",
-  rova: "AG-REX-28", // Niry Rovaniaina RAZAFIMAMONJY
+  /* « Rova » est bien Niry Rovaniaina RAZAFIMAMONJY. Elle est enrôlée sur
+     les DEUX pointeuses — REX-28 et MIARAKA-17 — et le référentiel nommait
+     par erreur la seconde « Jeanine RALAIVOAVY », ce qui a fait verser ses
+     heures sur la fiche de Jeanine lors de la fusion du 13 août. Corrigé. */
+  rova: "AG-REX-28",
+  /* Menja n'a pas de badge : les quatorze identifiants enrôlés sur la
+     pointeuse MIARAKA ne comptent pas le sien. Sa fiche n'existe que pour
+     que le planning la reconnaisse. */
+  menja: "AG-MIARAKA-MENJA",
+  nomenjanahary: "AG-MIARAKA-MENJA",
   naina: "AG-REX-18",
 };
 
