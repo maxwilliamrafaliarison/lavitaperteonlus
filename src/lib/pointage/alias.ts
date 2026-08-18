@@ -93,6 +93,7 @@ export const HORS_REFERENTIEL = new Set(["diricks"]);
 export const ALIAS_MIARAKA: Record<string, string> = {
   feno: "AG-MIARAKA-21", // PHILBERT HERIFENOSOA
   philbert: "AG-MIARAKA-21",
+  philibert: "AG-MIARAKA-21", // orthographe rectifiée par la DRH le 13/08
   toma: "AG-MIARAKA-24", // JEAN CHRYSOSTOME RAKOTONDRAZAFY
   tome: "AG-MIARAKA-24",
   fanja: "AG-MIARAKA-23",

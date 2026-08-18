@@ -79,6 +79,22 @@ export interface Ajustement {
  * désignés que par lui. Le doublon se règle donc à l'affichage — quand
  * l'identité complète contient déjà le prénom usuel, elle se suffit.
  */
+/**
+ * L'agent est-il rattaché à ce centre ?
+ *
+ * La DRH écrit « MIARAKA/REX » pour les dix personnes qui tiennent un poste
+ * dans les deux centres — et c'est la réalité que les badgeages avaient déjà
+ * montrée : le lieu du badge ne dit pas le lieu du travail. Une comparaison
+ * stricte les faisait disparaître des DEUX grilles, chacune ne reconnaissant
+ * pas la chaîne entière.
+ */
+export function rattacheA(site: string, centre: string): boolean {
+  return (site || "")
+    .split(/[\/,+]/)
+    .map((s) => s.trim().toUpperCase())
+    .includes(centre.trim().toUpperCase());
+}
+
 export function nomAffiche(a: Pick<Agent, "prenom" | "nom"> & { id?: string }): string {
   const prenom = (a.prenom ?? "").trim();
   const nom = (a.nom ?? "").trim();

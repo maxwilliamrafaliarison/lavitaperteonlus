@@ -8,7 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
 import { GlassCard } from "@/components/glass/glass-card";
 import { BadgeSite } from "@/components/pointage/badge-site";
-import { listAgents, type Agent, nomAffiche } from "@/lib/pointage/data";
+import { listAgents, type Agent, nomAffiche, rattacheA } from "@/lib/pointage/data";
 import {
   listAffectations,
   listCreneaux,
@@ -70,7 +70,7 @@ export default async function EditionPlanningPage({
   // Seuls les agents du centre concerné : afficher les 66 agents ferait une
   // grille illisible, dont l'essentiel resterait vide.
   const agents = agentsRes.data
-    .filter((a) => a.actif && a.site === planning.centre)
+    .filter((a) => a.actif && rattacheA(a.site, planning.centre))
     .map((a) => ({ id: a.id, nom: nomAffiche(a), statut: a.statut }))
     .sort((x, y) => x.nom.localeCompare(y.nom));
 
