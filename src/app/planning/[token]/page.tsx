@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import { planningParToken, listAffectations, listCreneaux, listServices } from "@/lib/planning/data";
+import { planningParToken, planningsParToken, listAffectations, listCreneaux, listServices } from "@/lib/planning/data";
 import { listAgents, nomAffiche, type Agent } from "@/lib/pointage/data";
 import { aujourdhui, formaterDateHeure } from "@/lib/tz";
 
@@ -69,7 +69,14 @@ export default async function PlanningPublicPage({
   searchParams: Promise<{ s?: string; service?: string; vue?: string }>;
 }) {
   const { token } = await params;
-  const planning = await planningParToken(token);
+  /* Le jeton désigne le CENTRE : plusieurs semaines le partagent. On choisit
+     donc la semaine à montrer AVANT de charger quoi que ce soit — celle
+     demandée, sinon celle d'aujourd'hui. Le lien du personnel ne change
+     jamais ; c'est son contenu qui avance. */
+  const spAvance = await searchParams;
+  const demande = /^\d{4}-\d{2}-\d{2}$/.test(spAvance.s ?? "") ? spAvance.s! : aujourdhui();
+  const publies = await planningsParToken(token);
+  const planning = await planningParToken(token, demande);
   if (!planning) notFound();
 
   const [affectations, creneaux, services, agents] = await Promise.all([
@@ -83,7 +90,7 @@ export default async function PlanningPublicPage({
   const rangService = new Map(services.map((s) => [s.id, s.rang]));
   const parAgent = new Map<string, Agent>(agents.map((a) => [a.id, a]));
 
-  const sp = await searchParams;
+  const sp = spAvance;
   const jourJ = aujourdhui();
   const vue = sp.vue === "mois" ? "mois" : "semaine";
   /* « Autres » regroupe les affectations SANS service. Son lien portait
@@ -97,7 +104,11 @@ export default async function PlanningPublicPage({
   const filtreActif = filtreBrut !== "";
 
   // Semaine affichée : celle demandée, sinon celle du jour, bornée au planning.
-  let ancre = /^\d{4}-\d{2}-\d{2}$/.test(sp.s ?? "") ? sp.s! : jourJ;
+  /* L'ancre est ramenée dans le planning RETENU — celui qui couvre la date
+     demandée. Comme la résolution a déjà choisi la bonne semaine, ce
+     bornage ne sert plus qu'aux dates situées hors de tout planning
+     publié. */
+  let ancre = demande;
   if (ancre < planning.du) ancre = planning.du;
   if (ancre > planning.au) ancre = planning.au;
 
@@ -170,12 +181,16 @@ export default async function PlanningPublicPage({
      ce qui est pire qu'un bouton visiblement éteint. Chaque semaine étant un
      planning distinct, un planning d'une semaine n'a NI précédent NI
      suivant : on le dit au lieu de le laisser deviner. */
-  const dansLaPeriode = (j: string) => j >= planning.du && j <= planning.au;
+  /* La navigation traverse les semaines PUBLIÉES du centre : elle n'est plus
+     bornée au planning affiché, puisqu'ils partagent le même jeton. Une
+     semaine encore en brouillon reste hors d'atteinte — le personnel ne doit
+     pas lire un planning que la direction n'a pas validé. */
+  const couverte = (j: string) => publies.some((p) => p.du <= j && j <= p.au);
   const precedent = decaler(ancre, -pas);
   const suivant = decaler(ancre, pas);
-  const peutReculer = dansLaPeriode(precedent);
-  const peutAvancer = dansLaPeriode(suivant);
-  const peutAujourdhui = dansLaPeriode(jourJ) && lundiDe(jourJ) !== lundiDe(ancre);
+  const peutReculer = couverte(precedent);
+  const peutAvancer = couverte(suivant);
+  const peutAujourdhui = couverte(jourJ) && lundiDe(jourJ) !== lundiDe(ancre);
   const inerte =
     "inline-flex items-center justify-center rounded-lg border border-black/10 text-neutral-300 dark:border-white/10 dark:text-neutral-600";
 
@@ -241,7 +256,7 @@ export default async function PlanningPublicPage({
           ) : (
             <span
               aria-disabled="true"
-              title={dansLaPeriode(jourJ) ? "Vous y êtes" : "Aujourd'hui n'est pas couvert par ce planning"}
+              title={couverte(jourJ) ? "Vous y êtes" : "Aucun planning publié ne couvre aujourd'hui"}
               className={`${inerte} px-2.5 py-1.5 text-xs`}
             >
               Aujourd&apos;hui

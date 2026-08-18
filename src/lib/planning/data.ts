@@ -113,16 +113,54 @@ export const insererAffectations = async (rows: Record<string, unknown>[]) => {
   for (let i = 0; i < rows.length; i += 500) await sbInsert(SCHEMA, "affectations", rows.slice(i, i + 500));
 };
 
-/** Planning publié correspondant à un jeton — null si inconnu ou non publié. */
-export async function planningParToken(token: string): Promise<Planning | null> {
-  if (!/^[a-f0-9]{32}$/.test(token)) return null;
+/**
+ * Plannings publiés portant ce jeton, du plus récent au plus ancien.
+ *
+ * LE JETON DÉSIGNE LE CENTRE, PAS LA SEMAINE. Chaque semaine de REX est un
+ * planning distinct : donner un jeton neuf à chacune obligeait à
+ * rediffuser une adresse tous les lundis, et l'ancienne continuait
+ * d'afficher une semaine périmée sans le dire. Le jeton est donc réutilisé
+ * d'une publication à l'autre — le personnel garde le même lien, et c'est
+ * le contenu qui avance.
+ */
+export async function planningsParToken(token: string): Promise<Planning[]> {
+  if (!/^[a-f0-9]{32}$/.test(token)) return [];
   const { rows } = await sbSelect<Planning>(SCHEMA, "plannings", {
     select: "*",
     order: "du.desc",
-    limit: 1,
+    limit: 200,
     filters: { token_public: `eq.${token}`, statut: "eq.publie" },
   });
-  return rows[0] ?? null;
+  return rows;
+}
+
+/**
+ * Le planning à montrer pour une date donnée.
+ *
+ * Celui qui couvre la date demandée ; à défaut, le plus récent qui la
+ * PRÉCÈDE — on ne projette pas quelqu'un dans une semaine future qui n'est
+ * pas encore publiée ; à défaut encore, le plus ancien publié.
+ */
+export async function planningParToken(token: string, jour?: string): Promise<Planning | null> {
+  const tous = await planningsParToken(token);
+  if (!tous.length) return null;
+  if (!jour) return tous[0];
+  return (
+    tous.find((p) => p.du <= jour && jour <= p.au) ??
+    tous.find((p) => p.au < jour) ??
+    tous[tous.length - 1]
+  );
+}
+
+/** Jeton public déjà en usage dans un centre, s'il en existe un. */
+export async function tokenDuCentre(centre: string): Promise<string> {
+  const { rows } = await sbSelect<Planning>(SCHEMA, "plannings", {
+    select: "token_public",
+    order: "publie_le.desc",
+    limit: 50,
+    filters: { centre: `eq.${centre}` },
+  });
+  return rows.find((p) => /^[a-f0-9]{32}$/.test(p.token_public))?.token_public ?? "";
 }
 
 export interface JourPlanifie {

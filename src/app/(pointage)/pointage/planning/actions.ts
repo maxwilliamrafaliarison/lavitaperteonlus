@@ -13,6 +13,7 @@ import {
   listCreneaux,
   listServices,
   listParametresPlanning,
+  tokenDuCentre,
 } from "@/lib/planning/data";
 import {
   lireExigences,
@@ -120,7 +121,17 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
     };
   }
 
-  const token = /^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : genererToken();
+  /* LE LIEN NE CHANGE JAMAIS. Le jeton appartient au CENTRE : on reprend
+     celui de ses plannings précédents, et une nouvelle semaine publiée
+     s'ajoute simplement derrière la même adresse. Publier semaine par
+     semaine n'oblige donc plus à rediffuser un lien tous les lundis — et
+     l'ancien lien cesse d'afficher une semaine périmée sans le dire. */
+  const plansDuCentre = await listPlannings().catch(() => []);
+  const centre = plansDuCentre.find((p) => p.id === id)?.centre ?? "";
+  const token =
+    (/^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : "") ||
+    (centre ? await tokenDuCentre(centre).catch(() => "") : "") ||
+    genererToken();
   const maintenant = new Date().toISOString();
   try {
     await majPlanning(id, {
@@ -279,7 +290,17 @@ export async function validerPlanningAction(formData: FormData): Promise<Plannin
     };
   }
 
-  const token = /^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : genererToken();
+  /* LE LIEN NE CHANGE JAMAIS. Le jeton appartient au CENTRE : on reprend
+     celui de ses plannings précédents, et une nouvelle semaine publiée
+     s'ajoute simplement derrière la même adresse. Publier semaine par
+     semaine n'oblige donc plus à rediffuser un lien tous les lundis — et
+     l'ancien lien cesse d'afficher une semaine périmée sans le dire. */
+  const plansDuCentre = await listPlannings().catch(() => []);
+  const centre = plansDuCentre.find((p) => p.id === id)?.centre ?? "";
+  const token =
+    (/^[a-f0-9]{32}$/.test(tokenExistant) ? tokenExistant : "") ||
+    (centre ? await tokenDuCentre(centre).catch(() => "") : "") ||
+    genererToken();
   const maintenant = new Date().toISOString();
   try {
     await majPlanning(id, {
