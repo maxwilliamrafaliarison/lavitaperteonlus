@@ -44,11 +44,11 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "La Vita Per Te · Parc Informatique",
+    default: "La Vita Per Te · Applications du centre",
     template: "%s · La Vita Per Te",
   },
   description:
-    "Tableau de bord du parc informatique. Centre REX Fianarantsoa et Centre MIARAKA. ONG-ODV Alfeo Corassori.",
+    "Pharmacie, dossiers patients, personnel et plannings, parc informatique. Centre REX Fianarantsoa et Centre MIARAKA. ONG-ODV Alfeo Corassori.",
   applicationName: "La Vita Per Te Dashboard",
   authors: [{ name: "La Vita Per Te" }],
   creator: "La Vita Per Te",
@@ -58,6 +58,10 @@ export const metadata: Metadata = {
     "Centre REX",
     "MIARAKA",
     "Fianarantsoa",
+    "pharmacie",
+    "dossiers patients",
+    "pointage",
+    "planning",
     "parc informatique",
     "Akbaraly Foundation",
   ],
