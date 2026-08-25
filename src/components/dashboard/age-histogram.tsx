@@ -1,10 +1,41 @@
-import { GlassCard } from "@/components/glass/glass-card";
 import type { AgeBucket } from "@/lib/dashboard-stats";
 import { getT, type Lang } from "@/lib/i18n";
+
+import { BarreEmpilee, Pastille, type Ton } from "./micrographiques";
+
+/* ============================================================
+   ÂGE DU PARC
+   ============================================================
+
+   L'ancien graphique alignait treize colonnes, une par année, dont neuf à
+   zéro : une demi-largeur de page consacrée à montrer que rien n'a été
+   acheté en 2015. Et sa propre légende parlait en TRANCHES d'âge (0-3 ans,
+   4-6, 7-9, 10 et plus), c'est-à-dire au grain auquel la question se pose
+   réellement. Il affichait donc au mauvais grain, et expliquait le bon en
+   dessous.
+
+   Quatre bandes, une seule barre, et la légende en toutes lettres. La forme
+   est celle qui sert déjà à la santé du parc : une page qui multiplie les
+   types de graphiques oblige l'œil à réapprendre à lire à chaque bloc.
+
+   ── CE QUE LE GRAPHIQUE PAR ANNÉE ENTERRAIT ──────────────────────────────
+   Le fait le plus important du parc ne se voyait pas : une seule année
+   concentre le gros des achats. Cela veut dire que ces matériels
+   vieilliront ENSEMBLE, et qu'il faudra les remplacer ensemble. Un
+   responsable qui prépare un budget doit le savoir avant tout le reste ;
+   c'est désormais la première chose écrite.
+   ============================================================ */
 
 interface Props {
   buckets: AgeBucket[];
   lang?: Lang;
+}
+
+interface Tranche {
+  cle: string;
+  libelle: string;
+  ton: Ton;
+  compte: number;
 }
 
 export function AgeHistogram({ buckets, lang = "fr" }: Props) {
@@ -12,84 +43,59 @@ export function AgeHistogram({ buckets, lang = "fr" }: Props) {
 
   if (buckets.length === 0) {
     return (
-      <GlassCard className="p-6">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-          {t("dashboard.age_section")}
-        </p>
-        <h3 className="mt-1 font-display text-lg font-semibold">
-          {t("dashboard.age_title")}
-        </h3>
-        <p className="mt-6 text-sm text-muted-foreground">
-          {t("dashboard.age_empty")}
-        </p>
-      </GlassCard>
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold">{t("dashboard.age_section")}</h3>
+        <p className="text-sm text-muted-foreground">{t("dashboard.age_empty")}</p>
+      </section>
     );
   }
 
-  const max = Math.max(...buckets.map((b) => b.count), 1);
-  const currentYear = new Date().getFullYear();
+  const annee = new Date().getFullYear();
+  /* L'âge se compte en années révolues : un matériel acheté cette année a
+     zéro an, et tombe dans la première tranche. */
+  const tranches: Tranche[] = [
+    { cle: "0_3", libelle: t("dashboard.age_0_3"), ton: "bon", compte: 0 },
+    { cle: "4_6", libelle: t("dashboard.age_4_6"), ton: "neutre", compte: 0 },
+    { cle: "7_9", libelle: t("dashboard.age_7_9"), ton: "vigilance", compte: 0 },
+    { cle: "10_plus", libelle: t("dashboard.age_10_plus"), ton: "critique", compte: 0 },
+  ];
+  for (const b of buckets) {
+    const age = annee - b.year;
+    const i = age <= 3 ? 0 : age <= 6 ? 1 : age <= 9 ? 2 : 3;
+    tranches[i].compte += b.count;
+  }
+  const total = tranches.reduce((s, x) => s + x.compte, 0);
+  const pic = buckets.reduce((a, b) => (b.count > a.count ? b : a), buckets[0]);
 
   return (
-    <GlassCard className="p-6">
-      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-        {t("dashboard.age_section")}
-      </p>
-      <h3 className="mt-1 font-display text-lg font-semibold">
-        {t("dashboard.age_title")}
-      </h3>
-
-      <div className="mt-6 flex items-end gap-1.5 h-40">
-        {buckets.map((b) => {
-          const h = (b.count / max) * 100;
-          const age = currentYear - b.year;
-          // Coloration graduée : récent (cyan) → ancien (rouge)
-          const color =
-            age <= 3
-              ? "oklch(0.80 0.15 190)" // cyan
-              : age <= 6
-                ? "oklch(0.75 0.18 150)" // vert
-                : age <= 9
-                  ? "oklch(0.82 0.16 85)" // jaune
-                  : "oklch(0.64 0.24 27)"; // rouge
-          return (
-            <div
-              key={b.year}
-              className="flex-1 flex flex-col items-center gap-1 group min-w-0"
-              title={t("dashboard.age_tooltip", { year: b.year, count: b.count, age })}
-            >
-              <span className="text-[10px] font-mono tabular-nums text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                {b.count}
-              </span>
-              <div
-                className="w-full rounded-t-md transition-all group-hover:brightness-125"
-                style={{
-                  height: `${Math.max(h, b.count > 0 ? 4 : 1)}%`,
-                  backgroundColor: b.count > 0 ? color : "oklch(1 0 0 / 0.05)",
-                }}
-              />
-              <span className="text-[10px] font-mono tabular-nums text-muted-foreground">
-                {String(b.year).slice(-2)}
-              </span>
-            </div>
-          );
-        })}
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h3 className="text-sm font-semibold">{t("dashboard.age_section")}</h3>
+        {pic.count > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {t("dashboard.age_peak", { year: pic.year, count: pic.count })}
+          </p>
+        )}
       </div>
 
-      <div className="mt-4 flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
-        <Legend color="oklch(0.80 0.15 190)" label={t("dashboard.age_0_3")} />
-        <Legend color="oklch(0.75 0.18 150)" label={t("dashboard.age_4_6")} />
-        <Legend color="oklch(0.82 0.16 85)" label={t("dashboard.age_7_9")} />
-        <Legend color="oklch(0.64 0.24 27)" label={t("dashboard.age_10_plus")} />
-      </div>
-    </GlassCard>
-  );
-}
+      <BarreEmpilee
+        hauteur="h-2.5"
+        segments={tranches.map((x) => ({ valeur: x.compte, ton: x.ton, libelle: x.libelle }))}
+      />
 
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="size-2.5 rounded-sm" style={{ backgroundColor: color }} />
-      {label}
-    </span>
+      <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
+        {tranches
+          .filter((x) => x.compte > 0)
+          .map((x) => (
+            <Pastille key={x.cle} ton={x.ton}>
+              {x.libelle}
+              <span className="ml-1.5 font-medium tabular-nums text-foreground">{x.compte}</span>
+              <span className="ml-1 tabular-nums">
+                {total > 0 ? `${Math.round((x.compte / total) * 100)} %` : ""}
+              </span>
+            </Pastille>
+          ))}
+      </div>
+    </section>
   );
 }

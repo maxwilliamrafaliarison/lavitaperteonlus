@@ -610,7 +610,8 @@
     "export_toast": "Esportazione CSV · {n} dispositivi",
     "export_failed": "Esportazione CSV fallita",
     "health_title": "Salute del parco",
-    "budget_hint": "per {n} apparecchi critici"
+    "budget_hint": "per {n} apparecchi critici",
+    "age_peak": "picco d'acquisto: {year}, {count} apparecchi"
   },
   "obsolescence": {
     "level_ok": "Operativo",

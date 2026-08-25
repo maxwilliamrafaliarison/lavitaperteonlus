@@ -610,7 +610,8 @@
     "export_toast": "Export CSV · {n} matériels",
     "export_failed": "Échec de l'export CSV",
     "health_title": "Santé du parc",
-    "budget_hint": "pour {n} matériels critiques"
+    "budget_hint": "pour {n} matériels critiques",
+    "age_peak": "pic d'achat : {year}, {count} matériels"
   },
   "obsolescence": {
     "level_ok": "Opérationnel",

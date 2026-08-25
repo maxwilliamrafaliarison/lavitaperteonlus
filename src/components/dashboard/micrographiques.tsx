@@ -1,5 +1,5 @@
 /* ============================================================
-   MICROGRAPHIQUES — les primitives visuelles du tableau de bord
+   MICROGRAPHIQUES : les primitives visuelles du tableau de bord
    ============================================================
 
    Trois formes, et trois seulement. Une page qui multiplie les types de
