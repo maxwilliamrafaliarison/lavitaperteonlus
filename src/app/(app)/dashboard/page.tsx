@@ -2,26 +2,28 @@ import type { Metadata } from "next";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import {
-  Cpu, Building2, Users as UsersIcon, AlertTriangle,
-  ArrowRight, TrendingDown, Activity,
-} from "lucide-react";
+import { ArrowRight, TrendingDown } from "lucide-react";
 
 import { GlassCard } from "@/components/glass/glass-card";
 import { GlassButton } from "@/components/glass/glass-button";
 import { ObsolescenceBadge } from "@/components/materials/obsolescence-badge";
 import { MaterialTypeIcon } from "@/components/materials/type-icon";
-import { ObsolescenceDonut } from "@/components/dashboard/obsolescence-donut";
+import {
+  BarreEmpilee,
+  BarreRepere,
+  Mesure,
+  Pastille,
+  tonDuScore,
+} from "@/components/dashboard/micrographiques";
 import { AgeHistogram } from "@/components/dashboard/age-histogram";
 import { SiteBreakdown } from "@/components/dashboard/site-breakdown";
 import { TypeBreakdown } from "@/components/dashboard/type-breakdown";
-import { BudgetCard } from "@/components/dashboard/budget-card";
+import { BudgetCard, fmtAriary } from "@/components/dashboard/budget-card";
 import { RoomHeatmap } from "@/components/dashboard/room-heatmap";
 import { CsvExportButton } from "@/components/dashboard/csv-export-button";
-import { ROLE_LABELS, type Material, type Site, type Room, type AppUser } from "@/types";
+import { ROLE_LABELS, type Material, type Site, type Room } from "@/types";
 import { listMaterials } from "@/lib/sheets/materials";
 import { listSites, listRooms } from "@/lib/sheets/sites";
-import { listUsers } from "@/lib/sheets/users";
 import { safe } from "@/lib/sheets/safe";
 import { scoreObsolescence } from "@/lib/obsolescence";
 import {
@@ -45,17 +47,15 @@ export default async function DashboardPage() {
   const { name, role, lang } = session.user;
   const t = getT(lang);
 
-  const [materialsRes, sitesRes, roomsRes, usersRes] = await Promise.all([
+  const [materialsRes, sitesRes, roomsRes] = await Promise.all([
     safe<Material[]>(() => listMaterials(), []),
     safe<Site[]>(() => listSites(), []),
     safe<Room[]>(() => listRooms(), []),
-    safe<AppUser[]>(() => listUsers(), []),
   ]);
 
   const materials = materialsRes.data;
   const sites = sitesRes.data;
   const rooms = roomsRes.data;
-  const usersCount = usersRes.data.length;
 
   // Agrégations Phase 5
   const distribution = distributionByLevel(materials);
@@ -80,19 +80,21 @@ export default async function DashboardPage() {
   return (
     <>
 
-      <main id="main-content" className="flex-1 p-4 md:p-10 space-y-8 md:space-y-10">
-        {/* Hero greeting + export */}
-        <section className="flex items-end justify-between gap-4 flex-wrap animate-in fade-in slide-in-from-bottom-2 duration-500">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+      {/* Rythme vertical : 32 px entre sections, 24 px dans une section.
+          L'échelle est fermée, comme celle de Stripe : rien entre les deux,
+          donc aucune section ne peut « peser » plus qu'une autre par accident. */}
+      <main id="main-content" className="flex-1 p-4 md:p-8 space-y-8">
+        <section className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {ROLE_LABELS[role][lang]}
             </p>
-            <h2 className="mt-2 font-display text-3xl md:text-4xl font-semibold tracking-tight">
+            {/* 20 px, pas 36 : le plus gros texte d'un écran de travail reste
+                proche du corps, et la hiérarchie passe par la graisse. */}
+            <h2 className="mt-1 font-display text-xl font-semibold tracking-[-0.01em]">
               {t("dashboard.welcome", { name: getFirstName(name) })}
             </h2>
-            <p className="mt-2 text-muted-foreground max-w-2xl">
-              {t("dashboard.subtitle")}
-            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{t("dashboard.subtitle")}</p>
           </div>
           {materials.length > 0 && (
             <CsvExportButton
@@ -104,69 +106,112 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* KPIs */}
-        <section
-          className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
-          style={{ animationDelay: "80ms", animationFillMode: "backwards" }}
-        >
-          <KPI
-            icon={<Cpu className="size-5" />}
-            label={t("dashboard.kpi_materials")}
-            value={materials.length.toString()}
-            hint={`${sites.length} · ${rooms.length}`}
-            accent="primary"
-          />
-          <KPI
-            icon={<Activity className="size-5" />}
-            label={t("dashboard.kpi_score")}
-            value={`${avgScore}/100`}
-            hint={
-              avgScore >= 70 ? t("dashboard.kpi_score_hint_good") :
-              avgScore >= 40 ? t("dashboard.kpi_score_hint_warn") : t("dashboard.kpi_score_hint_bad")
-            }
-            accent={avgScore >= 70 ? "success" : avgScore >= 40 ? "warning" : "primary"}
-          />
-          <KPI
-            icon={<AlertTriangle className="size-5" />}
-            label={t("dashboard.kpi_to_replace")}
-            value={distribution.critical.toString()}
-            hint={`${distribution.warning} ${t("obsolescence.level_warning").toLowerCase()}`}
-            accent="primary"
-          />
-          <KPI
-            icon={<UsersIcon className="size-5" />}
-            label={t("dashboard.kpi_users")}
-            value={usersCount.toString()}
-            hint={`${sites.length} centres`}
-            accent="cyan"
-          />
-        </section>
+        {/* ── LA RANGÉE DE MESURES ────────────────────────────────────
+            Quatre cartes à pastille colorée sont devenues quatre colonnes
+            séparées par un filet. La carte encadrait chaque chiffre, donc
+            aucun ne ressortait ; le filet sépare sans peser. Stripe nomme ce
+            trait « keyline » et en fait son moyen de délimitation de premier
+            rang, la carte n'arrivant qu'ensuite.
 
-        {/* Analytics — Santé du parc */}
-        <section
-          className="grid gap-4 lg:grid-cols-3 animate-in fade-in slide-in-from-bottom-2 duration-500"
-          style={{ animationDelay: "160ms", animationFillMode: "backwards" }}
-        >
-          <div className="lg:col-span-2">
-            <ObsolescenceDonut distribution={distribution} lang={lang} />
+            Le BUDGET entre dans cette rangée, à la place des « utilisateurs
+            de l'application ». Le lecteur ouvre cette page pour savoir ce qui
+            va lui coûter de l'argent ce trimestre ; le nombre de comptes ne
+            répond pas à cette question, et se lit dans le menu Utilisateurs. */}
+        <section className="grid grid-cols-2 gap-x-6 gap-y-6 rounded-xl border border-glass-border px-5 py-4 md:grid-cols-4 md:divide-x md:divide-glass-border">
+          <Mesure
+            etiquette={t("dashboard.kpi_materials")}
+            valeur={materials.length.toString()}
+            detail={`${sites.length} sites · ${rooms.length} salles`}
+          />
+          <div className="md:pl-6">
+            <Mesure
+              etiquette={t("dashboard.kpi_score")}
+              valeur={`${avgScore}`}
+              detail={
+                avgScore >= 70 ? t("dashboard.kpi_score_hint_good")
+                : avgScore >= 40 ? t("dashboard.kpi_score_hint_warn")
+                : t("dashboard.kpi_score_hint_bad")
+              }
+              ton={tonDuScore(avgScore)}
+            >
+              {/* Le seuil de 70 est matérialisé par un trait : on voit si le
+                  parc le franchit, ce qu'un « 81/100 » ne disait pas. */}
+              <BarreRepere valeur={avgScore} seuil={70} className="mt-0.5 mb-1" />
+            </Mesure>
           </div>
-          <BudgetCard budget={budget} lang={lang} />
+          <div className="md:pl-6">
+            <Mesure
+              etiquette={t("dashboard.kpi_to_replace")}
+              valeur={distribution.critical.toString()}
+              detail={`${distribution.warning} ${t("obsolescence.level_warning").toLowerCase()}`}
+              ton={distribution.critical > 0 ? "critique" : "neutre"}
+            />
+          </div>
+          <div className="md:pl-6">
+            <Mesure
+              etiquette={t("dashboard.budget_title")}
+              valeur={fmtAriary(budget.totalEstimated)}
+              detail={t("dashboard.budget_hint", { n: budget.totalCritical })}
+            />
+          </div>
         </section>
 
-        {/* Analytics — Répartition */}
-        <section
-          className="grid gap-4 lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
-          style={{ animationDelay: "240ms", animationFillMode: "backwards" }}
-        >
+        {/* ── SANTÉ DU PARC ───────────────────────────────────────────────
+            Le camembert occupait les deux tiers d'une rangée pour trois
+            nombres. Une barre empilée les donne dans la hauteur d'un texte,
+            et permet en prime de comparer deux lignes entre elles, ce
+            qu'aucune juxtaposition de camemberts ne permet. */}
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-4">
+            <h3 className="text-sm font-semibold">{t("dashboard.health_title")}</h3>
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {distribution.total} {t("dashboard.kpi_materials").toLowerCase()}
+            </p>
+          </div>
+          <BarreEmpilee
+            hauteur="h-2.5"
+            segments={[
+              { valeur: distribution.ok, ton: "bon", libelle: t("obsolescence.level_ok") },
+              { valeur: distribution.warning, ton: "vigilance", libelle: t("obsolescence.level_warning") },
+              { valeur: distribution.critical, ton: "critique", libelle: t("obsolescence.level_critical") },
+            ]}
+          />
+          <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
+            {[
+              { n: distribution.ok, ton: "bon" as const, l: t("obsolescence.level_ok") },
+              { n: distribution.warning, ton: "vigilance" as const, l: t("obsolescence.level_warning") },
+              { n: distribution.critical, ton: "critique" as const, l: t("obsolescence.level_critical") },
+            ].map((x) => (
+              <Pastille key={x.l} ton={x.ton}>
+                {x.l}
+                <span className="ml-1.5 font-medium tabular-nums text-foreground">{x.n}</span>
+                <span className="ml-1 tabular-nums">
+                  {distribution.total > 0 ? `${Math.round((x.n / distribution.total) * 100)} %` : ""}
+                </span>
+              </Pastille>
+            ))}
+          </div>
+        </section>
+
+        {/* Le détail du budget garde sa carte, et c'est le seul bloc de la
+            page qui en garde une : son contenu se lit ligne à ligne et se
+            discute en réunion. Encadrer devient l'exception, donc retrouve
+            son sens. */}
+        <BudgetCard budget={budget} lang={lang} />
+
+        {/* Répartition : par site et par catégorie, même question, deux échelles. */}
+        {/* Deux colonnes de largeur égale : « par site » et « par catégorie »
+            répondent à la même question à deux échelles. Les animations
+            échelonnées ont sauté : sur les postes du centre, chaque section
+            qui glisse coûte une saccade, et rien ne s'apprend d'une entrée en
+            scène. */}
+        <section className="grid gap-6 lg:grid-cols-2">
           <SiteBreakdown sites={siteStats} lang={lang} />
           <TypeBreakdown types={typeStats} lang={lang} />
         </section>
 
         {/* Âge du parc + Salles à risque */}
-        <section
-          className="grid gap-4 lg:grid-cols-2 animate-in fade-in slide-in-from-bottom-2 duration-500"
-          style={{ animationDelay: "320ms", animationFillMode: "backwards" }}
-        >
+        <section className="grid gap-6 lg:grid-cols-2">
           <AgeHistogram buckets={ageBuckets} lang={lang} />
           <RoomHeatmap rooms={roomStats} lang={lang} />
         </section>
@@ -216,58 +261,12 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {/* Quick links */}
-        <section className="grid gap-4 md:grid-cols-3">
-          <Link href="/sites">
-            <GlassCard interactive className="p-6 group h-full">
-              <Building2 className="size-8 text-accent mb-3" />
-              <h3 className="font-display font-semibold">{t("dashboard.quick_sites")}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{t("dashboard.quick_sites_desc")}</p>
-            </GlassCard>
-          </Link>
-          <Link href="/materials">
-            <GlassCard interactive className="p-6 group h-full">
-              <Cpu className="size-8 text-primary mb-3" />
-              <h3 className="font-display font-semibold">{t("dashboard.quick_materials")}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{t("dashboard.quick_materials_desc")}</p>
-            </GlassCard>
-          </Link>
-          <Link href="/movements">
-            <GlassCard interactive className="p-6 group h-full">
-              <ArrowRight className="size-8 text-[oklch(0.75_0.18_150)] mb-3" />
-              <h3 className="font-display font-semibold">{t("dashboard.quick_movements")}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{t("dashboard.quick_movements_desc")}</p>
-            </GlassCard>
-          </Link>
-        </section>
+        {/* Les trois cartes « Sites & salles », « Parc complet » et
+            « Mouvements » ont été retirées : elles reprenaient mot pour mot
+            trois entrées de la barre latérale, toujours visible à gauche. Une
+            navigation répétée n'aide pas, elle allonge la page et fait douter
+            de savoir où l'on est. */}
       </main>
     </>
-  );
-}
-
-function KPI({
-  icon, label, value, hint, accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  hint: string;
-  accent: "primary" | "cyan" | "success" | "warning";
-}) {
-  const accentBg =
-    accent === "primary" ? "bg-primary/15 text-primary" :
-    accent === "cyan" ? "bg-accent/15 text-accent" :
-    accent === "success" ? "bg-[oklch(0.75_0.18_150_/_0.15)] text-[oklch(0.75_0.18_150)]" :
-    "bg-[oklch(0.82_0.16_85_/_0.15)] text-[oklch(0.82_0.16_85)]";
-
-  return (
-    <GlassCard className="p-6">
-      <div className={`inline-flex size-10 items-center justify-center rounded-xl ${accentBg}`}>
-        {icon}
-      </div>
-      <p className="mt-4 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
-      <p className="mt-1 font-display text-3xl font-semibold tabular-nums">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
-    </GlassCard>
   );
 }

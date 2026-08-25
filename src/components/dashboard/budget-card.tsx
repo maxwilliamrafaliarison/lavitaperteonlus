@@ -8,7 +8,7 @@ interface Props {
   lang?: Lang;
 }
 
-function fmtAriary(n: number): string {
+export function fmtAriary(n: number): string {
   // Séparateur milliers + suffixe "Ar" (MGA n'a pas de subdivision usuelle)
   return (
     new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 })

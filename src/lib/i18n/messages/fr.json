@@ -608,7 +608,9 @@
     "quick_movements_desc": "Historique des transferts et mutations.",
     "export_csv": "Export CSV",
     "export_toast": "Export CSV · {n} matériels",
-    "export_failed": "Échec de l'export CSV"
+    "export_failed": "Échec de l'export CSV",
+    "health_title": "Santé du parc",
+    "budget_hint": "pour {n} matériels critiques"
   },
   "obsolescence": {
     "level_ok": "Opérationnel",

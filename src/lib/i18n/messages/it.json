@@ -608,7 +608,9 @@
     "quick_movements_desc": "Storico dei trasferimenti e delle modifiche.",
     "export_csv": "Esporta CSV",
     "export_toast": "Esportazione CSV · {n} dispositivi",
-    "export_failed": "Esportazione CSV fallita"
+    "export_failed": "Esportazione CSV fallita",
+    "health_title": "Salute del parco",
+    "budget_hint": "per {n} apparecchi critici"
   },
   "obsolescence": {
     "level_ok": "Operativo",
