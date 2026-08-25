@@ -259,8 +259,14 @@ export function analyserEcriture(texte: string): CreneauAnalyse {
   // Le retour ligne sépare soit deux plages, soit une plage et un lieu.
   const morceaux = brut.split(/[\r\n]+/).map((s) => s.trim()).filter(Boolean);
   const normaliseHeure = (h: string, m?: string) => `${h.padStart(2, "0")}:${(m ?? "00").padStart(2, "0")}`;
-  // « 7H-12H », « 07:00H-12H », « 8h - 11h30 », « 14H -16H »
-  const RX = /(\d{1,2})\s*(?::\s*(\d{2}))?\s*[Hh]?\s*(\d{2})?\s*-\s*(\d{1,2})\s*(?::\s*(\d{2}))?\s*[Hh]{1,2}\s*(\d{2})?/;
+  /* « 7H-12H », « 07:00H-12H », « 8h - 11h30 », « 14H -16H ».
+     Les minutes finales sont COLLÉES à leur « H » : aucune espace n'est
+     tolérée avant elles. Sans cette contrainte, « 8H30 - 12H 14H30 - 17H »
+     se lisait « de 8h30 à 12h14 » : le « 14 » de la seconde plage était
+     avalé comme les minutes de la première, et le reste de la journée
+     partait en guise de lieu. L'écriture était même déclarée reconnue, si
+     bien que rien ne le signalait. */
+  const RX = /(\d{1,2})\s*(?::\s*(\d{2}))?\s*[Hh]?(\d{2})?\s*-\s*(\d{1,2})\s*(?::\s*(\d{2}))?\s*[Hh]{1,2}(\d{2})?/g;
 
   for (const mo of morceaux) {
     if (MOTS_REPOS.test(sansAccents(mo))) {
@@ -268,15 +274,20 @@ export function analyserEcriture(texte: string): CreneauAnalyse {
       res.reconnu = true;
       continue;
     }
-    const m = RX.exec(mo);
-    if (m) {
-      res.plages.push({
-        debut: normaliseHeure(m[1], m[2] ?? m[3]),
-        fin: normaliseHeure(m[4], m[5] ?? m[6]),
-      });
+    /* Une même ligne peut porter DEUX plages (« 8H30 - 12H 14H30 - 17H »).
+       Le retour ligne est la séparation habituelle, pas la seule. */
+    const trouves = [...mo.matchAll(RX)];
+    if (trouves.length) {
+      for (const m of trouves) {
+        res.plages.push({
+          debut: normaliseHeure(m[1], m[2] ?? m[3]),
+          fin: normaliseHeure(m[4], m[5] ?? m[6]),
+        });
+      }
       res.reconnu = true;
-      // Ce qui suit la plage sur la même ligne est un lieu (« 06H-18H REX »).
-      const reste = mo.slice(m.index + m[0].length).trim();
+      // Ce qui suit la DERNIÈRE plage sur la ligne est un lieu (« 06H-18H REX »).
+      const fin = trouves[trouves.length - 1];
+      const reste = mo.slice((fin.index ?? 0) + fin[0].length).trim();
       if (reste && !res.lieu) res.lieu = reste;
     } else if (!res.lieu) {
       res.lieu = mo;

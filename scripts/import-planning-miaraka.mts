@@ -26,7 +26,6 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
 const { parserFeuilleMiaraka } = await import("../src/lib/planning/parseur-miaraka.ts");
-const { normaliserNom } = await import("../src/lib/planning/parseur-rex.ts");
 const { traverseMinuit } = await import("../src/lib/planning/creneau.ts");
 const { resoudreAgent, HORS_REFERENTIEL, normaliserUsuel } = await import("../src/lib/pointage/alias.ts");
 
@@ -38,6 +37,11 @@ const D = CHEMIN
   : "/Users/maxwilliamrafaliarison/Library/CloudStorage/OneDrive-Personnel/Documents/Centre REX/Planning/";
 const FICHIER = CHEMIN ? CHEMIN.slice(CHEMIN.lastIndexOf("/") + 1) : "Planning Miaraka 2026_AOUT 26.xlsx";
 const STATUT = arg("statut") ?? "archive";
+/* Le classeur porte l'année entière : reprendre le mois qui vient ne doit
+   pas rejouer les onze précédents. Sans filtre, une correction faite à la
+   main dans l'application sur un mois passé serait réécrite par la version
+   du fichier. */
+const FEUILLE = arg("feuille");
 
 const U = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const K = (process.env.SUPABASE_SERVICE_KEY || process.env.PATIENTS_SUPABASE_SERVICE_KEY || "").replace(/[^A-Za-z0-9._-]/g, "");
@@ -80,7 +84,13 @@ const inconnus = new Map<string, number>();
 let anomalies = 0;
 let nonReconnues = 0;
 
-for (const nomFeuille of wb.SheetNames) {
+const feuilles = FEUILLE ? wb.SheetNames.filter((n: string) => n === FEUILLE) : wb.SheetNames;
+if (FEUILLE && feuilles.length === 0) {
+  console.error(`Feuille « ${FEUILLE} » absente. Disponibles : ${wb.SheetNames.join(" | ")}`);
+  process.exit(1);
+}
+
+for (const nomFeuille of feuilles) {
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[nomFeuille], { header: 1, raw: false });
   const r = parserFeuilleMiaraka(nomFeuille, rows);
   anomalies += r.anomalies.length;
@@ -140,7 +150,7 @@ for (const nomFeuille of wb.SheetNames) {
   }
 }
 
-console.log(`${wb.SheetNames.length} feuilles lues`);
+console.log(`${feuilles.length} feuille(s) lue(s)${FEUILLE ? ` : « ${FEUILLE} »` : ""}`);
 console.log(`  ${plannings.size} plannings · ${affectations.size} affectations`);
 console.log(`  ${anomalies} date(s) écartée(s) · ${nonReconnues} écriture(s) non comprise(s)`);
 const exterieurs = [...inconnus].filter(([n]) => HORS_REFERENTIEL.has(normaliserUsuel(n)));

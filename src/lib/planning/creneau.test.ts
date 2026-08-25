@@ -127,6 +127,29 @@ describe("lecture des écritures réelles des fichiers Excel", () => {
     expect(r.plages[1]).toEqual({ debut: "14:00", fin: "16:30" });
   });
 
+  it("lit une journée coupée sur UNE SEULE ligne", () => {
+    /* Feuille « Fev26 », 30 cellules. Les minutes doivent être collées à
+       leur « H » : en tolérant une espace, le « 14 » de l'après-midi était
+       lu comme les minutes du matin, et la journée se terminait à 12h14. */
+    const r = analyserEcriture("8H30 - 12H 14H30 - 17H");
+    expect(r.plages).toEqual([
+      { debut: "08:30", fin: "12:00" },
+      { debut: "14:30", fin: "17:00" },
+    ]);
+    expect(r.lieu).toBe("");
+  });
+
+  it("lit une journée coupée par une barre oblique, lieu compris", () => {
+    // 26 cellules : l'après-midi partait en guise de lieu, et le vrai lieu
+    // était perdu puisque la place était déjà prise.
+    const r = analyserEcriture("8H-12H / 14H-17H\nankofafa");
+    expect(r.plages).toEqual([
+      { debut: "08:00", fin: "12:00" },
+      { debut: "14:00", fin: "17:00" },
+    ]);
+    expect(r.lieu).toBe("ankofafa");
+  });
+
   it("sépare le lieu du créneau", () => {
     expect(analyserEcriture("8h-11h\nAnkofafa").lieu).toBe("Ankofafa");
     expect(analyserEcriture("06H- 18H REX").lieu).toBe("REX");
