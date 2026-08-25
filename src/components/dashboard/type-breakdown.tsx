@@ -54,7 +54,12 @@ export function TypeBreakdown({ types, limit = 7, lang = "fr" }: Props) {
                     )}
                   </span>
                 </div>
-                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/5 ml-10">
+                {/* La barre était `w-full ml-10` : cent pour cent de la
+                    largeur du parent, PUIS décalée de 2,5 rem vers la droite.
+                    Elle sortait donc de la carte d'exactement cette marge, sur
+                    chaque ligne. Le retrait se fait par la largeur, pas par la
+                    marge, et le conteneur reste responsable de son contenu. */}
+                <div className="ml-10 relative h-1.5 overflow-hidden rounded-full bg-white/5">
                   <div
                     className="h-full bg-gradient-to-r from-accent/60 to-accent"
                     style={{ width: `${pct}%` }}
