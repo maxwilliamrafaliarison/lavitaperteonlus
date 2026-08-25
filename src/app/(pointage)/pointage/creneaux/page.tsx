@@ -14,7 +14,7 @@ import { dureePlage, type Creneau } from "@/lib/planning/creneau";
 import { CreneauRow, type CreneauLigne } from "./creneau-form";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Créneaux — Pointage" };
+export const metadata: Metadata = { title: "Créneaux (Pointage)" };
 
 const GROUPES: Array<{ type: string; titre: string; aide: string }> = [
   { type: "garde_nuit", titre: "Gardes et postes de nuit", aide: "Ces créneaux traversent minuit : leur heure de fin appartient au lendemain." },
@@ -75,8 +75,8 @@ export default async function CreneauxPage() {
         <span>
           <strong className="text-foreground">L&apos;amplitude</strong> est calculée depuis les
           horaires du créneau ; <strong className="text-foreground">la durée retenue</strong> est
-          ce que l&apos;établissement décide de décompter. Les deux peuvent légitimement différer
-          — une garde inclut parfois des heures de repos non payées. Un écart est signalé, jamais
+          ce que l&apos;établissement décide de décompter. Les deux peuvent légitimement différer :
+          une garde inclut parfois des heures de repos non payées. Un écart est signalé, jamais
           corrigé d&apos;office.
         </span>
       </div>

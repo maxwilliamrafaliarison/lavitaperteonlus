@@ -69,7 +69,7 @@ export function EtatCaissePdf({
   const fondEcart = ecart === 0 ? COLORS.okSoft : ecart < 0 ? COLORS.criticalSoft : COLORS.warningSoft;
 
   return (
-    <Document title={`${numero} — État de caisse`} author={entite.denomination}>
+    <Document title={`${numero} : État de caisse`} author={entite.denomination}>
       {/* Marges resserrées pour cette pièce seulement : un relevé de caisse
             doit tenir sur UNE feuille — c'est ce qu'on signe et qu'on classe.
             Les styles partagés restent intacts pour les autres rapports. */}
@@ -113,7 +113,7 @@ export function EtatCaissePdf({
 
         <ContextBox
           items={[
-            { label: "Nature de la pièce", value: "Relevé de caisse — espèces" },
+            { label: "Nature de la pièce", value: "Relevé de caisse : espèces" },
             {
               label: "Période couverte",
               value: `${heure(s.ouverte_le)} - ${close ? heure(s.fermee_le) : "en cours"}`,
@@ -187,7 +187,7 @@ export function EtatCaissePdf({
                 ? "Le compte tombe juste."
                 : ecart < 0
                   ? "Il manque des espèces dans le tiroir par rapport aux ventes enregistrées."
-                  : "Le tiroir contient plus que les ventes enregistrées — une vente a pu ne pas être saisie."}
+                  : "Le tiroir contient plus que les ventes enregistrées : une vente a pu ne pas être saisie."}
           </Text>
         </View>
 
@@ -199,7 +199,7 @@ export function EtatCaissePdf({
               {etat.parOperatrice.map((o) => (
                 <Ligne
                   key={o.email}
-                  libelle={`${o.nom} — ${o.nbVentes} vente(s)`}
+                  libelle={`${o.nom}, ${o.nbVentes} vente(s)`}
                   valeur={fmtAriary(o.totalComptant)}
                 />
               ))}

@@ -56,7 +56,7 @@ export async function chargerEntite(site = "REX"): Promise<EntiteLegale> {
   }
   const lire = (k: string) => (p.get(k) ?? "").trim();
 
-  const denomination = lire("entite_denomination") || "La Vita Per Te — ONG-ODV Alfeo Corassori";
+  const denomination = lire("entite_denomination") || "La Vita Per Te, ONG-ODV Alfeo Corassori";
   const formeJuridique =
     lire("entite_forme_juridique") || "Organizzazione di Volontariato (ODV) · Ente del Terzo Settore";
   const siegeSocial = lire("entite_siege_social");

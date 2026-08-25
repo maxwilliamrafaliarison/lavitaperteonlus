@@ -169,7 +169,7 @@ export function RoulettePersonnel({
         </div>
       </div>
       <p className="mt-1 text-[10px] text-muted-foreground">
-        Faites tourner, ou cliquez un nom — son planning s&apos;affiche.
+        Faites tourner, ou cliquez un nom : son planning s&apos;affiche.
       </p>
     </div>
   );

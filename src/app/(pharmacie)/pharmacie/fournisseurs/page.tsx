@@ -13,7 +13,7 @@ import { listAchats } from "@/lib/pharmacie/sheets";
 import { getT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Fournisseurs — Pharmacie" };
+export const metadata: Metadata = { title: "Fournisseurs (Pharmacie)" };
 
 /* ============================================================
    FICHE FOURNISSEURS — consultation seule

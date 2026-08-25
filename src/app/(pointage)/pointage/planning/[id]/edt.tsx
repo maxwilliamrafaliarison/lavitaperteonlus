@@ -352,7 +352,7 @@ function GrilleService({
   for (const r of repos) reposParJour.set(r.jour, [...(reposParJour.get(r.jour) ?? []), r]);
 
   return (
-    <section aria-label={`Emploi du temps — ${groupe.libelle}`}>
+    <section aria-label={`Emploi du temps : ${groupe.libelle}`}>
       <h2 className="mb-1.5 flex items-baseline gap-2 text-[11px] font-semibold uppercase tracking-wide text-accent">
         {groupe.libelle}
         <span className="font-normal text-muted-foreground">
@@ -373,7 +373,7 @@ function GrilleService({
                   {rj.length > 0 && (
                     <div className="mt-0.5 flex flex-wrap justify-center gap-0.5">
                       {rj.map((r, i) => (
-                        <span key={i} title={`${r.agentNom} — ${r.motif}`} className="max-w-full truncate rounded-full bg-black/[0.07] px-1.5 py-px text-[9px] text-muted-foreground dark:bg-white/[0.08]">
+                        <span key={i} title={`${r.agentNom} : ${r.motif}`} className="max-w-full truncate rounded-full bg-black/[0.07] px-1.5 py-px text-[9px] text-muted-foreground dark:bg-white/[0.08]">
                           {r.agentNom.split(" ")[0]} · {r.motif}
                         </span>
                       ))}

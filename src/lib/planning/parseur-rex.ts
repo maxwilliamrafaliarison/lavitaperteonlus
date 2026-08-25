@@ -103,7 +103,7 @@ export function parserFeuilleRex(feuille: string, lignes: unknown[][]): SemaineR
       if (d) {
         if (!dateCoherente(d.jour, d.libelleJour)) {
           anomalies.push(
-            `Feuille « ${feuille} » : « ${colA} » — le ${d.jour} n'est pas un ${d.libelleJour}. Date probablement non corrigée après duplication.`,
+            `Feuille « ${feuille} » : « ${colA} », le ${d.jour} n'est pas un ${d.libelleJour}. Date probablement non corrigée après duplication.`,
           );
         }
         jourCourant = d.jour;

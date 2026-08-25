@@ -15,7 +15,7 @@ import { estValidateur } from "@/lib/planning/validation";
 import { NouveauPlanning, PlanningRow, type PlanningLigne } from "../planning-client";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Gérer les plannings — Pointage" };
+export const metadata: Metadata = { title: "Gérer les plannings (Pointage)" };
 
 export default async function PlanningPage({
   searchParams,

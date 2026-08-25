@@ -13,7 +13,7 @@ import { planifiePourAgents } from "@/lib/planning/data";
 import { versHeures } from "@/lib/pointage/calcul";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Fiche agent — Pointage" };
+export const metadata: Metadata = { title: "Fiche agent (Pointage)" };
 
 const JOURS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
 const COURT = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
@@ -135,7 +135,7 @@ export default async function FicheAgentPage({
           <ul className="mt-2 space-y-1 text-xs text-warning/90">
             {anomalies.slice(0, 8).map((j) => (
               <li key={j.jour}>
-                <span className="font-mono">{j.jour}</span> — {j.anomalies.join(" · ")}
+                <span className="font-mono">{j.jour}</span> : {j.anomalies.join(" · ")}
               </li>
             ))}
           </ul>

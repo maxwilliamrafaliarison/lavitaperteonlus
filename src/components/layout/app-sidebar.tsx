@@ -177,7 +177,7 @@ export function Pastilles({
             )}
           >
             {n}
-            <span className="sr-only"> — {t(sty.titreKey)}</span>
+            <span className="sr-only">, {t(sty.titreKey)}</span>
           </span>
         );
       })}

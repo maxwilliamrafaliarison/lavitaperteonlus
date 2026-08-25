@@ -45,16 +45,16 @@ function Bloc({ titre, lignes }: { titre: string; lignes: string[] }) {
 
 const CONTENU: Record<string, { titre: string; blocs: Array<{ titre: string; lignes: string[] }> }> = {
   dispensatrice: {
-    titre: "Aide-mémoire — Vente au comptoir",
+    titre: "Aide-mémoire : Vente au comptoir",
     blocs: [
       {
         titre: "Faire une vente",
         lignes: [
           "Menu « Nouvelle vente » (bouton rouge).",
           "Taper les premières lettres du produit, le choisir dans la liste.",
-          "Saisir la quantité — produit à pastille = vendu à l'UNITÉ, pas à la boîte.",
+          "Saisir la quantité : produit à pastille = vendu à l'UNITÉ, pas à la boîte.",
           "« Encaisser », puis remettre le ticket au client.",
-          "!Prise en charge (PEC) : choisir « Prise en charge » et l'entité qui paie — le client ne paie rien.",
+          "!Prise en charge (PEC) : choisir « Prise en charge » et l'entité qui paie ; le client ne paie rien.",
         ],
       },
       {
@@ -62,14 +62,14 @@ const CONTENU: Record<string, { titre: string; blocs: Array<{ titre: string; lig
         lignes: [
           "Menu « Réception » dès l'arrivée des produits.",
           "Saisir le produit, la quantité, le numéro de lot et la date de péremption.",
-          "Le stock se met à jour tout seul — ne jamais le corriger « de tête ».",
+          "Le stock se met à jour tout seul : ne jamais le corriger « de tête ».",
         ],
       },
       {
         titre: "Si l'application ne répond plus",
         lignes: [
           "Continuer à servir : noter chaque vente au CARNET PAPIER (produit, quantité, montant, heure).",
-          "Ne rien enregistrer deux fois — vérifier dans « Ventes » au retour du réseau.",
+          "Ne rien enregistrer deux fois : vérifier dans « Ventes » au retour du réseau.",
           "Prévenir l'informatique : informatique.lavitaperte@gmail.com. Rien n'est perdu.",
         ],
       },
@@ -83,13 +83,13 @@ const CONTENU: Record<string, { titre: string; blocs: Array<{ titre: string; lig
     ],
   },
   direction: {
-    titre: "Aide-mémoire — Direction",
+    titre: "Aide-mémoire : Direction",
     blocs: [
       {
         titre: "Suivre l'activité",
         lignes: [
           "Tableau de bord Pharmacie : encaissé du jour, ruptures, péremptions.",
-          "« Rapports » : ventes, stock, à commander, péremptions, laboratoire galénique — PDF à la demande.",
+          "« Rapports » : ventes, stock, à commander, péremptions, laboratoire galénique (PDF à la demande).",
           "Bilan mensuel professionnel : « Rapports » puis « Bilan mensuel », ou réception automatique par courriel en fin de mois.",
           "Chaque soir, un rapport de fin de journée arrive par courriel (ventes, alertes).",
         ],
@@ -105,9 +105,9 @@ const CONTENU: Record<string, { titre: string; blocs: Array<{ titre: string; lig
       {
         titre: "Points de vigilance",
         lignes: [
-          "Une vente annulée reste tracée (qui, quand) — le stock revient automatiquement.",
+          "Une vente annulée reste tracée (qui, quand) ; le stock revient automatiquement.",
           "Les chiffres des rapports proviennent des mêmes données que l'écran : un écart entre les deux doit être signalé, pas corrigé à la main.",
-          "En cas de panne réseau au comptoir : carnet papier, puis ressaisie — consigne affichée dans l'application (menu Aide).",
+          "En cas de panne réseau au comptoir : carnet papier, puis ressaisie. Consigne affichée dans l'application (menu Aide).",
         ],
       },
     ],
@@ -143,7 +143,7 @@ export async function GET(
           <Bloc key={b.titre} titre={b.titre} lignes={b.lignes} />
         ))}
         <Text style={{ marginTop: 8, fontSize: 8, color: COLORS.textMuted }}>
-          Support : informatique.lavitaperte@gmail.com · Document généré par l&apos;application —
+          Support : informatique.lavitaperte@gmail.com · Document généré par l&apos;application ;
           la version en ligne (menu Aide) fait foi.
         </Text>
       </Page>

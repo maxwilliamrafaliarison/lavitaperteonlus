@@ -216,7 +216,7 @@ export default async function EditionPlanningPage({
       return {
         cle: `ag:${a.id}`,
         service: sid,
-        libelle: svc ? `${a.nom} — ${svc}` : a.nom,
+        libelle: svc ? `${a.nom} (${svc})` : a.nom,
         agents: [a],
       };
     })
@@ -479,7 +479,7 @@ export default async function EditionPlanningPage({
       <p className="text-[11px] text-muted-foreground">
         Chaque modification est enregistrée immédiatement et reste soumise aux contrôles légaux
         (repos de 11 h, plafond hebdomadaire). Une cellule vide signifie « non planifié », ce qui
-        n&apos;est pas la même chose qu&apos;un repos — celui-ci se choisit explicitement.
+        n&apos;est pas la même chose qu&apos;un repos : celui-ci se choisit explicitement.
       </p>
     </main>
   );

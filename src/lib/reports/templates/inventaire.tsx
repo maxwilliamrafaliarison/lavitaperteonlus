@@ -72,7 +72,7 @@ export function InventairePdf({
               {group.rooms.map((roomGroup, ri) => (
                 <View key={roomGroup.room.id} wrap={false /* garde la salle sur la même page si possible */}>
                   <SectionHeader
-                    title={`${group.site.code} — ${roomGroup.room.name}`}
+                    title={`${group.site.code} : ${roomGroup.room.name}`}
                     meta={
                       ctx.lang === "it"
                         ? `${roomGroup.materials.length} dispositivi`

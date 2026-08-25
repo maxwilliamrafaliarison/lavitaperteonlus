@@ -35,7 +35,7 @@ export function SheetEmptyState({
               target="_blank"
               className="text-primary inline-flex items-center gap-1 underline-offset-4 hover:underline"
             >
-              Phase 1 — GCP <ExternalLink className="size-3" />
+              Phase 1 (GCP) <ExternalLink className="size-3" />
             </Link>{" "}
             pour activer la connexion.
           </>

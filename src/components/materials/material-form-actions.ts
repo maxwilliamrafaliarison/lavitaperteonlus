@@ -206,7 +206,7 @@ export async function updateMaterialAction(
       action: AuditAction.EditMaterial,
       targetType: "material",
       targetId: materialId,
-      details: `Modification : ${updated.designation} (${updated.ref})${movementType ? ` — ${movementType}` : ""}`,
+      details: `Modification : ${updated.designation} (${updated.ref})${movementType ? `, ${movementType}` : ""}`,
       ip: h.get("x-forwarded-for") ?? "",
       userAgent: h.get("user-agent") ?? "",
     });

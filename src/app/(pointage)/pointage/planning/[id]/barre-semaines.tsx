@@ -209,7 +209,7 @@ export function BarreSemaines({
       {editable && (
         <p className="text-[11px] text-muted-foreground">
           Cliquer sur un numéro ouvre la semaine ; cocher la sélectionne, et un clic avec Maj prend
-          toute la plage. Les jours déjà planifiés sont préservés — propager n&apos;écrase jamais un
+          toute la plage. Les jours déjà planifiés sont préservés : propager n&apos;écrase jamais un
           ajustement. Un tiret signale une semaine encore vide.
         </p>
       )}

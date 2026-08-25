@@ -177,7 +177,7 @@ export function parserFeuilleMiaraka(nomFeuille: string, lignes: unknown[][]): M
 
     const jour = iso(annee, mois, numero);
     if (!coherent(jour, b)) {
-      anomalies.push(`Feuille « ${nomFeuille} » : le ${jour} n'est pas un « ${b} » — reconstitution de date à vérifier.`);
+      anomalies.push(`Feuille « ${nomFeuille} » : le ${jour} n'est pas un « ${b} ». Reconstitution de date à vérifier.`);
       continue;
     }
     if (!joursVus.includes(jour)) joursVus.push(jour);

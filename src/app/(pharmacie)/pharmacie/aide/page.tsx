@@ -9,7 +9,7 @@ import { can } from "@/lib/auth/permissions";
 import { GlassCard } from "@/components/glass/glass-card";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Aide — Pharmacie" };
+export const metadata: Metadata = { title: "Aide (Pharmacie)" };
 
 /* ============================================================
    AIDE — le mode d'emploi du comptoir, dans l'application
@@ -42,7 +42,7 @@ export default async function AidePage() {
         </h2>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
           <li>Continuez à servir : notez chaque vente dans le <strong>carnet papier</strong> (produit, quantité, montant, heure).</li>
-          <li>N&apos;enregistrez <strong>rien deux fois</strong> — si vous ne savez pas si la vente est passée, vérifiez dans « Ventes » une fois le réseau revenu.</li>
+          <li>N&apos;enregistrez <strong>rien deux fois</strong>. Si vous ne savez pas si la vente est passée, vérifiez dans « Ventes » une fois le réseau revenu.</li>
           <li>Prévenez l&apos;informatique. Les ventes du carnet seront ressaisies ensuite : rien n&apos;est perdu.</li>
         </ol>
       </GlassCard>
@@ -55,13 +55,13 @@ export default async function AidePage() {
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm">
           <li>Menu <strong>Nouvelle vente</strong> (le bouton rouge).</li>
           <li>Tapez les premières lettres du produit, choisissez-le dans la liste.</li>
-          <li>Indiquez la quantité — pour un produit vendu à l&apos;unité (pastille), la quantité est en <strong>unités</strong>, pas en boîtes.</li>
+          <li>Indiquez la quantité : pour un produit vendu à l&apos;unité (pastille), la quantité est en <strong>unités</strong>, pas en boîtes.</li>
           <li>Ajoutez les autres produits, puis <strong>Encaisser</strong>.</li>
-          <li>Le ticket s&apos;imprime ou se télécharge — remettez-le au client.</li>
+          <li>Le ticket s&apos;imprime ou se télécharge : remettez-le au client.</li>
         </ol>
         <p className="mt-2 text-xs text-muted-foreground">
           Prise en charge (PEC) : choisissez « Prise en charge » au moment d&apos;encaisser et
-          l&apos;entité qui paie — le client ne paie rien, la vente est tracée.
+          l&apos;entité qui paie. Le client ne paie rien, la vente est tracée.
         </p>
       </GlassCard>
 
@@ -72,7 +72,7 @@ export default async function AidePage() {
         </h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
           <li>Le total encaissé du jour est visible sur le <strong>Tableau de bord</strong> et dans « Ventes ».</li>
-          <li>Une erreur de saisie ? La vente peut être <strong>annulée</strong> depuis son détail — l&apos;annulation est tracée, le stock revient.</li>
+          <li>Une erreur de saisie ? La vente peut être <strong>annulée</strong> depuis son détail : l&apos;annulation est tracée, le stock revient.</li>
           <li>Un rapport de fin de journée part automatiquement chaque soir à la direction.</li>
         </ul>
       </GlassCard>
@@ -86,7 +86,7 @@ export default async function AidePage() {
           <li><strong>Réception</strong> : à chaque arrivée de produits, enregistrez le lot (quantité, péremption). Le stock se met à jour tout seul.</li>
           <li><strong>Transfert</strong> : pour passer des boîtes du gros au détail (vente à l&apos;unité).</li>
           <li>Les pastilles du menu vous préviennent : <span className="text-red-500 font-medium">rouge</span> = ruptures, <span className="text-amber-500 font-medium">ambre</span> = péremptions sous 90 jours.</li>
-          <li>La sortie suit toujours le lot qui périme en premier — c&apos;est automatique.</li>
+          <li>La sortie suit toujours le lot qui périme en premier (c&apos;est automatique).</li>
         </ul>
       </GlassCard>
 
@@ -97,7 +97,7 @@ export default async function AidePage() {
         </h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
           <li>Produit introuvable à la recherche : vérifiez l&apos;orthographe, puis le Tableau de bord (peut-être en rupture).</li>
-          <li>Produit périmé : ne le vendez pas — signalez-le pour retrait.</li>
+          <li>Produit périmé : ne le vendez pas ; signalez-le pour retrait.</li>
           <li>Mot de passe oublié : voyez l&apos;administrateur, qui le réinitialise.</li>
         </ul>
       </GlassCard>

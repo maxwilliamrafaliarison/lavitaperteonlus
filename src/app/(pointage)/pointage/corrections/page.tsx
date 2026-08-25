@@ -14,7 +14,7 @@ import { versHeures } from "@/lib/pointage/calcul";
 import { CorrectionLigne, BoutonHeuresSup, type AnomalieLigne } from "./correction-form";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Corrections — Pointage" };
+export const metadata: Metadata = { title: "Corrections (Pointage)" };
 
 export default async function CorrectionsPage({
   searchParams,
@@ -105,7 +105,7 @@ export default async function CorrectionsPage({
         <ShieldCheck className="size-4 shrink-0 mt-0.5 text-accent" aria-hidden="true" />
         <span className="text-muted-foreground">
           Les pointages enregistrés par les machines ne sont jamais modifiés. Chaque correction
-          s&apos;ajoute par-dessus avec son motif, son auteur et sa date — la paie reste
+          s&apos;ajoute par-dessus avec son motif, son auteur et sa date : la paie reste
           justifiable en cas de contestation.
         </span>
       </div>
@@ -116,7 +116,7 @@ export default async function CorrectionsPage({
         </div>
         {anomalies.length === 0 ? (
           <p className="px-5 py-10 text-center text-sm text-muted-foreground">
-            Aucune anomalie sur la période — tous les pointages sont complets.
+            Aucune anomalie sur la période : tous les pointages sont complets.
           </p>
         ) : (
           <table className="w-full text-sm">
@@ -138,7 +138,7 @@ export default async function CorrectionsPage({
         )}
         {anomalies.length > 100 && (
           <p className="border-t border-glass-border px-5 py-3 text-xs text-muted-foreground">
-            {anomalies.length - 100} autres journées en anomalie ne sont pas affichées ici — traitez
+            {anomalies.length - 100} autres journées en anomalie ne sont pas affichées ici : traitez
             celles-ci puis rechargez.
           </p>
         )}

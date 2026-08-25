@@ -163,12 +163,12 @@ export async function GET(req: NextRequest) {
 
     const html = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#111">
-  <h1 style="color:#E30613;font-size:20px">Pharmacie — Récapitulatif de fin de journée</h1>
+  <h1 style="color:#E30613;font-size:20px">Pharmacie : Récapitulatif de fin de journée</h1>
   <p style="color:#666;font-size:13px">${dateStr} · Centre REX, La Vita Per Te</p>
 ${
   apercu
     ? `  <p style="background:#fff7ed;border-left:3px solid #b45309;padding:10px 12px;font-size:12px;color:#7c2d12;margin:16px 0">
-    <strong>Aperçu</strong> — ce courriel n'est parti qu'à vous. En fin de journée, le récapitulatif
+    <strong>Aperçu</strong> : ce courriel n'est parti qu'à vous. En fin de journée, le récapitulatif
     est adressé à : ${destinataires.join(", ")}.
   </p>`
     : ""
@@ -233,7 +233,7 @@ ${
     }
     ${
       stockBas.length > 0
-        ? `<p style="font-size:13px;color:#b45309"><strong>À commander — stock bas (${stockBas.length})</strong></p>
+        ? `<p style="font-size:13px;color:#b45309"><strong>À commander : stock bas (${stockBas.length})</strong></p>
            <table cellspacing="0" style="width:100%">
              <tr><th ${th}>Produit</th><th ${th}>Fournisseur</th><th ${th}>Stock / seuil</th><th ${th}>À commander</th></tr>
              ${rows(
@@ -257,7 +257,7 @@ ${
   }
 
   <p style="margin-top:28px;font-size:11px;color:#999">
-    Récapitulatif automatique de fin de journée — <a href="https://lavitaperteonlus.vercel.app/pharmacie" style="color:#E30613">ouvrir la Pharmacie</a>.
+    Récapitulatif automatique de fin de journée : <a href="https://lavitaperteonlus.vercel.app/pharmacie" style="color:#E30613">ouvrir la Pharmacie</a>.
     Destinataires configurables dans Pharmacie → Paramètres.
   </p>
 </div>`;
@@ -268,9 +268,9 @@ ${
     });
 
     await transporter.sendMail({
-      from: `"Pharmacie — La Vita Per Te" <${gmailUser}>`,
+      from: `"Pharmacie · La Vita Per Te" <${gmailUser}>`,
       to: envoiA.join(", "),
-      subject: `${apercu ? "[Aperçu] " : ""}Pharmacie · Fin de journée ${new Date().toLocaleDateString("fr-FR")} — ${ventes24h.length} vente(s), ${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(caComptant)} Ar`,
+      subject: `${apercu ? "[Aperçu] " : ""}Pharmacie · Fin de journée ${new Date().toLocaleDateString("fr-FR")} : ${ventes24h.length} vente(s), ${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(caComptant)} Ar`,
       html,
     });
 

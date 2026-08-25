@@ -43,7 +43,7 @@ export function ImportMiaraka() {
         )}
       >
         <FileSpreadsheet className="size-4" aria-hidden="true" />
-        Importer un fichier — MIARAKA
+        Importer un fichier : MIARAKA
       </Link>
       <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
         <WifiOff className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
@@ -108,7 +108,7 @@ export function BoutonCollecte({ site = "REX" }: { site?: string }) {
       }
       const msg = `${d.ajoutes} pointage(s) ajouté(s) · ${d.dejaPresents} déjà connus`;
       setResultat(`${msg}${d.du ? ` · ${d.du} → ${d.au}` : ""}`);
-      toast.success(`Collecte terminée — centre ${site}`, {
+      toast.success(`Collecte terminée : centre ${site}`, {
         description:
           d.ajoutes > 0
             ? msg
@@ -139,7 +139,7 @@ export function BoutonCollecte({ site = "REX" }: { site?: string }) {
           ? "Connexion à la pointeuse…"
           : etat === "collecte"
             ? "Récupération en cours…"
-            : `Récupérer les pointages — ${site}`}
+            : `Récupérer les pointages : ${site}`}
       </GlassButton>
 
       {resultat && (

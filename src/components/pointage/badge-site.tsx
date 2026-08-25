@@ -69,7 +69,7 @@ export function BadgeStatut({ statut, className }: { statut: string; className?:
         "text-[oklch(0.55_0.2_300)] dark:text-[oklch(0.75_0.18_300)]",
         className,
       )}
-      title="Prestataire — facturé à l'heure, entrée plafonnée à 7:50 / 13:50"
+      title="Prestataire : facturé à l'heure, entrée plafonnée à 7:50 / 13:50"
     >
       <Briefcase className="size-2.5" aria-hidden="true" />
       Prestataire

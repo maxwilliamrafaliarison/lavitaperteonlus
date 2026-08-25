@@ -107,7 +107,7 @@ export default async function EcartsPage({
       {!res.ok ? (
         <PanneBanner
           titre="Écarts indisponibles"
-          consigne="La base ne répond pas. Ne tirez aucune conclusion de cet écran tant qu'il n'est pas rétabli — une absence d'écart affichée ne prouverait rien."
+          consigne="La base ne répond pas. Ne tirez aucune conclusion de cet écran tant qu'il n'est pas rétabli : une absence d'écart affichée ne prouverait rien."
           detail={res.error}
         />
       ) : (
@@ -135,7 +135,7 @@ export default async function EcartsPage({
             </div>
             <p className="ml-auto text-xs text-muted-foreground print:hidden">
               <Printer className="mr-1 inline size-3.5" aria-hidden="true" />
-              Imprimable — les signes ▲ ▼ ◆ ! restent lisibles en noir et blanc.
+              Imprimable : les signes ▲ ▼ ◆ ! restent lisibles en noir et blanc.
             </p>
           </GlassCard>
 

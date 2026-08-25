@@ -200,7 +200,7 @@ export function FormulaireChangement() {
             ? undefined
             : identiques
               ? "✓ Les deux saisies correspondent."
-              : "Les deux saisies diffèrent — affichez-les avec l'œil pour comparer."
+              : "Les deux saisies diffèrent : affichez-les avec l'œil pour comparer."
         }
       />
 
@@ -215,7 +215,7 @@ export function FormulaireChangement() {
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Notez votre mot de passe avant de valider : vous serez déconnecté aussitôt et devrez le
-        ressaisir pour entrer. Personne ne peut le retrouver — il n&apos;est pas conservé en clair,
+        ressaisir pour entrer. Personne ne peut le retrouver : il n&apos;est pas conservé en clair,
         même par l&apos;administrateur.
       </p>
     </form>

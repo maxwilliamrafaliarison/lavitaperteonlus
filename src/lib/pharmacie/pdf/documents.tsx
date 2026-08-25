@@ -560,7 +560,7 @@ function FactureDoc({
             <View key={i} style={fa.tr}>
               <Text style={fa.cDesignation}>
                 {l.designation}
-                {l.dosage ? ` — ${l.dosage}` : ""}
+                {l.dosage ? ` (${l.dosage})` : ""}
                 {l.galenique ? <Text style={{ color: "#6d28d9" }}> · prép. LG</Text> : null}
               </Text>
               <Text style={fa.cQte}>{l.quantite}</Text>
@@ -614,7 +614,11 @@ function FactureDoc({
 
         <Text style={fa.footer}>
           {org.nom} · {org.adresse}
-          {org.nif ? ` · ${t.nif} ${org.nif}` : ""} — {org.piedDePage}
+          {org.nif ? ` · ${t.nif} ${org.nif}` : ""}
+          {/* Le pied de page est saisi en paramètre : on ne peut pas présumer
+              qu'il commence par une majuscule. Le point médian s'accommode des
+              deux, là où un point exigerait une phrase neuve. */}
+          {org.piedDePage ? ` · ${org.piedDePage}` : ""}
         </Text>
       </Page>
     </Document>

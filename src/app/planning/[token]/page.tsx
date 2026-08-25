@@ -391,7 +391,7 @@ export default async function PlanningPublicPage({
           Direction. Période couverte : {planning.du} → {planning.au}.
         </p>
         <p className="mt-0.5 print:hidden">
-          Document consultable par lien privé — merci de ne pas le diffuser en dehors du personnel
+          Document consultable par lien privé : merci de ne pas le diffuser en dehors du personnel
           du centre.
         </p>
       </footer>

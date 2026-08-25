@@ -92,7 +92,7 @@ export async function transferMaterialAction(
       action: AuditAction.TransferMaterial,
       targetType: "material",
       targetId: materialId,
-      details: `Transfert ${movementType}${reason ? ` — ${reason}` : ""}`,
+      details: `Transfert ${movementType}${reason ? ` : ${reason}` : ""}`,
       ip: h.get("x-forwarded-for") ?? "",
       userAgent: h.get("user-agent") ?? "",
     });

@@ -170,7 +170,7 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
   const nomAffiche = typeVente === "pec" ? pecPayeur.trim() : clientNom;
   const prefixe = typeVente === "pec" ? "PEC" : "Vente";
   const libelle = nomAffiche
-    ? `${prefixe} — ${nomAffiche} (${heure})`
+    ? `${prefixe} : ${nomAffiche} (${heure})`
     : `Vente comptoir (${heure})`;
 
   // Stock ventilé par lot, MUTABLE entre les lignes : le FEFO d'une ligne voit
@@ -226,7 +226,7 @@ export async function creerVenteAction(raw: unknown): Promise<VenteResult> {
 
     const note =
       ligne.mode === "detail"
-        ? `${libelle} — ${ligne.quantite} ${produit.unite_detail || "unité"}`
+        ? `${libelle}, ${ligne.quantite} ${produit.unite_detail || "unité"}`
         : libelle;
 
     // Ouverture d'une boîte = 2 mouvements 'transfert' (net nul sur le produit) :

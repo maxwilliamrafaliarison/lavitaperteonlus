@@ -27,7 +27,7 @@ export function ParSallePdf({
 }) {
   const title = ctx.lang === "it" ? "Scheda di sala" : "Fiche de salle";
   const subtitle = data.room
-    ? `${data.site?.name ?? ""} — ${data.room.name} · ${fmtDate(ctx.generatedAt, ctx.lang)}`
+    ? `${data.site?.name ?? ""}, ${data.room.name} · ${fmtDate(ctx.generatedAt, ctx.lang)}`
     : ctx.lang === "it" ? "Nessuna sala specificata" : "Aucune salle spécifiée";
 
   const L = ctx.lang === "it"

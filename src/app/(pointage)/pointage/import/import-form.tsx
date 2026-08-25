@@ -133,7 +133,7 @@ export function ImportForm({ lang }: { lang: Lang }) {
             {resultat.agentsCrees > 0 && (
               <li className="text-muted-foreground">
                 <strong className="font-mono tabular-nums">{resultat.agentsCrees}</strong> nouveaux
-                agents créés — à compléter dans « Personnel »
+                agents créés : à compléter dans « Personnel »
               </li>
             )}
           </ul>

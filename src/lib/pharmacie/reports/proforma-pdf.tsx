@@ -69,7 +69,7 @@ export function ProformaPdf({
   entite: EntiteLegale;
 }) {
   return (
-    <Document title={`${data.numero} — Devis`} author={entite.denomination}>
+    <Document title={`${data.numero} : Devis`} author={entite.denomination}>
       <Page size="A4" style={[styles.page, { paddingTop: 56, paddingBottom: 44 }]}>
         <ReportHeader
           ctx={{ lang: "fr", generatedBy: "Pharmacie", generatedAt: data.emisLe }}
@@ -79,7 +79,7 @@ export function ProformaPdf({
         <ReportFooter lang="fr" />
 
         <TitleBlock
-          title="Devis — proforma"
+          title="Devis : proforma"
           /* L'établissement porte déjà le mot « Centre » : le préfixer une
              seconde fois donnait « Centre Centre REX ». */
           subtitle={`N° ${data.numero} · Pharmacie · ${entite.etablissement.split("·")[0]?.trim() || "Centre REX"}`}
@@ -112,7 +112,7 @@ export function ProformaPdf({
           }}
         >
           <Text style={{ fontSize: 10, fontWeight: 700, color: COLORS.warning }}>
-            DEVIS — NE VAUT PAS FACTURE
+            DEVIS : NE VAUT PAS FACTURE
           </Text>
           <Text style={{ fontSize: 8.5, color: COLORS.text, marginTop: 2, lineHeight: 1.4 }}>
             Estimation de prix remise à titre indicatif. Aucun paiement n&apos;a été reçu, aucune
@@ -227,7 +227,7 @@ export function ProformaTicket({
   };
 
   return (
-    <Document title={`${data.numero} — Devis`} author={entite.denomination}>
+    <Document title={`${data.numero} : Devis`} author={entite.denomination}>
       <Page size={[LARGEUR_TICKET, hauteur]} style={tk.page}>
         <Text style={{ ...tk.centre, fontSize: 8.5, fontWeight: 700, lineHeight: 1.2 }}>
           {entite.denomination.toUpperCase()}
@@ -253,7 +253,7 @@ export function ProformaTicket({
         {/* La nature du document, en tête et en grand : c'est ce qui
             distingue ce ticket d'un reçu de caisse. */}
         <Text style={{ ...tk.centre, fontSize: 11, fontWeight: 700, color: COLORS.warning }}>
-          DEVIS — PROFORMA
+          DEVIS : PROFORMA
         </Text>
         <Text style={{ ...tk.centre, fontSize: 7, fontWeight: 700, marginTop: 1 }}>
           NE VAUT PAS FACTURE

@@ -93,7 +93,7 @@ export function PanneauAlertes({ alertes }: { alertes: AlerteAgent[] }) {
       <p className="border-t border-glass-border px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
         <Info className="mr-1 inline size-3" aria-hidden="true" />
         L&apos;outil signale, il ne bloque jamais une saisie : la nuit où la seule personne
-        disponible enfreint une règle de repos, un planning qui refuse se tient ailleurs — donc
+        disponible enfreint une règle de repos, un planning qui refuse se tient ailleurs, donc
         nulle part.
       </p>
     </GlassCard>

@@ -83,7 +83,7 @@ export async function envoyerEtatCaisse(
       ? "Le compte tombe juste."
       : ecart < 0
         ? "Il manque des espèces par rapport aux ventes enregistrées."
-        : "Le tiroir contient plus que les ventes enregistrées — une vente a pu ne pas être saisie.";
+        : "Le tiroir contient plus que les ventes enregistrées : une vente a pu ne pas être saisie.";
 
   const jour = new Date(s.ouverte_le).toLocaleDateString("fr-FR", {
     weekday: "long",
@@ -96,7 +96,7 @@ export async function envoyerEtatCaisse(
   const lignesOperatrices = etat.parOperatrice
     .map(
       (o) =>
-        `<tr><td style="padding:4px 0;color:#6b7280">${o.nom} — ${o.nbVentes} vente(s)</td>` +
+        `<tr><td style="padding:4px 0;color:#6b7280">${o.nom}, ${o.nbVentes} vente(s)</td>` +
         `<td style="padding:4px 0;text-align:right">${fmtAr(o.totalComptant)}</td></tr>`,
     )
     .join("");
@@ -132,7 +132,7 @@ export async function envoyerEtatCaisse(
   ${
     etat.nbPec > 0 || etat.nbAnnulees > 0
       ? `<p style="font-size:12px;color:#6b7280;margin:10px 0">
-           ${etat.nbPec > 0 ? `${etat.nbPec} prise(s) en charge pour ${fmtAr(etat.valeurPec)} — non encaissées.` : ""}
+           ${etat.nbPec > 0 ? `${etat.nbPec} prise(s) en charge pour ${fmtAr(etat.valeurPec)}, non encaissées.` : ""}
            ${etat.nbAnnulees > 0 ? ` ${etat.nbAnnulees} vente(s) annulée(s), stock rendu.` : ""}
          </p>`
       : ""
@@ -173,7 +173,7 @@ export async function envoyerEtatCaisse(
   const signe = ecart === 0 ? "compte juste" : `écart ${ecart > 0 ? "+" : ""}${fmtAr(ecart)}`;
   return envoyerMail({
     destinataires: await destinataires(),
-    sujet: `${numero} · Relevé de caisse ${s.site} du ${jour} — ${signe}`,
+    sujet: `${numero} · Relevé de caisse ${s.site} du ${jour} : ${signe}`,
     html,
     expediteurLabel: "Pharmacie · La Vita Per Te",
   });

@@ -65,8 +65,8 @@ export function ARemplacerPdf({
           <EmptyState
             message={
               ctx.lang === "it"
-                ? "Nessun dispositivo critico — bravo al parco informatico !"
-                : "Aucun matériel critique — bravo au parc informatique !"
+                ? "Nessun dispositivo critico: bravo al parco informatico !"
+                : "Aucun matériel critique : bravo au parc informatique !"
             }
           />
         ) : (

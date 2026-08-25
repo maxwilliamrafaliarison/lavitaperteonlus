@@ -71,8 +71,8 @@ export const REPORT_CATALOG: Record<ReportType, ReportMetadata> = {
       it: "Da sostituire con priorità",
     },
     description: {
-      fr: "Matériels avec un score d'obsolescence bas — pour demande de devis.",
-      it: "Dispositivi con basso punteggio di obsolescenza — per preventivi.",
+      fr: "Matériels avec un score d'obsolescence bas, pour demande de devis.",
+      it: "Dispositivi con basso punteggio di obsolescenza, per preventivi.",
     },
     defaultFilters: { maxScore: 40 },
   },
@@ -107,8 +107,8 @@ export const REPORT_CATALOG: Record<ReportType, ReportMetadata> = {
       it: "Dispositivi per persona / reparto",
     },
     description: {
-      fr: "Qui possède quoi — utile pour les états de sortie / retour de matériel.",
-      it: "Chi possiede cosa — utile per le consegne e riconsegne di materiale.",
+      fr: "Qui possède quoi, utile pour les états de sortie / retour de matériel.",
+      it: "Chi possiede cosa, utile per le consegne e riconsegne di materiale.",
     },
     defaultFilters: {},
   },

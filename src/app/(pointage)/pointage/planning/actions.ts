@@ -143,7 +143,7 @@ export async function publierPlanningAction(formData: FormData): Promise<Plannin
       /* Le motif reste attaché au planning : une dérogation dont personne
          ne retrouve la raison six mois plus tard n'en est pas une. */
       ...(motif && trous.length
-        ? { note: `Publié malgré un poste vide (${resumerTrous(trous)}) — ${motif}` }
+        ? { note: `Publié malgré un poste vide (${resumerTrous(trous)}) : ${motif}` }
         : {}),
     });
     revalidatePath("/pointage/planning");
@@ -232,8 +232,8 @@ export async function soumettreValidationAction(formData: FormData): Promise<Pla
     // simplement au préparateur pour qu'il prévienne autrement.
     const courriel = await envoyerMail({
       destinataires: VALIDATEURS,
-      sujet: `Planning à valider — ${id}`,
-      expediteurLabel: "Planning — La Vita Per Te",
+      sujet: `Planning à valider : ${id}`,
+      expediteurLabel: "Planning · La Vita Per Te",
       html: `
         <p>Bonjour,</p>
         <p><strong>${session.user.name ?? session.user.email ?? "Le responsable administratif"}</strong>
@@ -244,7 +244,7 @@ export async function soumettreValidationAction(formData: FormData): Promise<Pla
         </p>
         <p>Pour l'examiner puis le valider ou le renvoyer :<br/>
         <a href="https://lavitaperteonlus.vercel.app/pointage/planning/gerer">Gérer les plannings</a></p>
-        <p style="color:#777;font-size:12px">Message automatique — le planning n'est visible du personnel
+        <p style="color:#777;font-size:12px">Message automatique : le planning n'est visible du personnel
         qu'après votre validation.</p>`,
     });
     return {
@@ -252,7 +252,7 @@ export async function soumettreValidationAction(formData: FormData): Promise<Pla
       id,
       avertissement: courriel.envoye
         ? undefined
-        : `Soumis, mais la notification à la direction n'est pas partie (${courriel.detail}) — prévenez-la autrement.`,
+        : `Soumis, mais la notification à la direction n'est pas partie (${courriel.detail}) : prévenez-la autrement.`,
     };
   } catch (e) {
     return { ok: false, error: `Soumission impossible : ${String(e).slice(0, 150)}` };
@@ -334,7 +334,7 @@ export async function renvoyerBrouillonAction(formData: FormData): Promise<Plann
       statut: "brouillon",
       modifie_par: session.user.email ?? "",
       modifie_le: maintenant,
-      note: `Renvoyé en brouillon par ${session.user.email ?? "?"}${motif ? ` — ${motif}` : ""}`,
+      note: `Renvoyé en brouillon par ${session.user.email ?? "?"}${motif ? ` : ${motif}` : ""}`,
     });
     revalidatePath("/pointage/planning");
     return { ok: true, id };

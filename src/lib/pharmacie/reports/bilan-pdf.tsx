@@ -59,7 +59,7 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
 
         <TitleBlock title={titre} subtitle={sub} />
         <Text style={b.legal}>
-          Pharmacie du Centre REX — La Vita Per Te (ONG-ODV Alfeo Corassori) · NIF 5001978624 · STAT
+          Pharmacie du Centre REX, La Vita Per Te (ONG-ODV Alfeo Corassori) · NIF 5001978624 · STAT
           94111212015000569 · IN 34 Ambatolahikisoa, Fianarantsoa · À l'attention de la Direction
         </Text>
 
@@ -254,7 +254,7 @@ export function BilanMensuelPdf({ data, ctx }: { data: BilanData; ctx: ReportCon
         <ReportHeader ctx={ctx} reportNumber="BILAN" />
         <ReportFooter lang={ctx.lang} />
         <SectionHeader
-          title={it ? "Allegato — Scheda di stock" : "Annexe — Fiche de stock détaillée"}
+          title={it ? "Allegato: Scheda di stock" : "Annexe : Fiche de stock détaillée"}
           meta={it ? "Per prodotto : CA delle uscite del mese e stock attuale valorizzato" : "Par produit : CA des sorties du mois et stock actuel valorisé"}
         />
         <View style={styles.tableRowHeader}>

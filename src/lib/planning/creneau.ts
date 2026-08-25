@@ -179,7 +179,7 @@ export function verifierSeuils(
       alertes.push({
         jour: tri[i + 1].jour,
         regle: "repos_journalier",
-        message: `Repos de ${versHeures(Math.max(0, repos))} entre deux services — le minimum légal est de ${versHeures(seuils.reposJournalierMinMinutes)}.`,
+        message: `Repos de ${versHeures(Math.max(0, repos))} entre deux services : le minimum légal est de ${versHeures(seuils.reposJournalierMinMinutes)}.`,
         bloquant: true,
       });
     }
@@ -194,7 +194,7 @@ export function verifierSeuils(
       alertes.push({
         jour: fenetre[0].jour,
         regle: "max_hebdomadaire",
-        message: `${versHeures(total)} sur 7 jours consécutifs à partir du ${fenetre[0].jour} — le plafond est de ${versHeures(seuils.maxHebdoMinutes)}.`,
+        message: `${versHeures(total)} sur 7 jours consécutifs à partir du ${fenetre[0].jour} : le plafond est de ${versHeures(seuils.maxHebdoMinutes)}.`,
         bloquant: true,
       });
     }

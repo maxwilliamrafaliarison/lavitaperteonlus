@@ -20,7 +20,7 @@ export type ChangementResult = { ok: false; error: string };
  */
 export async function changerMotDePasseAction(formData: FormData): Promise<ChangementResult> {
   const session = await auth();
-  if (!session?.user?.email) return { ok: false, error: "Session expirée — reconnectez-vous." };
+  if (!session?.user?.email) return { ok: false, error: "Session expirée : reconnectez-vous." };
 
   const actuel = String(formData.get("actuel") ?? "");
   const nouveau = String(formData.get("nouveau") ?? "");
@@ -43,7 +43,7 @@ export async function changerMotDePasseAction(formData: FormData): Promise<Chang
     return {
       ok: false,
       error:
-        "Les deux saisies diffèrent. Affichez-les avec l'œil pour les comparer — une espace ou une majuscule invisible suffit.",
+        "Les deux saisies diffèrent. Affichez-les avec l'œil pour les comparer : une espace ou une majuscule invisible suffit.",
     };
   }
   if (nouveau === actuel) {

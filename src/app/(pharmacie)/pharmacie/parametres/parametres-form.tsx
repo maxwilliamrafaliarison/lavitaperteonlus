@@ -157,7 +157,7 @@ export function ParametresForm({
           <input
             value={v.codeFiscal}
             onChange={(e) => maj("codeFiscal", e.target.value)}
-            placeholder="facultatif — organisation mère"
+            placeholder="facultatif : organisation mère"
             className={`${champ} font-mono`}
           />
         </label>
@@ -188,7 +188,7 @@ export function ParametresForm({
           <input
             value={v.denomination}
             onChange={(e) => maj("denomination", e.target.value)}
-            placeholder="La Vita Per Te — ONG-ODV Alfeo Corassori"
+            placeholder="La Vita Per Te, ONG-ODV Alfeo Corassori"
             className={champ}
           />
         </label>

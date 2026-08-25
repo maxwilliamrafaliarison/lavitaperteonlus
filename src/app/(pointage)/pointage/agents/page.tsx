@@ -11,7 +11,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { listAgents, listHoraires, type Agent, type Horaire, nomAffiche } from "@/lib/pointage/data";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Personnel — Pointage" };
+export const metadata: Metadata = { title: "Personnel (Pointage)" };
 
 export default async function AgentsPage() {
   const session = await auth();

@@ -63,7 +63,7 @@ export function CorrectionLigne({ ligne }: { ligne: AnomalieLigne }) {
       <tr className="text-sm">
         <td colSpan={5} className="px-5 py-3 text-accent">
           <Check className="mr-1.5 inline size-4" aria-hidden="true" />
-          {ligne.agentNom} · {ligne.jour} — corrigé
+          {ligne.agentNom} · {ligne.jour} : corrigé
         </td>
       </tr>
     );

@@ -133,7 +133,7 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
          personne ne retrouve le motif six mois plus tard n'en est pas une. */
       if (!r.ok && "trous" in r && r.trous) {
         const motif = window.prompt(
-          `Poste critique sans personne — ${r.trous}.\n\n` +
+          `Poste critique sans personne : ${r.trous}.\n\n` +
             "Publier quand même ? Indiquez pourquoi ce poste reste vide (la raison sera conservée sur le planning) :",
         );
         if (motif && motif.trim()) {
@@ -150,7 +150,7 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
           quoi === "publier" ? "Planning publié"
           : quoi === "revoquer" ? "Lien révoqué"
           : quoi === "soumettre" ? "Soumis à la validation de la direction"
-          : quoi === "valider" ? "Validé et publié — le personnel peut consulter"
+          : quoi === "valider" ? "Validé et publié : le personnel peut consulter"
           : "Renvoyé en brouillon",
         );
         router.refresh();
@@ -212,7 +212,7 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
           )}
           {p.statut === "a_valider" && !validateur && (
             <span className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-1.5 text-xs text-warning">
-              En attente de validation — Dr Elisa SALA
+              En attente de validation : Dr Elisa SALA
             </span>
           )}
           {p.statut === "a_valider" && validateur && (
@@ -268,7 +268,7 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
             Lien privé, non référencé par les moteurs de recherche. À diffuser au personnel
-            uniquement — il donne accès aux affectations nominatives.
+            uniquement : il donne accès aux affectations nominatives.
           </p>
         </div>
       )}

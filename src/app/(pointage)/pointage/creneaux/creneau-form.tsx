@@ -41,7 +41,7 @@ export function CreneauRow({ c }: { c: CreneauLigne }) {
       fd.set("minutes", String(m));
       const r = await majDureeCreneauAction(fd);
       if (r.ok) {
-        toast.success(`${c.libelle} — durée fixée à ${fmt(r.minutes)}`);
+        toast.success(`${c.libelle} : durée fixée à ${fmt(r.minutes)}`);
         router.refresh();
       } else {
         toast.error("Refusé", { description: r.error });

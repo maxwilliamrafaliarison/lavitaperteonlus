@@ -12,7 +12,7 @@ import { etatMensuel, type EtatAgentMois, nomAffiche } from "@/lib/pointage/data
 import { versHeures } from "@/lib/pointage/calcul";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "États mensuels — Pointage" };
+export const metadata: Metadata = { title: "États mensuels (Pointage)" };
 
 export default async function EtatsPage({
   searchParams,

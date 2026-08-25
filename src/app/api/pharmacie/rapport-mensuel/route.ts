@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
 
     const html = `
 <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#111">
-  <h1 style="color:#E30613;font-size:20px">Pharmacie — Rapport mensuel</h1>
+  <h1 style="color:#E30613;font-size:20px">Pharmacie : Rapport mensuel</h1>
   <p style="color:#666;font-size:13px">${moisLabel} · Centre REX, La Vita Per Te</p>
 
   <h2 style="font-size:15px;margin-top:24px">💰 Ventes du mois</h2>
@@ -173,9 +173,9 @@ export async function GET(req: NextRequest) {
     });
 
     await transporter.sendMail({
-      from: `"Pharmacie — La Vita Per Te" <${gmailUser}>`,
+      from: `"Pharmacie · La Vita Per Te" <${gmailUser}>`,
       to: destinataires.join(", "),
-      subject: `Pharmacie · Bilan mensuel ${moisLabel} — ${fmtAr(ventes.totalCash)} encaissés, marge ${bilan.tauxMarge.toFixed(0)} %`,
+      subject: `Pharmacie · Bilan mensuel ${moisLabel} : ${fmtAr(ventes.totalCash)} encaissés, marge ${bilan.tauxMarge.toFixed(0)} %`,
       html,
       attachments: [
         { filename: `bilan-mensuel-${from.slice(0, 7)}.pdf`, content: pdfBilan, contentType: "application/pdf" },
