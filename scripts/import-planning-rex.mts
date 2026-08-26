@@ -28,6 +28,7 @@ for (const line of readFileSync(".env.local", "utf8").split("\n")) {
 }
 const { parserFeuilleRex, normaliserNom } = await import("../src/lib/planning/parseur-rex.ts");
 const { resoudreAgent, HORS_REFERENTIEL, normaliserUsuel } = await import("../src/lib/pointage/alias.ts");
+const { serviceDuLibelle } = await import("../src/lib/planning/services-libelles.ts");
 
 const APPLY = process.argv.includes("--apply");
 const arg = (nom: string) => process.argv.find((a) => a.startsWith(`--${nom}=`))?.slice(nom.length + 3);
@@ -78,8 +79,11 @@ function resoudre(brut: string): string | null {
   cachePersonne.set(brut, r.agentId);
   return r.agentId;
 }
-const parLibelleService = new Map<string, string>();
-for (const s of services) parLibelleService.set(normaliserNom(s.libelle), s.id);
+/* Les libellés du fichier sont écrits à la main et comptent 238 variantes
+   pour 21 services ; l'appariement vit dans `services-libelles.ts`. On ne
+   passe ici que les identifiants du catalogue, pour qu'aucun service
+   inconnu de la base ne puisse être rendu. */
+const idsServices = new Set(services.map((s) => s.id));
 
 // ── Lecture ───────────────────────────────────────────────────────────────
 const wb = XLSX.readFile(D + FICHIER);
@@ -123,7 +127,7 @@ for (const nom of wb.SheetNames) {
 
   for (const a of r.affectations) {
     if (suspects.has(a.jour)) continue;
-    const serviceId = parLibelleService.get(normaliserNom(a.service)) ?? "";
+    const serviceId = serviceDuLibelle(a.service, idsServices);
     // Matin et après-midi : un agent cité aux deux fait une journée coupée.
     const tous = new Set([...a.matin, ...a.apresMidi]);
     for (const brut of tous) {

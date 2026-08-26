@@ -89,6 +89,36 @@ export const ALIAS_CENTRE: Record<string, string> = {
  */
 export const HORS_REFERENTIEL = new Set(["diricks"]);
 
+/**
+ * Noms usuels propres à REX.
+ *
+ * ── « Emma » SEUL, AU PLANNING DE REX ────────────────────────────────────
+ * Trois fiches portent ce prénom, si bien qu'aucune règle mécanique ne peut
+ * trancher. Quatre observations concordantes le font :
+ *
+ *  1. Sur les 93 feuilles-semaine du classeur REX, TOUTE mention d'« Emma »
+ *     tombe dans une ligne « Nettoyage ». Aucune en consultation, en CPN ni
+ *     en sénologie : Emma RAFENOSOA, sage-femme, est exclue d'office.
+ *  2. Le classeur distingue lui-même ses deux Emma de ménage : « Emma REX »
+ *     240 fois, « Emma (SIEGE) » 270 fois. Le mot nu est donc le résidu de
+ *     la première, la seconde étant toujours qualifiée.
+ *  3. AG-REX-14 est femme de ménage au service Logistique et maintenance.
+ *     C'est le poste de la ligne.
+ *  4. Ses pointages tombent l'après-midi (13:37-17:05, 13:55-17:03,
+ *     13:46-17:00), exactement là où le planning écrit « Emma » nu tandis
+ *     que le matin porte « Emma (siege) ». Emma du siège, elle, n'a aucun
+ *     badge, et ne peut donc pas produire ces heures.
+ *
+ * L'alias est volontairement CANTONNÉ À REX. Le classeur de MIARAKA a lui
+ * aussi une colonne « EMMA », dont rien ne dit qu'elle désigne la même
+ * personne ; elle reste signalée pour arbitrage plutôt que rattachée par
+ * ricochet.
+ */
+export const ALIAS_REX: Record<string, string> = {
+  emma: "AG-REX-14", // Emma RASOLOMAMPIONONA, femme de ménage
+  emmarex: "AG-REX-14",
+};
+
 /** Noms usuels propres à MIARAKA : le même mot y désigne quelqu'un d'autre. */
 export const ALIAS_MIARAKA: Record<string, string> = {
   feno: "AG-MIARAKA-21", // PHILBERT HERIFENOSOA
@@ -185,6 +215,10 @@ export function resoudreAgent(
 
   if (site === "MIARAKA" && ALIAS_MIARAKA[cle]) {
     const id = vivant(ALIAS_MIARAKA[cle]);
+    if (id) return { agentId: id, voie: "alias" };
+  }
+  if (site === "REX" && ALIAS_REX[cle]) {
+    const id = vivant(ALIAS_REX[cle]);
     if (id) return { agentId: id, voie: "alias" };
   }
   if (ALIAS_CENTRE[cle]) {
