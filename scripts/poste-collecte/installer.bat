@@ -48,7 +48,7 @@ echo Poste     : !NOM_POSTE!
 echo Collecte  : toutes les !INTERVALLE_MINUTES! minutes, des !HEURE_DEBUT!, pendant !DUREE!
 echo.
 
-echo [1/4] Installation de la bibliotheque de la pointeuse...
+echo [1/5] Installation de la bibliotheque de la pointeuse...
 call npm install --no-audit --no-fund
 if errorlevel 1 (
   echo [ERREUR] npm install a echoue. Verifiez la connexion Internet.
@@ -56,10 +56,21 @@ if errorlevel 1 (
   exit /b 1
 )
 
+rem Les taches de l'ancienne version (deux collectes par jour, sans nom de
+rem poste) portent d'autres noms : les nouvelles ne les remplacent donc pas,
+rem et elles continueraient de s'executer avec l'ancien secret, echouant
+rem chaque jour en remplissant le journal. On les retire d'abord.
+echo [2/5] Retrait des anciennes taches, s'il y en a...
+schtasks /delete /f /tn "LaVitaPerTe - Collecte pointage matin" 2>nul
+schtasks /delete /f /tn "LaVitaPerTe - Collecte pointage apres-midi" 2>nul
+schtasks /delete /f /tn "LaVitaPerTe - Agent pointage" 2>nul
+schtasks /delete /f /tn "LaVitaPerTe - Collecte pointage matin (!NOM_POSTE!)" 2>nul
+schtasks /delete /f /tn "LaVitaPerTe - Collecte pointage apres-midi (!NOM_POSTE!)" 2>nul
+
 rem Une seule tache, declenchee chaque jour a HEURE_DEBUT, qui se REPETE
 rem toutes les INTERVALLE_MINUTES pendant DUREE. C'est ce que fait /ri avec
 rem /du : plus simple qu'une tache par heure, et modifiable d'un seul geste.
-echo [2/4] Creation de la tache horaire...
+echo [3/5] Creation de la tache horaire...
 schtasks /create /f /tn "LaVitaPerTe - Collecte pointage (!NOM_POSTE!)" ^
   /tr "cmd /c cd /d \"%~dp0\" && node collecte.mjs" ^
   /sc daily /st !HEURE_DEBUT! /ri !INTERVALLE_MINUTES! /du !DUREE!
@@ -70,13 +81,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [3/4] Agent du bouton (demarre a chaque ouverture de session)...
+echo [4/5] Agent du bouton (demarre a chaque ouverture de session)...
 schtasks /create /f /tn "LaVitaPerTe - Agent pointage (!NOM_POSTE!)" ^
   /tr "wscript.exe \"%~dp0demarrer-agent.vbs\"" ^
   /sc onlogon
 start "" wscript.exe "%~dp0demarrer-agent.vbs"
 
-echo [4/4] Premiere collecte de verification (memoire entiere)...
+echo [5/5] Premiere collecte de verification (memoire entiere)...
 node collecte.mjs --tout
 if errorlevel 1 (
   echo.
