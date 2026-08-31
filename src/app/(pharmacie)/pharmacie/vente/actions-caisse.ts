@@ -79,10 +79,9 @@ export async function cloreCaisseAction(raw: unknown): Promise<Resultat> {
       const { construireEtatCaisse } = await import("@/lib/pharmacie/caisse-etat");
       const { envoyerEtatCaisse } = await import("@/lib/pharmacie/caisse-mail");
       const etat = await construireEtatCaisse(close);
-      const base =
-        process.env.NEXT_PUBLIC_BASE_URL ??
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-      await envoyerEtatCaisse(etat, base);
+      /* Plus d'adresse de base à passer : le relevé ne renvoie plus vers
+         l'application, il porte le PDF en pièce jointe. */
+      await envoyerEtatCaisse(etat);
     } catch {
       // Journalisé côté hébergeur ; l'écran ne s'en émeut pas.
     }

@@ -79,17 +79,24 @@ export async function GET(req: NextRequest) {
     chargerEntite(caisse.site),
     numeroPiece(caisse.id, caisse.ouverte_le, caisse.site),
   ]);
-  const base =
-    process.env.NEXT_PUBLIC_BASE_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  /* L'aperçu joint le PDF comme le fait l'envoi réel : un aperçu qui ne
+     montrerait pas la pièce jointe ne prouverait rien de ce qu'on relit. */
+  let piecesJointes;
+  try {
+    const { pdfEtatCaisse } = await import("@/lib/pharmacie/caisse-pdf-buffer");
+    piecesJointes = [{ nom: `${numero}.pdf`, contenu: await pdfEtatCaisse(etat, entite, numero) }];
+  } catch {
+    piecesJointes = undefined;
+  }
 
   const envoi = await envoyerMail({
     destinataires: [compte.email],
     // Le sujet dit « aperçu » : ce courriel ne doit pas être classé comme
     // la pièce justificative, qui est celle partie à la clôture.
     sujet: `[Aperçu] ${numero} · Relevé de caisse ${caisse.site}`,
-    html: htmlEtatCaisse(etat, entite, numero, base),
+    html: htmlEtatCaisse(etat, entite, numero),
     expediteurLabel: "Pharmacie · La Vita Per Te",
+    piecesJointes,
   });
 
   return NextResponse.json({

@@ -5,7 +5,7 @@ import type { EtatCaisse } from "./caisse-etat";
 import type { EntiteLegale } from "./entite";
 import { chargerEntite, numeroPiece, MENTION_CONSERVATION, MENTION_DEVISE } from "./entite";
 import {
-  bouton, chiffres, encadre, entete, enveloppe, esc, fmtAr as ar,
+  chiffres, encadre, entete, enveloppe, esc, fmtAr as ar,
   lignes, para, pied, section, tableau, titre, type Ton,
 } from "./mail-modele";
 
@@ -79,7 +79,6 @@ export function htmlEtatCaisse(
   etat: EtatCaisse,
   entite: EntiteLegale,
   numero: string,
-  baseUrl: string,
 ): string {
   const s = etat.session;
   const ecart = etat.ecart ?? 0;
@@ -159,7 +158,10 @@ ${
 
 ${s.note ? section("Observation") + para(esc(s.note)) : ""}
 
-${bouton(`${baseUrl}/api/pharmacie/caisse/${s.id}`, "Ouvrir l'état de caisse (PDF)")}
+${/* Plus de bouton vers l'application : depuis une boîte mail, il menait à
+     l'écran de connexion. Le PDF est JOINT à ce courriel, ce qui ne demande
+     ni compte ni réseau, et se classe directement. */ ""}
+${para(`<strong>L'état de caisse au format PDF est joint à ce courriel</strong>, sous le nom <code style="font-family:monospace;font-size:12px">${esc(numero)}.pdf</code>. C'est la pièce à conserver.`, 12)}
 
 ${pied(
   [
@@ -176,14 +178,13 @@ ${pied(
 
 export async function envoyerEtatCaisse(
   etat: EtatCaisse,
-  baseUrl: string,
 ): Promise<{ envoye: boolean; detail: string }> {
   const s = etat.session;
   const [entite, numero] = await Promise.all([
     chargerEntite(s.site),
     numeroPiece(s.id, s.ouverte_le, s.site),
   ]);
-  const html = htmlEtatCaisse(etat, entite, numero, baseUrl);
+  const html = htmlEtatCaisse(etat, entite, numero);
   const ecart = etat.ecart ?? 0;
   const jour = new Date(s.ouverte_le).toLocaleDateString("fr-FR", {
     weekday: "long",
@@ -194,10 +195,23 @@ export async function envoyerEtatCaisse(
   });
 
   const signe = ecart === 0 ? "compte juste" : `écart ${ecart > 0 ? "+" : ""}${ar(ecart)}`;
+
+  /* Le PDF est joint, jamais bloquant. S'il échoue à se rendre, le courriel
+     part quand même : le relevé lisible dans le corps du message vaut mieux
+     qu'un silence, et l'application sait toujours régénérer la pièce. */
+  let piecesJointes;
+  try {
+    const { pdfEtatCaisse } = await import("./caisse-pdf-buffer");
+    piecesJointes = [{ nom: `${numero}.pdf`, contenu: await pdfEtatCaisse(etat, entite, numero) }];
+  } catch {
+    piecesJointes = undefined;
+  }
+
   return envoyerMail({
     destinataires: await destinataires(),
     sujet: `${numero} · Relevé de caisse ${s.site} du ${jour} : ${signe}`,
     html,
     expediteurLabel: "Pharmacie · La Vita Per Te",
+    piecesJointes,
   });
 }
