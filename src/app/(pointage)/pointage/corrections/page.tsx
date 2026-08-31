@@ -77,7 +77,7 @@ export default async function CorrectionsPage({
             <ArrowLeft className="size-4" aria-hidden="true" />
             {t("pointage.title")}
           </Link>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+          <h1 className="mt-3 font-display text-xl font-semibold tracking-tight">
             Corrections & heures supplémentaires
           </h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">

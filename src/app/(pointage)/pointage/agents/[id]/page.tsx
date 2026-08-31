@@ -85,7 +85,7 @@ export default async function FicheAgentPage({
             <ArrowLeft className="size-4" aria-hidden="true" />
             Personnel
           </Link>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">{nom}</h1>
+          <h1 className="mt-3 font-display text-xl font-semibold tracking-tight">{nom}</h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <BadgesAgent site={etat.agent.site} statut={etat.agent.statut} />
             {etat.agent.poste && (

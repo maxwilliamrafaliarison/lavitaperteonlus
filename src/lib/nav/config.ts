@@ -31,6 +31,10 @@ export interface NavItemSpec {
   groupeKey?: string;
   /** Entrée dominante de l'app (l'acte du métier), rendue en bouton plein. */
   emphase?: boolean;
+  /** Ouvre une zone séparée par un filet : ce qu'on ne consulte
+   *  qu'occasionnellement (pilotage, réglages) cesse de peser autant que le
+   *  travail quotidien. À poser sur le PREMIER item du groupe. */
+  filet?: boolean;
   /** Pastilles de compte à afficher (alimentées par le shell serveur). */
   badges?: Array<"ruptures" | "peremptions">;
 }
@@ -75,7 +79,7 @@ export const APP_NAV: Record<AppKey, AppNav> = {
       { href: "/pharmacie/reception", labelKey: "pharmacie.reception_cta", icon: "PackagePlus", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock", badges: ["ruptures"] },
       { href: "/pharmacie/achats", labelKey: "pharmacie.achats_cta", icon: "ClipboardList", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock" },
       { href: "/pharmacie/transfert", labelKey: "pharmacie.transfert_cta", icon: "ArrowLeftRight", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_stock" },
-      { href: "/pharmacie/rapports", labelKey: "pharmacie.rapports_cta", icon: "FileBarChart2", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_pilotage", badges: ["peremptions"] },
+      { href: "/pharmacie/rapports", labelKey: "pharmacie.rapports_cta", icon: "FileBarChart2", permission: "pharmacie:stock", groupeKey: "pharmacie.grp_pilotage", filet: true, badges: ["peremptions"] },
       // Consultation seule : qui sont nos fournisseurs, comment les joindre.
       { href: "/pharmacie/fournisseurs", labelKey: "pharmacie.fournisseurs_cta", icon: "Truck", groupeKey: "pharmacie.grp_pilotage" },
       { href: "/pharmacie/parametres", labelKey: "pharmacie.param_cta", icon: "Settings", permission: "pharmacie:config", groupeKey: "pharmacie.grp_pilotage" },
@@ -94,23 +98,44 @@ export const APP_NAV: Record<AppKey, AppNav> = {
     key: "pointage",
     nameKey: "hub.app_pointage",
     icon: "Fingerprint",
+    /* ── ORDONNÉ COMME SE DÉROULE LA JOURNÉE, NON COMME ON A CONSTRUIT ────
+       Neuf entrées à plat, dont DEUX menaient au même écran : « Tableau de
+       bord » et « Présence du jour » désignaient la même page, si bien que
+       cliquer sur l'une allumait l'autre. C'est ce que la direction a
+       signalé, et c'est la seule chose qu'un menu ne doit jamais faire.
+
+       Cinq sections, dans l'ordre où la RH les ouvre : ce qu'on regarde le
+       matin, le planning qu'on tient, la chaîne qui mène à la paie, les
+       personnes, puis ce qu'on règle une fois par an. Une section porte son
+       intitulé : l'œil retrouve « Temps de travail » sans lire chaque ligne.
+
+       Deux pages étaient hors du menu, atteignables seulement par un lien
+       interne : la liste des plannings, et l'historique des corrections. La
+       première entre ici, créer un planning étant un acte courant ; la
+       seconde reste sur sa page mère, l'historique appartenant aux
+       corrections et non au menu principal. */
     items: [
-      { href: "/pointage", labelKey: "nav.dashboard", icon: "LayoutDashboard" },
-      { href: "/pointage/presence", labelKey: "pointage.nav_presence", icon: "UserCheck" },
-      /* Placé juste après la présence : c'est l'écran de TRAVAIL de la RH,
-         celui qu'elle ouvre chaque matin. Il vit sous `app:pointage` et non
-         sous `pointage:gerer` — lire les écarts est une lecture ; seules
-         les corriger engage la paie. */
-      { href: "/pointage/ecarts", labelKey: "pointage.nav_ecarts", icon: "TriangleAlert" },
-      { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2" },
-      { href: "/pointage/agents", labelKey: "pointage.nav_agents", icon: "Users" },
-      { href: "/pointage/planning", labelKey: "pointage.nav_planning", icon: "CalendarDays", permission: "planning:gerer" },
-      /* CORRIGER, et non GÉRER : la page s'est ouverte à la RH et à
-         l'administration, le lien qui y mène doit suivre. Une page
-         accessible dont aucun menu ne parle n'est pas accessible. */
-      { href: "/pointage/corrections", labelKey: "pointage.nav_corrections", icon: "ClipboardList", permission: "pointage:corriger" },
-      { href: "/pointage/creneaux", labelKey: "pointage.nav_creneaux", icon: "Clock", permission: "pointage:gerer" },
-      { href: "/pointage/import", labelKey: "pointage.nav_import", icon: "Upload", permission: "pointage:collecter" },
+      { href: "/pointage", labelKey: "pointage.nav_presence", icon: "UserCheck", groupeKey: "pointage.grp_jour" },
+      /* L'écran de TRAVAIL de la RH, celui qu'elle ouvre chaque matin. Sous
+         `app:pointage` et non `pointage:gerer` : lire les écarts est une
+         lecture, seul les corriger engage la paie. */
+      { href: "/pointage/ecarts", labelKey: "pointage.nav_ecarts", icon: "TriangleAlert", groupeKey: "pointage.grp_jour" },
+
+      /* L'acte dominant du métier : tenir le planning. Rendu en bouton
+         plein, comme la vente l'est à la pharmacie. */
+      { href: "/pointage/planning", labelKey: "pointage.nav_planning_semaine", icon: "CalendarDays", permission: "planning:gerer", groupeKey: "pointage.grp_planning", emphase: true },
+      { href: "/pointage/planning/gerer", labelKey: "pointage.nav_planning_tous", icon: "CalendarRange", permission: "planning:gerer", groupeKey: "pointage.grp_planning" },
+
+      /* La chaîne qui mène à la paie, dans son ordre : on corrige ce que la
+         machine a manqué, puis on lit le mois. */
+      { href: "/pointage/corrections", labelKey: "pointage.nav_corrections", icon: "ClipboardList", permission: "pointage:corriger", groupeKey: "pointage.grp_temps" },
+      { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2", groupeKey: "pointage.grp_temps" },
+
+      { href: "/pointage/agents", labelKey: "pointage.nav_agents", icon: "Users", groupeKey: "pointage.grp_personnel" },
+
+      /* Ce qu'on règle une fois, puis plus jamais : en bas, et ensemble. */
+      { href: "/pointage/creneaux", labelKey: "pointage.nav_creneaux", icon: "Clock", permission: "pointage:gerer", groupeKey: "pointage.grp_reglages", filet: true },
+      { href: "/pointage/import", labelKey: "pointage.nav_import", icon: "Upload", permission: "pointage:collecter", groupeKey: "pointage.grp_reglages" },
     ],
   },
 };

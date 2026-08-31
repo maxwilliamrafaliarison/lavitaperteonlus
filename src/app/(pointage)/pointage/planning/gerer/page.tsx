@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarDays } from "lucide-react";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { safe } from "@/lib/sheets/safe";
+import { aujourdhui } from "@/lib/tz";
 import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
 import { listPlannings, listAffectations, type Planning } from "@/lib/planning/data";
@@ -16,7 +17,7 @@ import { envoyerRecapitulatif } from "@/lib/planning/notification";
 import { NouveauPlanning, PlanningRow, type PlanningLigne } from "../planning-client";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Gérer les plannings (Pointage)" };
+export const metadata: Metadata = { title: "Tous les plannings (Pointage)" };
 
 export default async function PlanningPage({
   searchParams,
@@ -42,6 +43,19 @@ export default async function PlanningPage({
 
   const res = await safe<Planning[]>(() => listPlannings(), []);
   const plannings = res.data.filter((p) => !filtre || p.centre === filtre);
+
+  /* PREMIÈRE SEMAINE NON PLANIFIÉE, par centre. Le formulaire la propose
+     d'un clic au lieu de faire saisir deux dates : c'est la question à
+     laquelle il répond neuf fois sur dix. Calculée sur TOUS les plannings,
+     pas sur la liste filtrée — le filtre ne concerne que l'affichage. */
+  const prochaines: Record<string, string> = {};
+  for (const c of ["REX", "MIARAKA"]) {
+    const fins = res.data.filter((p) => p.centre === c).map((p) => p.au).sort();
+    const derniere = fins[fins.length - 1];
+    // Le lendemain du dernier jour couvert ; à défaut, le lundi qui vient.
+    const depart = derniere ? decaler(derniere, 1) : decaler(aujourdhui(), 7);
+    prochaines[c] = lundiDe(depart);
+  }
 
   // Nombre d'affectations par planning, pour situer l'avancement.
   const lignes: PlanningLigne[] = await Promise.all(
@@ -80,14 +94,17 @@ export default async function PlanningPage({
             <ArrowLeft className="size-4" aria-hidden="true" />
             Retour au tableau
           </Link>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
-            Gérer les plannings
+          <h1 className="mt-3 font-display text-xl font-semibold tracking-tight">
+            {t("pointage.nav_planning_tous")}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {lignes.length} planning(s) · publiez pour obtenir un lien consultable par le personnel
+            {lignes.length === 0
+              ? "Aucun planning enregistré"
+              : `${lignes.length} planning${lignes.length > 1 ? "s" : ""} enregistré${lignes.length > 1 ? "s" : ""}`}
+            {" · un planning publié devient consultable par le personnel via un lien"}
           </p>
         </div>
-        <NouveauPlanning />
+        <NouveauPlanning prochaines={prochaines} />
       </div>
 
       {/* Filtre par centre — conservé dans l'URL, donc partageable. */}
@@ -135,4 +152,18 @@ export default async function PlanningPage({
       </p>
     </main>
   );
+}
+
+/** `iso` décalé de `jours`, en UTC pour ignorer l'heure d'été. */
+function decaler(iso: string, jours: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + jours);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Lundi de la semaine contenant `iso` : un planning commence un lundi. */
+function lundiDe(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
 }

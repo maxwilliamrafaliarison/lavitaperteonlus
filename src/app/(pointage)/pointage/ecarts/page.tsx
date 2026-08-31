@@ -86,7 +86,7 @@ export default async function EcartsPage({
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">{dateLisible}</p>
-          <h1 className="mt-1 font-display text-3xl md:text-4xl font-semibold tracking-tight">
+          <h1 className="mt-1 font-display text-xl font-semibold tracking-tight">
             Écarts au planning
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">

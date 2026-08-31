@@ -114,7 +114,12 @@ export function MobileNav({
             return (
               <React.Fragment key={item.href}>
                 {nouveauGroupe && (
-                  <p className="px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70">
+                  <p
+                    className={cn(
+                      "px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70",
+                      item.filet && "mt-2 border-t border-glass-border pt-4",
+                    )}
+                  >
                     {t(item.groupeKey!)}
                   </p>
                 )}
@@ -125,7 +130,9 @@ export function MobileNav({
                     "flex items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all",
                     item.emphase ? "h-12" : "h-11",
                     item.emphase
-                      ? "bg-accent text-accent-foreground shadow-md"
+                      ? active
+                        ? "bg-accent text-accent-foreground shadow-lg ring-2 ring-accent/40 ring-offset-2 ring-offset-[var(--background)]"
+                        : "bg-accent text-accent-foreground shadow-md"
                       : active
                         ? "bg-accent/12 text-accent border border-accent/25 shadow-sm"
                         : "text-muted-foreground hover:text-foreground hover:bg-white/5",

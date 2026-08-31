@@ -14,7 +14,7 @@ import { dureePlage, type Creneau } from "@/lib/planning/creneau";
 import { CreneauRow, type CreneauLigne } from "./creneau-form";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Créneaux (Pointage)" };
+export const metadata: Metadata = { title: "Créneaux types (Pointage)" };
 
 const GROUPES: Array<{ type: string; titre: string; aide: string }> = [
   { type: "garde_nuit", titre: "Gardes et postes de nuit", aide: "Ces créneaux traversent minuit : leur heure de fin appartient au lendemain." },
@@ -62,8 +62,8 @@ export default async function CreneauxPage() {
           <ArrowLeft className="size-4" aria-hidden="true" />
           {t("pointage.title")}
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
-          Créneaux et barème d&apos;heures
+        <h1 className="mt-3 font-display text-xl font-semibold tracking-tight">
+          {t("pointage.nav_creneaux")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {lignes.length} créneaux · la durée retenue sert de base au calcul du temps de travail

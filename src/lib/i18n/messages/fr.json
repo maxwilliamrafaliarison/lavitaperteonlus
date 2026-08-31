@@ -1038,7 +1038,7 @@
     "subtitle": "Temps de travail du personnel · centres REX et MIARAKA",
     "nav_presence": "Présence du jour",
     "nav_etats": "États mensuels",
-    "nav_agents": "Personnel",
+    "nav_agents": "Fiches du personnel",
     "nav_import": "Import des pointages",
     "presents": "Présents maintenant",
     "absents": "Absents / repartis",
@@ -1066,8 +1066,15 @@
     "generer": "Générer le PDF",
     "aucune_donnee": "Aucune donnée sur la période.",
     "nav_corrections": "Corrections",
-    "nav_creneaux": "Créneaux",
+    "nav_creneaux": "Créneaux types",
     "nav_planning": "Plannings",
-    "nav_ecarts": "Écarts au planning"
+    "nav_ecarts": "Écarts au planning",
+    "grp_jour": "Le jour même",
+    "grp_planning": "Planning",
+    "grp_temps": "Temps de travail",
+    "grp_personnel": "Personnel",
+    "grp_reglages": "Réglages",
+    "nav_planning_semaine": "Semaine en cours",
+    "nav_planning_tous": "Tous les plannings"
   }
 }

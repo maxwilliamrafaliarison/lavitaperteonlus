@@ -31,7 +31,7 @@ export default async function ImportPage() {
           <ArrowLeft className="size-4" aria-hidden="true" />
           {t("pointage.title")}
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="mt-3 font-display text-xl font-semibold tracking-tight">
           {t("pointage.nav_import")}
         </h1>
       </div>

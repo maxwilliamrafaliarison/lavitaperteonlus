@@ -87,10 +87,9 @@ export function AppSidebar({
                 <p
                   className={cn(
                     "px-3 pb-1 pt-4 text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground/70",
-                    // Filet avant le pilotage : il sépare le travail
-                    // quotidien de ce qu'on ne consulte qu'occasionnellement.
-                    item.groupeKey === "pharmacie.grp_pilotage" &&
-                      "mt-2 border-t border-glass-border pt-4",
+                    // Filet avant les zones occasionnelles : il sépare le
+                    // travail quotidien de ce qu'on ne consulte que rarement.
+                    item.filet && "mt-2 border-t border-glass-border pt-4",
                   )}
                 >
                   {t(item.groupeKey!)}

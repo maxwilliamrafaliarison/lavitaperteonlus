@@ -14,7 +14,7 @@ import { presenceDuJour, type PresenceAgent, type Agent, nomAffiche } from "@/li
 import { BoutonCollecte, ImportMiaraka } from "./bouton-collecte";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Pointage" };
+export const metadata: Metadata = { title: "Présence du jour (Pointage)" };
 
 /* ============================================================
    PRÉSENCE DU JOUR
@@ -76,7 +76,7 @@ export default async function PointagePage() {
     <main id="main-content" className="mx-auto max-w-6xl flex-1 p-4 md:p-8">
       <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
         <div>
-          <h1 className="font-display text-xl font-semibold tracking-tight">{t("pointage.title")}</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight">{t("pointage.nav_presence")}</h1>
           <p className="text-sm text-muted-foreground">{t("pointage.subtitle")}</p>
         </div>
         <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{dateLisible}</p>

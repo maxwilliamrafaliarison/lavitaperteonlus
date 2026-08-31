@@ -11,7 +11,7 @@ import { GlassCard } from "@/components/glass/glass-card";
 import { listAgents, listHoraires, type Agent, type Horaire, nomAffiche } from "@/lib/pointage/data";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Personnel (Pointage)" };
+export const metadata: Metadata = { title: "Fiches du personnel (Pointage)" };
 
 export default async function AgentsPage() {
   const session = await auth();
@@ -41,7 +41,7 @@ export default async function AgentsPage() {
           <ArrowLeft className="size-4" aria-hidden="true" />
           {t("pointage.title")}
         </Link>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="mt-3 font-display text-xl font-semibold tracking-tight">
           {t("pointage.nav_agents")}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">

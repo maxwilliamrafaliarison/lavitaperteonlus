@@ -1038,7 +1038,7 @@
     "subtitle": "Tempo di lavoro del personale · centri REX e MIARAKA",
     "nav_presence": "Presenza del giorno",
     "nav_etats": "Rendiconti mensili",
-    "nav_agents": "Personale",
+    "nav_agents": "Schede del personale",
     "nav_import": "Importa timbrature",
     "presents": "Presenti ora",
     "absents": "Assenti / usciti",
@@ -1066,8 +1066,15 @@
     "generer": "Genera il PDF",
     "aucune_donnee": "Nessun dato nel periodo.",
     "nav_corrections": "Correzioni",
-    "nav_creneaux": "Fasce orarie",
+    "nav_creneaux": "Fasce orarie tipo",
     "nav_planning": "Pianificazione",
-    "nav_ecarts": "Scostamenti dal piano"
+    "nav_ecarts": "Scostamenti dal piano",
+    "grp_jour": "Oggi",
+    "grp_planning": "Pianificazione",
+    "grp_temps": "Tempo di lavoro",
+    "grp_personnel": "Personale",
+    "grp_reglages": "Impostazioni",
+    "nav_planning_semaine": "Settimana in corso",
+    "nav_planning_tous": "Tutte le pianificazioni"
   }
 }
