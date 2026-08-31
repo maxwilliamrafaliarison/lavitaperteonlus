@@ -263,6 +263,17 @@ export interface PresenceAgent {
   dernierPointage: string; // "HH:MM"
   site: string;
   present: boolean;
+  /**
+   * Tous les passages du jour, en ordre chronologique, en "HH:MM".
+   *
+   * La pointeuse n'enregistre PAS le sens : `sens_brut` vaut « none ». C'est
+   * l'ALTERNANCE qui le donne, et elle seule : le premier passage est une
+   * entrée, le deuxième une sortie, et ainsi de suite. La même règle fonde
+   * déjà le calcul de présence, où un nombre impair signifie « entré sans
+   * être ressorti ». On rend donc la suite brute, et l'affichage en déduit
+   * les sens plutôt que d'inventer un champ qui n'existe pas.
+   */
+  passages: string[];
 }
 
 /**
@@ -304,6 +315,7 @@ export async function presenceDuJour(jour: string): Promise<{
         dernierPointage: dernier.horodatage.slice(11, 16),
         site: dernier.site_pointage,
         present,
+        passages: evs.map((e) => e.horodatage.slice(11, 16)),
       });
       parSite[dernier.site_pointage] = (parSite[dernier.site_pointage] ?? 0) + 1;
     } else {

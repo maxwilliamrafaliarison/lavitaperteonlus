@@ -30,6 +30,7 @@
  *   npx tsx scripts/publier-planning.mts --id=… --par=… --motif="…" --apply
  */
 import { readFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
 
 for (const line of readFileSync(".env.local", "utf8").split("\n")) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
@@ -142,11 +143,15 @@ const publies: Array<{ token_public: string }> = await pg(
   "planning", "GET",
   `plannings?select=token_public&centre=eq.${encodeURIComponent(plan.centre)}&statut=eq.publie&order=publie_le.desc&limit=100`,
 );
-const token = publies.find((p) => /^[a-f0-9]{32}$/.test(p.token_public))?.token_public
+let token = publies.find((p) => /^[a-f0-9]{32}$/.test(p.token_public))?.token_public
   ?? (plan.token_public && /^[a-f0-9]{32}$/.test(plan.token_public) ? plan.token_public : "")
   ?? "";
-if (!token) throw new Error("Aucun jeton public existant pour ce centre : publiez d'abord depuis l'application, qui sait en créer un.");
-console.log(`\njeton du centre repris : ${token}`);
+/* Un centre qui n'a jamais rien publié n'a pas encore de jeton : on le crée,
+   comme le fait `publierPlanningAction`. Seize octets au hasard, en
+   hexadécimal — c'est un secret d'accès, pas un identifiant devinable. */
+const nouveau = !token;
+if (nouveau) token = randomBytes(16).toString("hex");
+console.log(`\njeton du centre ${nouveau ? "CRÉÉ" : "repris"} : ${token}`);
 console.log(`adresse publique       : https://lavitaperteonlus.vercel.app/planning/${token}`);
 
 if (!APPLY) {
