@@ -74,7 +74,13 @@ export const listAffectations = (planningId: string) =>
  * ramener ce qu'on ne va pas regarder.
  */
 export const affectationsPeriode = (du: string, au: string, agents?: string[]) =>
-  lireTout<Affectation>("affectations", "jour.asc", {
+  /* Tri sur DEUX colonnes dont la seconde est unique. `jour` ne l'est pas :
+     une cinquantaine de lignes portent la même date, et paginer par
+     LIMIT/OFFSET sur un ordre partiel n'a aucune garantie en Postgres. Au
+     franchissement des mille lignes, la même affectation pouvait revenir
+     deux fois pendant qu'une autre disparaissait, ce qui fausse aussi bien
+     le contrôle des seuils que le décompte d'expérience. */
+  lireTout<Affectation>("affectations", "jour.asc,id.asc", {
     and: `(jour.gte.${du},jour.lte.${au})`,
     ...(agents?.length ? { agent_id: `in.(${agents.map((a) => `"${a}"`).join(",")})` } : {}),
   });

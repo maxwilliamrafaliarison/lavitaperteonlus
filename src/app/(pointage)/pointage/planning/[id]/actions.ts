@@ -6,6 +6,8 @@ import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { sbInsert, sbUpdate, sbDelete, sbSelect } from "@/lib/supabase-server";
 import { listCreneaux, verifierSeuilsAgent, PREFIXE_ATTENTE } from "./verif";
+import { estPosteAPourvoir, idAffectation } from "@/lib/planning/constantes";
+import { nomAffiche, rattacheA } from "@/lib/pointage/data";
 
 /**
  * Un planning PUBLIÉ est visible du personnel en direct : le modifier sans
@@ -136,7 +138,7 @@ export async function affecterAction(formData: FormData): Promise<AffecterResult
   const plan = await planningVise(planningId);
   const auteur = session.user.email ?? "";
 
-  const id = `AFF-${planningId}-${jour.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
+  const id = idAffectation(planningId, jour, agentId, serviceId);
 
   try {
     // Créneau vide = on retire l'affectation plutôt que d'enregistrer un vide,
@@ -227,8 +229,8 @@ export async function deplacerAffectationAction(formData: FormData): Promise<Aff
   const plan = await planningVise(planningId);
   const auteur = session.user.email ?? "";
 
-  const idAvant = `AFF-${planningId}-${jourAvant.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
-  const idApres = `AFF-${planningId}-${jour.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
+  const idAvant = idAffectation(planningId, jourAvant, agentId, serviceId);
+  const idApres = idAffectation(planningId, jour, agentId, serviceId);
   try {
     if (idAvant !== idApres) await sbDelete("planning", "affectations", { id: `eq.${idAvant}` });
     await sbDelete("planning", "affectations", { id: `eq.${idApres}` });
@@ -496,6 +498,148 @@ export async function attribuerPosteAction(formData: FormData): Promise<
   } catch (e) {
     return { ok: false, error: `Attribution impossible : ${String(e).slice(0, 150)}` };
   }
+}
+
+/**
+ * Confie un poste à quelqu'un d'autre : remplacement ou poste vide.
+ *
+ * ── POURQUOI CETTE ACTION EXISTE À CÔTÉ DE `attribuerPosteAction` ────────
+ * Les deux réécrivent le même champ, mais elles ne racontent pas la même
+ * histoire au journal. Combler un poste ouvert se dit « prend ce poste, qui
+ * était en attente ». Remplacer quelqu'un dit QUI est remplacé et pourquoi,
+ * et c'est cette phrase-là qui part aux quatre responsables : sans le nom de
+ * la personne absente, l'avis est illisible et personne ne peut vérifier que
+ * le remplacement était le bon.
+ *
+ * ── L'IDENTIFIANT SE RÉÉCRIT AVEC LE TITULAIRE ───────────────────────────
+ * L'id d'une affectation encode l'agent (voir `idAffectation`). Ne changer
+ * que `agent_id` laissait une ligne dont l'id nommait la personne remplacée :
+ * la grille ne la retrouvait plus, la rouvrir échouait sur l'index
+ * d'unicité, et un glisser-déposer créait un doublon qui faisait compter ses
+ * heures deux fois dans le contrôle légal. Les deux champs changent donc
+ * ensemble, dans la même écriture.
+ *
+ * L'affectation est TRANSFÉRÉE, elle n'est pas dupliquée : le poste reste
+ * tenu par une seule personne. Ce que la personne absente devait faire reste
+ * lisible dans son absence, qui porte ses dates et son motif.
+ */
+export async function remplacerAction(formData: FormData): Promise<
+  { ok: true; alertes: string[]; message: string } | { ok: false; error: string }
+> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Non authentifié." };
+  if (!can(session.user.role, "planning:gerer")) {
+    return { ok: false, error: "Votre rôle ne permet pas de modifier un planning." };
+  }
+
+  const affectationId = String(formData.get("affectationId") ?? "").trim();
+  const agentId = String(formData.get("agentId") ?? "").trim();
+  const motif = String(formData.get("motif") ?? "").trim();
+  if (!affectationId || !agentId) return { ok: false, error: "Paramètres incomplets." };
+
+  let ligne: { id: string; planning_id: string; agent_id: string; jour: string; service_id: string };
+  let nouvelId = "";
+  try {
+    const { rows } = await sbSelect<typeof ligne>("planning", "affectations", {
+      select: "id,planning_id,agent_id,jour,service_id",
+      order: "id.asc",
+      limit: 1,
+      filters: { id: `eq.${affectationId}` },
+    });
+    if (!rows[0]) return { ok: false, error: "Ce poste n'existe plus. Rechargez la page." };
+    ligne = rows[0];
+    if (ligne.agent_id === agentId) {
+      return { ok: false, error: "Cette personne tient déjà ce poste." };
+    }
+
+    /* LE REMPLAÇANT EST VÉRIFIÉ CÔTÉ SERVEUR. La liste affichée l'a déjà
+       filtré, mais une liste n'est pas un contrôle : elle a pu être calculée
+       il y a une heure, et rien n'oblige un appel à passer par elle. */
+    const { rows: candidats } = await sbSelect<{ id: string; nom: string; prenom: string; site: string; actif: boolean }>(
+      "pointage",
+      "agents",
+      { select: "id,nom,prenom,site,actif", order: "id.asc", limit: 1, filters: { id: `eq.${agentId}` } },
+    );
+    const remplacant = candidats[0];
+    if (!remplacant) return { ok: false, error: "Cette personne n'existe pas." };
+    if (!remplacant.actif) {
+      return { ok: false, error: "Cette personne ne fait plus partie du personnel actif." };
+    }
+    const plan = await planningVise(ligne.planning_id);
+    if (plan && !rattacheA(remplacant.site, plan.centre)) {
+      return {
+        ok: false,
+        error: `${nomAffiche(remplacant)} n'est pas rattachée à ${plan.centre}.`,
+      };
+    }
+
+    nouvelId = idAffectation(ligne.planning_id, ligne.jour, agentId, ligne.service_id);
+
+    /* L'écriture est CONDITIONNÉE au titulaire qu'on croyait trouver : deux
+       personnes traitant le même trou en même temps, ou un onglet resté
+       ouvert depuis ce matin, écraseraient sinon le remplacement de l'autre
+       sans que rien ne le signale. */
+    const n = await sbUpdate(
+      "planning",
+      "affectations",
+      { id: `eq.${affectationId}`, agent_id: `eq.${ligne.agent_id}` },
+      { id: nouvelId, agent_id: agentId },
+    );
+    if (n === 0) {
+      return {
+        ok: false,
+        error: "Ce poste vient d'être confié à quelqu'un d'autre. Rechargez la page.",
+      };
+    }
+  } catch (e) {
+    const msg = String(e);
+    /* L'index d'unicité porte sur (planning, agent, jour, service) : le
+       heurter signifie que cette personne a DÉJÀ quelque chose ce jour-là
+       sur ce service, un repos le plus souvent. On le dit en clair plutôt
+       que de rendre un code Postgres. */
+    if (msg.includes("23505") || msg.includes("duplicate") || msg.includes("409")) {
+      return {
+        ok: false,
+        error:
+          "Cette personne a déjà un créneau ce jour-là sur ce service, un repos peut-être. Retirez-le depuis la grille, puis recommencez.",
+      };
+    }
+    return { ok: false, error: `Remplacement impossible : ${msg.slice(0, 150)}` };
+  }
+
+  /* ── CE QUI SUIT NE PEUT PLUS FAIRE ÉCHOUER L'ACTION ────────────────────
+     Le transfert est écrit. Les lectures qui suivent servent à composer le
+     message et à prévenir les responsables ; si l'une d'elles tombe, il
+     serait faux d'annoncer « remplacement impossible » alors qu'il a eu
+     lieu. On rend donc le succès, avec ce qu'on a pu obtenir. */
+  let message = "Poste confié.";
+  let alertes: string[] = [];
+  try {
+    const remplacant = await nomAgent(agentId);
+    const remplace = estPosteAPourvoir(ligne.agent_id) ? "" : await nomAgent(ligne.agent_id);
+    const plan = await planningVise(ligne.planning_id);
+    await prevenirSiPublie(
+      plan,
+      session.user.email ?? "",
+      remplace ? "Remplacement" : "Poste à pourvoir attribué",
+      agentId,
+      ligne.jour,
+      remplace
+        ? `remplace ${remplace}${motif ? ` (${motif})` : ""}`
+        : "prend ce poste, qui était en attente",
+      remplace,
+    );
+    alertes = (await verifierSeuilsAgent(agentId, ligne.jour)).map((a) => a.message);
+    message = remplace
+      ? `${remplacant} remplace ${remplace} le ${ligne.jour}.`
+      : `${remplacant} prend ce poste le ${ligne.jour}.`;
+  } catch {
+    message = `Poste confié le ${ligne.jour}. L'avis aux responsables n'a pas pu être préparé.`;
+  }
+
+  revalidatePath(`/pointage/planning/${ligne.planning_id}`);
+  revalidatePath("/pointage/planning/remplacements");
+  return { ok: true, alertes, message };
 }
 
 export { listCreneaux };

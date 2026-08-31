@@ -1,4 +1,5 @@
 import { AlertTriangle, CircleCheck, Info } from "lucide-react";
+import Link from "next/link";
 
 import { GlassCard } from "@/components/glass/glass-card";
 
@@ -83,6 +84,21 @@ export function PanneauAlertes({ alertes }: { alertes: AlerteAgent[] }) {
                   {a.jour ? <span className="text-muted-foreground"> · {jourLisible(a.jour)}</span> : null}
                   <br />
                   {a.message}
+                  {/* CE QUI MANQUAIT À L'ALERTE : QUOI FAIRE. Signaler qu'une
+                      personne est affectée pendant son congé sans dire par
+                      qui la remplacer laisse le lecteur devant le problème,
+                      et l'alerte reste au panneau semaine après semaine. */}
+                  {a.regle === "absence" && (
+                    <>
+                      {" "}
+                      <Link
+                        href={`/pointage/planning/remplacements?jours=30#${a.agentId}`}
+                        className="whitespace-nowrap text-accent transition-colors hover:underline"
+                      >
+                        Trouver un remplaçant
+                      </Link>
+                    </>
+                  )}
                 </span>
               </p>
             </li>

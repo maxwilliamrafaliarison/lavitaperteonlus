@@ -1090,6 +1090,7 @@
     "col_nature": "Natura",
     "col_periode": "Periodo",
     "col_etat": "Stato",
-    "col_solde": "Saldo"
+    "col_solde": "Saldo",
+    "nav_remplacements": "Sostituzioni"
   }
 }

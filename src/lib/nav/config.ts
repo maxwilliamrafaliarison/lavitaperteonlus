@@ -124,6 +124,7 @@ export const APP_NAV: Record<AppKey, AppNav> = {
       /* L'acte dominant du métier : tenir le planning. Rendu en bouton
          plein, comme la vente l'est à la pharmacie. */
       { href: "/pointage/planning", labelKey: "pointage.nav_planning_semaine", icon: "CalendarDays", permission: "planning:gerer", groupeKey: "pointage.grp_planning", emphase: true },
+      { href: "/pointage/planning/remplacements", labelKey: "pointage.nav_remplacements", icon: "UserPlus", permission: "planning:gerer", groupeKey: "pointage.grp_planning" },
       { href: "/pointage/planning/gerer", labelKey: "pointage.nav_planning_tous", icon: "CalendarRange", permission: "planning:gerer", groupeKey: "pointage.grp_planning" },
 
       /* La chaîne qui mène à la paie, dans son ordre : on corrige ce que la

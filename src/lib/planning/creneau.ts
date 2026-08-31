@@ -160,6 +160,39 @@ const minutesEntre = (finA: string, debutB: string): number => {
  * le lendemain matin met le repos de 11 heures en tension, et c'est au moment
  * de planifier — pas au moment de payer — qu'il faut le savoir.
  */
+/**
+ * Réunit des plages qui se chevauchent ou se touchent, et rend leur durée.
+ *
+ * Une même personne peut tenir DEUX SERVICES le même jour — Lida est aux
+ * vaccins et à la pharmacie le 10 août, et quinze cas existent sur la seule
+ * semaine du 10. Chaque affectation portant ses propres plages, les traiter
+ * séparément revenait à croire qu'elle travaille deux journées : le contrôle
+ * annonçait « 0:00 de repos entre deux services » — entre elle et elle-même —
+ * et comptait ses heures en double, jusqu'à faire sauter le plafond
+ * hebdomadaire sur des semaines parfaitement normales.
+ *
+ * Soixante et une alertes « bloquantes » sur une semaine sans qu'aucune ne
+ * soit vraie : c'est ainsi qu'on apprend à ne plus lire un panneau d'alertes.
+ */
+export function fusionnerPlages(plages: PlageAbsolue[]): { plages: PlageAbsolue[]; minutes: number } {
+  const tri = [...plages].sort((a, b) => a.debut.localeCompare(b.debut));
+  const out: PlageAbsolue[] = [];
+  for (const p of tri) {
+    const dernier = out[out.length - 1];
+    if (dernier && p.debut <= dernier.fin) {
+      if (p.fin > dernier.fin) dernier.fin = p.fin;
+      continue;
+    }
+    out.push({ ...p });
+  }
+  const minutes = out.reduce((s, p) => {
+    const a = Date.parse(`${p.debut.replace(" ", "T")}:00Z`);
+    const b = Date.parse(`${p.fin.replace(" ", "T")}:00Z`);
+    return s + (Number.isNaN(a) || Number.isNaN(b) ? 0 : Math.max(0, (b - a) / 60000));
+  }, 0);
+  return { plages: out, minutes };
+}
+
 export function verifierSeuils(
   journees: Array<{ jour: string; plages: PlageAbsolue[]; minutes: number }>,
   seuils: SeuilsLegaux = SEUILS_DEFAUT,
