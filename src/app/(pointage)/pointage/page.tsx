@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 
@@ -176,7 +177,16 @@ export default async function PointagePage() {
                     {tries.map((p) => (
                       <tr key={p.agent.id} className="transition-colors hover:bg-foreground/[0.02]">
                         <td className="py-2.5 pr-4">
-                          <span className="block truncate font-medium">{nomAffiche(p.agent)}</span>
+                          {/* La fiche répond à la question suivante : cette
+                              personne est là, mais a-t-elle des journées à
+                              corriger, et où en est son mois ? Le nom y mène,
+                              comme partout ailleurs dans le module. */}
+                          <Link
+                            href={`/pointage/agents/${p.agent.id}`}
+                            className="block truncate font-medium transition-colors hover:text-accent focus-visible:text-accent focus-visible:outline-none focus-visible:underline"
+                          >
+                            {nomAffiche(p.agent)}
+                          </Link>
                           {p.agent.poste ? (
                             <span className="block truncate text-[11px] text-muted-foreground">
                               {p.agent.poste}
