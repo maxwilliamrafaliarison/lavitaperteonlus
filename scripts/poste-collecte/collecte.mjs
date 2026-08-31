@@ -30,6 +30,13 @@ for (const ligne of readFileSync(join(ICI, "config.txt"), "utf8").split("\n")) {
   if (m && !ligne.trim().startsWith("#")) config[m[1]] = m[2];
 }
 const { IP_POINTEUSE, SITE, URL_APPLICATION, SECRET } = config;
+/* FENÊTRE ENVOYÉE. La pointeuse garde des années de mémoire, et la renvoyer
+   entière à chaque heure ferait relire au serveur toute sa table pour
+   écarter des doublons qu'il connaît depuis longtemps. On n'envoie donc que
+   les jours récents. « --tout » lève la borne, pour une première
+   installation ou après une longue coupure. */
+const TOUT = process.argv.includes("--tout");
+const JOURS = Number(config.JOURS_ENVOYES ?? 30) || 30;
 if (!IP_POINTEUSE || !SITE || !URL_APPLICATION || !SECRET) {
   console.error("config.txt incomplet : IP_POINTEUSE, SITE, URL_APPLICATION, SECRET requis.");
   process.exit(1);
@@ -73,13 +80,19 @@ try {
         `rien n'a été enregistré. Vérifiez que le poste est en Ethernet, puis relancez.`,
     );
   }
+  const depuis = TOUT
+    ? "2020-01-01"
+    : horodatageLocal(new Date(Date.now() - JOURS * 86_400_000)).slice(0, 10);
   const pointages = brut
     .map((r) => ({
       id: String(r.deviceUserId ?? ""),
       horodatage: horodatageLocal(new Date(r.recordTime)),
     }))
-    .filter((p) => p.id && p.horodatage >= "2020-01-01");
-  log(`${brut.length} enregistrements lus, ${pointages.length} valides.`);
+    .filter((p) => p.id && p.horodatage >= "2020-01-01" && p.horodatage >= depuis);
+  log(
+    `${brut.length} enregistrements lus, ${pointages.length} envoyés` +
+      (TOUT ? " (mémoire entière)." : ` (depuis le ${depuis}).`),
+  );
 
   // Envoi par lots : un envoi unique de 15 000 lignes frôlerait la limite
   // de taille des requêtes.

@@ -1,22 +1,57 @@
-COLLECTE AUTOMATIQUE DES POINTAGES — poste du responsable administratif
-=======================================================================
+COLLECTE AUTOMATIQUE DES POINTAGES — poste du centre REX
+========================================================
 
-Ce dossier installe une tâche planifiée qui lit la pointeuse du centre
-deux fois par jour (9h00 et 15h00) et envoie les badgeages à
-l'application. Relancer ne crée jamais de doublon.
+Une fois installé, ce dossier récupère les badgeages de la pointeuse
+TOUTES LES HEURES, tout seul. Personne n'a besoin d'ouvrir l'application
+ni de cliquer sur quoi que ce soit. Il suffit que le poste soit allumé et
+branché au réseau du centre.
 
 INSTALLATION (une seule fois)
 1. Installer Node.js (version LTS) : https://nodejs.org
-2. Vérifier le fichier config.txt (adresse de la pointeuse, secret).
+2. Vérifier « config.txt » : le secret doit être rempli.
 3. Clic droit sur « installer.bat » → Exécuter en tant qu'administrateur.
 
-C'est tout. Le poste doit simplement être allumé et branché au réseau du
-centre aux heures de collecte. Le journal des exécutions s'écrit dans
-« collecte.log ».
+C'est tout. Le journal des exécutions s'écrit dans « collecte.log », à
+côté de ce fichier.
 
-POUR COLLECTER MANUELLEMENT : double-cliquer « collecte.bat », ou utiliser
-le bouton « Récupérer les pointages — REX » dans l'application (l'agent du
-poste démarre tout seul à l'ouverture de session).
+SI VOUS VOULEZ FORCER UNE COLLECTE TOUT DE SUITE
+Double-cliquer « collecte.bat », ou utiliser le bouton « Récupérer les
+pointages » dans l'application. Ce n'est jamais nécessaire : c'est un
+raccourci quand on ne veut pas attendre l'heure suivante.
+
+« collecte-complete.bat » renvoie la mémoire ENTIÈRE de la pointeuse. À
+réserver à la première installation ou à une coupure de plus d'un mois :
+la collecte automatique n'envoie que les trente derniers jours, ce qui
+suffit et coûte cent fois moins.
+
+TROIS POSTES, UNE SEULE POINTEUSE
+Ce dossier est installé sur les postes d'Aina, de Jim et d'Annitha. C'est
+voulu : chacun est le relais des autres, et les pointages remontent même
+si deux machines sur trois sont éteintes. Deux règles ont rendu cela
+possible, ne les défaites pas.
+
+  · Chaque poste a SON PROPRE secret, jamais celui du voisin. C'est ce qui
+    permet de retirer l'accès à une machine sans priver les autres, et de
+    savoir, dans le journal d'import de l'application, laquelle a déposé.
+  · Les trois postes sont DÉCALÉS DE VINGT MINUTES. Deux collectes lancées
+    à la même minute calculeraient les mêmes identifiants au même instant,
+    et la seconde se heurterait à un conflit d'écriture.
+
+        aina     06:00, 07:00, 08:00 … 20:00
+        jim      06:20, 07:20, 08:20 … 20:20
+        annitha  06:40, 07:40, 08:40 … 20:40
+
+    Les données ont donc au plus vingt minutes de retard, contre une
+    demi-journée auparavant.
+
+Le bouton de l'application, lui, ne pose aucun problème : il s'adresse au
+poste depuis lequel on clique, et à lui seul.
+
+POUR RETIRER UN POSTE : lancer « desinstaller.bat », puis demander au
+responsable informatique d'effacer le secret de ce poste côté serveur.
+Tant que le secret y figure, la machine peut encore déposer.
 
 SÉCURITÉ : ce poste ne détient pas la clé de la base de données. Le secret
-contenu dans config.txt ne permet qu'une chose : déposer des pointages.
+contenu dans config.txt ne permet qu'une chose : déposer des pointages. Il
+ne lit rien, n'efface rien, et n'ouvre ni les patients, ni la pharmacie,
+ni la paie.

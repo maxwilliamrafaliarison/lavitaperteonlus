@@ -33,6 +33,9 @@ for (const ligne of readFileSync(join(ICI, "config.txt"), "utf8").split("\n")) {
   if (m && !ligne.trim().startsWith("#")) config[m[1]] = m[2];
 }
 const { IP_POINTEUSE, SITE, URL_APPLICATION, SECRET } = config;
+/* Même fenêtre que la tâche planifiée : voir collecte.mjs. Le bouton sert à
+   rattraper les dernières heures, pas à rejouer des années. */
+const JOURS = Number(config.JOURS_ENVOYES ?? 30) || 30;
 const PORT = 7331;
 
 const log = (msg) => {
@@ -108,9 +111,10 @@ async function collecter() {
     );
   }
 
+  const depuis = horodatageLocal(new Date(Date.now() - JOURS * 86_400_000)).slice(0, 10);
   const pointages = brut
     .map((r) => ({ id: String(r.deviceUserId ?? ""), horodatage: horodatageLocal(new Date(r.recordTime)) }))
-    .filter((p) => p.id && p.horodatage >= "2020-01-01");
+    .filter((p) => p.id && p.horodatage >= "2020-01-01" && p.horodatage >= depuis);
 
   let ajoutes = 0, dejaPresents = 0;
   for (let i = 0; i < pointages.length; i += 5000) {

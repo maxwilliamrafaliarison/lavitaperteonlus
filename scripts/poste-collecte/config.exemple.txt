@@ -2,7 +2,33 @@
 # Ce fichier ne contient PAS la clé de la base : seulement un secret dédié
 # qui ne permet que de déposer des pointages.
 
+# Nom de ce poste. Il apparaît dans le journal d'import de l'application,
+# pour qu'on sache toujours quelle machine a déposé quels badgeages.
+NOM_POSTE=aina
+
 IP_POINTEUSE=192.168.8.21
 SITE=REX
 URL_APPLICATION=https://lavitaperteonlus.vercel.app
 SECRET=<demander au responsable informatique>
+
+# ── COLLECTE AUTOMATIQUE ───────────────────────────────────────────────
+# Toutes les heures, de HEURE_DEBUT et pendant DUREE. Rien à faire : ni
+# ouvrir l'application, ni cliquer sur le bouton.
+HEURE_DEBUT=06:00
+INTERVALLE_MINUTES=60
+DUREE=14:00
+
+# DEUX POSTES NE DOIVENT PAS COLLECTER À LA MÊME MINUTE : ils calculeraient
+# les mêmes identifiants au même instant et le second se heurterait à un
+# conflit d'écriture. On décale donc HEURE_DEBUT de vingt minutes par poste,
+# ce qui fait de chacun le relais des autres quand leur machine est éteinte.
+#   aina     06:00   →  06:00, 07:00, 08:00 … 20:00
+#   jim      06:20   →  06:20, 07:20, 08:20 … 20:20
+#   annitha  06:40   →  06:40, 07:40, 08:40 … 20:40
+
+# Fenêtre envoyée à chaque collecte, en jours. La pointeuse garde des
+# années ; les renvoyer toutes les heures ferait relire au serveur des
+# doublons qu'il connaît depuis longtemps. Trente jours laissent de la
+# marge si le poste reste éteint plusieurs semaines.
+# Pour tout envoyer une fois : double-cliquer « collecte-complete.bat ».
+JOURS_ENVOYES=30
