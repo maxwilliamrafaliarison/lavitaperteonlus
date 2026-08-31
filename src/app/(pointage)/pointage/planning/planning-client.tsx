@@ -123,6 +123,15 @@ export function NouveauPlanning({ prochaines }: { prochaines: Record<string, str
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      toast.error("Le planning n'a pas été créé", {
+        description:
+          "La connexion a été interrompue. Vérifiez le réseau, puis recommencez.",
+      });
     } finally {
       setLoading(false);
     }
@@ -337,6 +346,25 @@ export function PlanningRow({ p, origine, validateur }: { p: PlanningLigne; orig
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      /* L'action est connue ici : la nommer évite d'avoir à deviner ce
+         qui a échoué, et surtout de republier par précaution un planning
+         qui l'était peut-être déjà. */
+      toast.error(
+        quoi === "publier" ? "Le planning n'a pas été publié"
+        : quoi === "revoquer" ? "Le lien n'a pas été révoqué"
+        : quoi === "soumettre" ? "La soumission n'est pas partie"
+        : quoi === "valider" ? "La validation n'est pas passée"
+        : "Le renvoi en brouillon n'est pas passé",
+        {
+          description:
+            "La connexion a été interrompue. Rechargez la page pour voir l'état réel avant de recommencer.",
+        },
+      );
     } finally {
       setLoading("");
     }

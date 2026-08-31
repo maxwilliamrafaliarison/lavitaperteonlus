@@ -105,6 +105,15 @@ export function LigneAbsenceRow({
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      toast.error("La décision n'est pas passée", {
+        description:
+          "La connexion a été interrompue. Vérifiez le réseau, puis recommencez.",
+      });
     } finally {
       setEncours("");
     }
@@ -132,6 +141,15 @@ export function LigneAbsenceRow({
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      toast.error("L'annulation n'est pas passée", {
+        description:
+          "La connexion a été interrompue. Vérifiez le réseau, puis recommencez.",
+      });
     } finally {
       setEncours("");
     }

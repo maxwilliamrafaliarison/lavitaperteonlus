@@ -44,6 +44,15 @@ export function AjouterFerie({ annee, dejaPris }: { annee: number; dejaPris: str
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      toast.error("Le jour férié n'a pas été enregistré", {
+        description:
+          "La connexion a été interrompue. Vérifiez le réseau, puis recommencez.",
+      });
     } finally {
       setLoading("");
     }
@@ -63,6 +72,15 @@ export function AjouterFerie({ annee, dejaPris }: { annee: number; dejaPris: str
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      toast.error("Le jour férié n'a pas été enregistré", {
+        description:
+          "La connexion a été interrompue. Vérifiez le réseau, puis recommencez.",
+      });
     } finally {
       setLoading("");
     }
@@ -167,6 +185,15 @@ export function SupprimerFerie({ jour, libelle, centre }: { jour: string; libell
       } else {
         toast.error("Refusé", { description: r.error });
       }
+    } catch {
+      // Une action serveur qui échoue au TRANSPORT (coupure, 502, session
+      // expirée) rejette la promesse au lieu de rendre {ok:false}. Sans ce
+      // filet, l'écran retire seulement le voyant : la personne croit avoir
+      // agi, et rien n'est parti.
+      toast.error("Le jour férié n'a pas été retiré", {
+        description:
+          "La connexion a été interrompue. Vérifiez le réseau, puis recommencez.",
+      });
     } finally {
       setLoading(false);
     }
