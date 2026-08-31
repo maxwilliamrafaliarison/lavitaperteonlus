@@ -70,11 +70,17 @@ export default async function EcartsPage({
   /* « Au travail » et « prend son poste plus tard » ne sont pas des écarts :
      ce sont les états normaux d'une journée qui n'est pas finie. Les laisser
      dans la file ferait clignoter trente alertes chaque matin. */
-  const CALME = new Set(["conforme", "repos", "en_cours", "a_venir"]);
+  /* Une absence ACCORDÉE n'est pas un écart : quelqu'un l'a décidée et
+     tracée. La laisser dans la file annulerait tout l'intérêt de l'avoir
+     déclarée, puisque la personne continuerait d'apparaître chaque jour de
+     son congé, sous un autre mot. Elle rejoint donc les journées calmes,
+     et reste consultable dans le repli du bas. */
+  const CALME = new Set(["conforme", "repos", "en_cours", "a_venir", "absent_justifie"]);
   const aTraiter = lignes.filter((l) => !CALME.has(l.ecarts.etat));
   const enCours = lignes.filter((l) => l.ecarts.etat === "en_cours" || l.ecarts.etat === "a_venir");
   const conformes = lignes.filter((l) => l.ecarts.etat === "conforme");
   const repos = lignes.filter((l) => l.ecarts.etat === "repos");
+  const absents = lignes.filter((l) => l.ecarts.etat === "absent_justifie");
 
   const compte = (e: EtatJour) => aTraiter.filter((l) => l.ecarts.etat === e).length;
   const dateLisible = new Date(`${jour}T12:00:00Z`).toLocaleDateString("fr-FR", {
@@ -228,23 +234,28 @@ export default async function EcartsPage({
             </p>
           )}
 
-          {(conformes.length > 0 || repos.length > 0) && (
+          {(conformes.length > 0 || repos.length > 0 || absents.length > 0) && (
             <details className="rounded-2xl glass border px-5 py-3">
               <summary className="cursor-pointer text-sm text-muted-foreground">
                 {conformes.length} journée{conformes.length > 1 ? "s" : ""} conforme
                 {conformes.length > 1 ? "s" : ""}
                 {enCours.length > 0 && ` · ${enCours.length} en cours`}
                 {repos.length > 0 && ` · ${repos.length} en repos`}
+                {absents.length > 0 && ` · ${absents.length} en absence justifiée`}
               </summary>
               <ul className="mt-3 grid gap-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                {[...conformes, ...enCours, ...repos].map(({ agent, ecarts, creneauLibelle }) => (
+                {[...absents, ...conformes, ...enCours, ...repos].map(({ agent, ecarts, creneauLibelle }) => (
                   <li key={agent.id} className="flex items-baseline gap-2">
                     <span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
                       {HABILLAGE[ecarts.etat].signe}
                     </span>
                     <span className="truncate">{nomAffiche(agent)}</span>
-                    <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                      {ecarts.etat === "repos" ? "repos" : creneauLibelle}
+                    <span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">
+                      {ecarts.etat === "repos"
+                        ? "repos"
+                        : ecarts.etat === "absent_justifie"
+                          ? ecarts.motifs[0] || "absence"
+                          : creneauLibelle}
                     </span>
                   </li>
                 ))}
@@ -257,7 +268,7 @@ export default async function EcartsPage({
           <p className="text-[11px] leading-relaxed text-muted-foreground">
             <strong>Lecture.</strong> ▲ retard · ▼ sortie anticipée · ◆ les deux · ! écart trop large pour un
             simple retard, un passage manque probablement · ? aucun passage enregistré alors qu'un créneau
-            était prévu · + a badgé sans créneau prévu · → au travail en ce moment. Les minutes d'un jour « à vérifier » sont affichées
+            était prévu · + a badgé sans créneau prévu · → au travail en ce moment · ○ absence accordée. Les minutes d'un jour « à vérifier » sont affichées
             mais ne comptent dans aucun total tant qu'elles n'ont pas été tranchées.
           </p>
         </>

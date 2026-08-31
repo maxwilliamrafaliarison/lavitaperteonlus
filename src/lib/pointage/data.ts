@@ -1,4 +1,5 @@
 import { sbSelect, sbInsert } from "@/lib/supabase-server";
+import { listAbsences, indexerAbsences, cleAbsence } from "./absences-data";
 import {
   calculerJournee,
   agregerMois,
@@ -210,12 +211,25 @@ export interface EtatAgentMois {
  * est calculé (présence, retard, HS proposées…), puis agrégé.
  */
 export async function etatMensuel(du: string, au: string): Promise<EtatAgentMois[]> {
-  const [agents, horaires, pointages, ajustements] = await Promise.all([
+  const [agents, horaires, pointages, ajustements, absences] = await Promise.all([
     listAgents(),
     listHoraires(),
     listPointages(du, au),
     listAjustements(),
+    listAbsences(du, au),
   ]);
+
+  /* Les absences déclarées à l'avance alimentent le calcul SANS écrire une
+     ligne d'ajustement par jour. Recopier un congé d'une semaine en cinq
+     ajustements dupliquerait l'information, se heurterait aux corrections
+     déjà posées sur ces journées (la clé est agent+jour), et rendrait toute
+     annulation acrobatique. Une absence reste une absence, un ajustement
+     reste une correction, et le moteur reçoit les deux.
+
+     Là où les deux se rencontrent, l'AJUSTEMENT l'emporte : quelqu'un a
+     regardé cette journée précise et tranché, ce qui est plus fort qu'une
+     période posée d'avance. */
+  const absencesParJour = indexerAbsences(absences);
 
   const parHoraire = new Map(horaires.map((h) => [h.id, versHoraireTheorique(h)]));
   const defaut = parHoraire.get("std") ?? versHoraireTheorique({
@@ -246,21 +260,33 @@ export async function etatMensuel(du: string, au: string): Promise<EtatAgentMois
       const journees = jours.map((jour) => {
         const evs = parAgentJour.get(`${agent.id}|${jour}`) ?? [];
         const aj = ajParAgentJour.get(`${agent.id}|${jour}`);
-        return calculerJournee(
-          jour,
-          evs,
-          horaire,
-          aj
+        /* L'ABSENCE NE VAUT QUE SI LA PERSONNE N'A PAS BADGÉ.
+           `calculerJournee` neutralise retard et départ anticipé dès que
+           `typeAbsence` est renseigné. Appliquer l'absence à tous les jours
+           de la période effaçait donc les retards des journées réellement
+           travaillées : quelqu'un revenu en plein congé, ou dont le congé a
+           été raccourci sans que la ligne soit corrigée, voyait ses heures
+           comptées et ses retards disparaître.
+
+           C'est exactement la règle déjà posée dans le moteur d'écarts, et
+           les deux doivent dire la même chose de la même donnée. */
+        const abs = evs.length === 0 ? absencesParJour.get(cleAbsence(agent.id, jour)) : undefined;
+        const ajustement =
+          aj || abs
             ? {
-                matinDebut: aj.matin_debut || undefined,
-                matinFin: aj.matin_fin || undefined,
-                apremDebut: aj.aprem_debut || undefined,
-                apremFin: aj.aprem_fin || undefined,
-                typeAbsence: aj.type_absence || undefined,
+                matinDebut: aj?.matin_debut || undefined,
+                matinFin: aj?.matin_fin || undefined,
+                apremDebut: aj?.aprem_debut || undefined,
+                apremFin: aj?.aprem_fin || undefined,
+                // Une mission n'est pas une absence du travail : le temps
+                // reste dû, le moteur ne doit donc pas la neutraliser.
+                typeAbsence:
+                  aj?.type_absence ||
+                  (abs && !abs.compteCommeTravail ? abs.nature : undefined) ||
+                  undefined,
               }
-            : undefined,
-          estPrestataire, // règle LIM
-        );
+            : undefined;
+        return calculerJournee(jour, evs, horaire, ajustement, estPrestataire);
       });
       return { agent, journees, total: agregerMois(journees) };
     });
@@ -301,12 +327,30 @@ export interface PresenceAgent {
  * IMPAIR de passages signifie que la personne est entrée sans être ressortie
  * → présente. Pair (ou zéro) → absente ou déjà repartie.
  */
+export interface AbsentDuJour {
+  agent: Agent;
+  /** Motif connu ("Congé payé", "Maladie"…), vide si personne ne sait. */
+  motif: string;
+}
+
 export async function presenceDuJour(jour: string): Promise<{
   presents: PresenceAgent[];
   absents: Agent[];
+  /** Les mêmes absents, avec le motif quand une absence a été déclarée. */
+  absentsDetail: AbsentDuJour[];
   parSite: Record<string, number>;
+  /** Combien d'absences sont expliquées : le reste est à éclaircir. */
+  absencesJustifiees: number;
 }> {
-  const [agents, pointages] = await Promise.all([listAgents(), listPointages(jour, jour)]);
+  const [agents, pointages, absences] = await Promise.all([
+    listAgents(),
+    listPointages(jour, jour),
+    listAbsences(jour, jour),
+  ]);
+  /* « Qui manque » sans « pourquoi » oblige à ouvrir un autre écran pour
+     chaque nom. Le motif tient en trois mots et il est déjà en base : il
+     n'y a aucune raison de le faire chercher. */
+  const absencesParJour = indexerAbsences(absences);
   const actifs = agents.filter((a) => a.actif);
   const parAgent = new Map<string, Pointage[]>();
   for (const p of pointages) {
@@ -317,14 +361,23 @@ export async function presenceDuJour(jour: string): Promise<{
 
   const presents: PresenceAgent[] = [];
   const absents: Agent[] = [];
+  const absentsDetail: AbsentDuJour[] = [];
   const parSite: Record<string, number> = {};
+
+  const noterAbsent = (agent: Agent) => {
+    absents.push(agent);
+    absentsDetail.push({
+      agent,
+      motif: absencesParJour.get(cleAbsence(agent.id, jour))?.libelle ?? "",
+    });
+  };
 
   for (const agent of actifs) {
     const bruts = (parAgent.get(agent.id) ?? []).sort((a, b) =>
       a.horodatage.localeCompare(b.horodatage),
     );
     if (bruts.length === 0) {
-      absents.push(agent);
+      noterAbsent(agent);
       continue;
     }
     /* MÊME FUSION QUE LE CALCUL DES JOURNÉES. Sans elle, cet écran comptait
@@ -346,9 +399,16 @@ export async function presenceDuJour(jour: string): Promise<{
       });
       parSite[dernier.site_pointage] = (parSite[dernier.site_pointage] ?? 0) + 1;
     } else {
-      absents.push(agent);
+      noterAbsent(agent);
     }
   }
 
-  return { presents, absents, parSite };
+  absentsDetail.sort((a, b) => nomAffiche(a.agent).localeCompare(nomAffiche(b.agent)));
+  return {
+    presents,
+    absents,
+    absentsDetail,
+    parSite,
+    absencesJustifiees: absentsDetail.filter((a) => a.motif).length,
+  };
 }

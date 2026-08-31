@@ -239,3 +239,52 @@ describe("agrégation du mois", () => {
     expect(a.joursHorsSite).toBe(1);
   });
 });
+
+describe("absence acceptée", () => {
+  const conge = { nature: "conge", libelle: "Congé payé", neutraliseEcarts: true };
+
+  it("ne signale plus « sans badge » un jour de congé validé", () => {
+    // Le défaut d'origine : Voahangy en congé du 14 au 18 restait affectée
+    // au planning et ressortait en anomalie chacun de ces cinq jours.
+    const sans = ecartsDuJour("2026-09-14", [], CRENEAU_7_12);
+    expect(sans.etat).toBe("sans_badge");
+
+    const avec = ecartsDuJour("2026-09-14", [], CRENEAU_7_12, REGLAGE_DEFAUT, undefined, conge);
+    expect(avec.etat).toBe("absent_justifie");
+    expect(avec.motifs).toEqual(["Congé payé"]);
+    expect(avec.retardMinutes).toBe(0);
+  });
+
+  it("ne masque rien si la personne a badgé malgré son congé", () => {
+    // Revenue travailler ou saisie erronée : les deux méritent d'être vues.
+    const e = ecartsDuJour(
+      "2026-09-14",
+      passages("2026-09-14", "MIARAKA", "07:25", "12:00"),
+      CRENEAU_7_12,
+      REGLAGE_DEFAUT,
+      undefined,
+      conge,
+    );
+    expect(e.etat).toBe("retard");
+    expect(e.retardMinutes).toBe(25);
+    expect(e.motifs[0]).toBe("Congé payé : des passages sont pourtant enregistrés");
+  });
+
+  it("laisse voir l'anomalie quand l'absence est injustifiée", () => {
+    const injustifiee = { nature: "injustifiee", libelle: "Absence injustifiée", neutraliseEcarts: false };
+    const e = ecartsDuJour("2026-09-14", [], CRENEAU_7_12, REGLAGE_DEFAUT, undefined, injustifiee);
+    expect(e.etat).toBe("sans_badge");
+  });
+
+  it("sort les jours d'absence des totaux de retard du mois", () => {
+    const agrege = agregerEcarts([
+      ecartsDuJour("2026-09-14", [], CRENEAU_7_12, REGLAGE_DEFAUT, undefined, conge),
+      ecartsDuJour("2026-09-15", [], CRENEAU_7_12, REGLAGE_DEFAUT, undefined, conge),
+      ecartsDuJour("2026-09-16", passages("2026-09-16", "MIARAKA", "07:10", "12:00"), CRENEAU_7_12),
+    ]);
+    expect(agrege.joursAbsenceJustifiee).toBe(2);
+    expect(agrege.joursSansBadge).toBe(0);
+    expect(agrege.joursEnRetard).toBe(1);
+    expect(agrege.minutesRetard).toBe(10);
+  });
+});

@@ -65,6 +65,19 @@ export const PERMISSIONS = {
      pour ouvrir les heures supplémentaires aurait donné le second par
      ricochet. Un droit par geste, et non par écran. */
   "pointage:corriger": ["admin", "direction", "rh"],
+  /* DÉCLARER une absence n'est pas L'ACCORDER, et la coupure est la même
+     qu'entre corriger un pointage et accorder des heures supplémentaires.
+
+     Déclarer, c'est consigner un fait ou une demande : Voahangy a prévenu
+     qu'elle serait absente la semaine prochaine. Le geste est quotidien et
+     revient à celles qui tiennent le registre, la responsable administration
+     et la RH.
+
+     Accorder un congé engage l'ONG : elle se prive d'une personne, et le
+     jour sort du solde. C'est une décision d'employeur, que la DIRECTION
+     prend. La RH voit tout, propose tout, ne tranche pas. */
+  "pointage:absences": ["admin", "direction", "rh"],
+  "pointage:absences-valider": ["admin", "direction"],
   "pointage:heures-sup": ["admin", "direction"],
   "pointage:gerer": ["admin"],
   /* COLLECTER n'est pas GÉRER. Récupérer les badgeages depuis la pointeuse

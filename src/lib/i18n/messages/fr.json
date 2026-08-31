@@ -1067,7 +1067,6 @@
     "aucune_donnee": "Aucune donnée sur la période.",
     "nav_corrections": "Corrections",
     "nav_creneaux": "Créneaux types",
-    "nav_planning": "Plannings",
     "nav_ecarts": "Écarts au planning",
     "grp_jour": "Le jour même",
     "grp_planning": "Planning",
@@ -1075,6 +1074,22 @@
     "grp_personnel": "Personnel",
     "grp_reglages": "Réglages",
     "nav_planning_semaine": "Semaine en cours",
-    "nav_planning_tous": "Tous les plannings"
+    "nav_planning_tous": "Tous les plannings",
+    "nav_absences": "Congés et absences",
+    "nav_feries": "Jours fériés",
+    "abs_sous_titre": "Qui est absent, qui l'a demandé, et ce qu'il reste à chacun",
+    "abs_declarer": "Déclarer une absence",
+    "abs_absents_aujourdhui": "Absents aujourd'hui",
+    "abs_a_decider": "Demandes à trancher",
+    "abs_en_cours": "En cours et à venir",
+    "abs_historique": "Absences passées",
+    "abs_soldes": "Soldes de congés",
+    "abs_aucune": "Aucune absence enregistrée sur la période.",
+    "abs_aucun_absent": "Personne n'est absent aujourd'hui.",
+    "abs_aucune_demande": "Aucune demande en attente.",
+    "col_nature": "Nature",
+    "col_periode": "Période",
+    "col_etat": "État",
+    "col_solde": "Solde"
   }
 }

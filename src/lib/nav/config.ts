@@ -128,6 +128,7 @@ export const APP_NAV: Record<AppKey, AppNav> = {
 
       /* La chaîne qui mène à la paie, dans son ordre : on corrige ce que la
          machine a manqué, puis on lit le mois. */
+      { href: "/pointage/absences", labelKey: "pointage.nav_absences", icon: "CalendarOff", permission: "pointage:absences", groupeKey: "pointage.grp_temps" },
       { href: "/pointage/corrections", labelKey: "pointage.nav_corrections", icon: "ClipboardList", permission: "pointage:corriger", groupeKey: "pointage.grp_temps" },
       { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2", groupeKey: "pointage.grp_temps" },
 
@@ -136,6 +137,7 @@ export const APP_NAV: Record<AppKey, AppNav> = {
       /* Ce qu'on règle une fois, puis plus jamais : en bas, et ensemble. */
       { href: "/pointage/creneaux", labelKey: "pointage.nav_creneaux", icon: "Clock", permission: "pointage:gerer", groupeKey: "pointage.grp_reglages", filet: true },
       { href: "/pointage/import", labelKey: "pointage.nav_import", icon: "Upload", permission: "pointage:collecter", groupeKey: "pointage.grp_reglages" },
+      { href: "/pointage/absences/feries", labelKey: "pointage.nav_feries", icon: "PartyPopper", permission: "pointage:absences", groupeKey: "pointage.grp_reglages" },
     ],
   },
 };

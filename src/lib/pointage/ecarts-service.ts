@@ -19,6 +19,8 @@ import {
   type EcartsJour,
   type PassageSite,
 } from "./ecarts";
+import { listAbsences, indexerAbsences, cleAbsence } from "./absences-data";
+import { joursDePeriode, estActive } from "./absences";
 
 export interface EcartsAgentJour {
   agent: Agent;
@@ -63,13 +65,18 @@ function versCreneauDuJour(
  * cherche autant ce qui manque au planning que ce qui manque au pointage.
  */
 export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJour[]> {
-  const [agents, pointages, planifie, parametres] = await Promise.all([
+  const [agents, pointages, planifie, parametres, absences] = await Promise.all([
     listAgents(),
     listPointages(jour, jour),
     planifiePourAgents(jour, jour),
     listParametresPlanning(),
+    listAbsences(jour, jour),
   ]);
   const params = new Map(parametres.map((p) => [p.cle, p.valeur]));
+  /* Les absences acceptées éteignent les alertes du jour. Sans elles,
+     l'écran se remplissait d'un « sans badge » par jour de congé, et un
+     écran d'alerte qu'on ne peut pas vider finit par n'être plus lu. */
+  const absencesParJour = indexerAbsences(absences);
 
   const parAgent = new Map<string, PassageSite[]>();
   for (const p of pointages) {
@@ -87,11 +94,22 @@ export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJ
   for (const agent of agents.filter((a) => a.actif)) {
     const creneau = versCreneauDuJour(jour, planifie.get(agent.id)?.get(jour));
     const passages = parAgent.get(agent.id) ?? [];
-    // Ni planning ni passage : la personne n'a rien à voir avec ce jour.
-    if (!creneau && passages.length === 0) continue;
+    const absence = absencesParJour.get(cleAbsence(agent.id, jour)) ?? null;
+    /* Ni planning, ni passage, ni absence : la personne n'a rien à voir
+       avec ce jour. Une absence acceptée la fait en revanche apparaître,
+       même sans créneau : « qui manque aujourd'hui, et pourquoi » est
+       précisément la question de l'écran. */
+    if (!creneau && passages.length === 0 && !absence) continue;
     out.push({
       agent,
-      ecarts: ecartsDuJour(jour, passages, creneau, reglagePourPoste(agent.poste ?? "", params), maintenant),
+      ecarts: ecartsDuJour(
+        jour,
+        passages,
+        creneau,
+        reglagePourPoste(agent.poste ?? "", params),
+        maintenant,
+        absence,
+      ),
       creneauLibelle: creneau?.repos
         ? "Repos"
         : creneau
@@ -111,12 +129,13 @@ export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJ
     sans_badge: 5,
     en_cours: 6,
     a_venir: 7,
-    conforme: 8,
-    repos: 9,
+    absent_justifie: 8,
+    conforme: 9,
+    repos: 10,
   };
   return out.sort(
     (a, b) =>
-      (rang[a.ecarts.etat] ?? 9) - (rang[b.ecarts.etat] ?? 9) ||
+      (rang[a.ecarts.etat] ?? 10) - (rang[b.ecarts.etat] ?? 10) ||
       b.ecarts.retardMinutes - a.ecarts.retardMinutes ||
       (a.agent.prenom || "").localeCompare(b.agent.prenom || ""),
   );
@@ -124,12 +143,14 @@ export async function ecartsDuJourTousAgents(jour: string): Promise<EcartsAgentJ
 
 /** Écarts d'un agent sur une période, pour sa fiche et l'état mensuel. */
 export async function ecartsPeriodeAgent(agentId: string, du: string, au: string) {
-  const [pointages, planifie, parametres, agents] = await Promise.all([
+  const [pointages, planifie, parametres, agents, absences] = await Promise.all([
     listPointages(du, au),
     planifiePourAgents(du, au),
     listParametresPlanning(),
     listAgents(),
+    listAbsences(du, au),
   ]);
+  const absencesParJour = indexerAbsences(absences);
   const agent = agents.find((a) => a.id === agentId);
   const params = new Map(parametres.map((p) => [p.cle, p.valeur]));
   const reglage = reglagePourPoste(agent?.poste ?? "", params);
@@ -143,9 +164,26 @@ export async function ecartsPeriodeAgent(agentId: string, du: string, au: string
     parJour.set(p.jour, arr);
   }
 
-  const tousJours = [...new Set([...(jours?.keys() ?? []), ...parJour.keys()])].sort();
+  /* Les jours d'absence entrent dans la liste même sans créneau ni badge :
+     autrement un congé posé sur une semaine non planifiée disparaîtrait de
+     la fiche, et le mois ne totaliserait plus le bon nombre de jours. */
+  const joursAbsents = absences
+    .filter((a) => a.agent_id === agentId && estActive(a.etat))
+    .flatMap((a) => joursDePeriode(a.du, a.au))
+    .filter((j) => j >= du && j <= au);
+
+  const tousJours = [
+    ...new Set([...(jours?.keys() ?? []), ...parJour.keys(), ...joursAbsents]),
+  ].sort();
   const ecarts = tousJours.map((j) =>
-    ecartsDuJour(j, parJour.get(j) ?? [], versCreneauDuJour(j, jours?.get(j)), reglage),
+    ecartsDuJour(
+      j,
+      parJour.get(j) ?? [],
+      versCreneauDuJour(j, jours?.get(j)),
+      reglage,
+      undefined,
+      absencesParJour.get(cleAbsence(agentId, j)) ?? null,
+    ),
   );
   return { agent, ecarts, total: agregerEcarts(ecarts), reglage };
 }

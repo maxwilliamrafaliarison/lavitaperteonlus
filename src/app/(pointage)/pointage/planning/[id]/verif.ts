@@ -3,6 +3,7 @@ import {
   listCreneaux as _listCreneaux,
   listParametresPlanning,
 } from "@/lib/planning/data";
+import { listAbsences, indexerAbsences } from "@/lib/pointage/absences-data";
 import {
   plagesDuJour,
   verifierSeuils,
@@ -146,10 +147,11 @@ export async function verifierFenetre(
       ? decale(du, MAX_JOURS)
       : au;
 
-  const [affectations, creneaux, parametres] = await Promise.all([
+  const [affectations, creneaux, parametres, absences] = await Promise.all([
     affectationsPeriode(decale(du, -7), decale(finUtile, 7), agents),
     listCreneaux(),
     listParametresPlanning(),
+    listAbsences(du, finUtile),
   ]);
   const parCreneau = new Map(creneaux.map((c) => [c.id, c]));
   /* Les seuils viennent de la BASE : le centre est régi par le droit
@@ -158,6 +160,37 @@ export async function verifierFenetre(
   const seuils = seuilsDepuisParametres(new Map(parametres.map((p) => [p.cle, p.valeur])));
 
   const out: AlerteAgent[] = [];
+
+  /* AFFECTÉ ALORS QU'IL SERA ABSENT. C'est l'erreur que le module des congés
+     existe pour empêcher : le planning se fait le vendredi pour la semaine
+     suivante, et sans ce contrôle on découvre le lundi matin que la personne
+     inscrite est en congé depuis trois jours.
+
+     Le contrôle est un point de VIGILANCE, pas un blocage. Un congé peut être
+     annulé, et la personne peut avoir accepté de revenir : c'est au
+     responsable de trancher, pas à l'outil d'interdire. Une mission ne
+     déclenche rien, puisque la personne travaille, simplement ailleurs. */
+  const absencesParJour = indexerAbsences(absences);
+  const dejaSignale = new Set<string>();
+  for (const a of affectations) {
+    if (a.agent_id.startsWith(PREFIXE_ATTENTE)) continue;
+    const c = parCreneau.get(a.creneau_id);
+    if (!c || c.type === "repos") continue;
+    const abs = absencesParJour.get(`${a.agent_id}|${a.jour}`);
+    if (!abs || abs.compteCommeTravail) continue;
+    if (a.jour < du || a.jour > finUtile) continue;
+    const cle = `${a.agent_id}|${a.jour}`;
+    if (dejaSignale.has(cle)) continue;
+    dejaSignale.add(cle);
+    out.push({
+      jour: a.jour,
+      regle: "absence",
+      message: `${nomDe(a.agent_id)} est affecté alors qu'une absence est accordée ce jour-là (${abs.libelle})`,
+      bloquant: false,
+      agentId: a.agent_id,
+      agentNom: nomDe(a.agent_id),
+    });
+  }
   for (const agentId of new Set(affectations.map((a) => a.agent_id))) {
     /* Un poste à pourvoir n'a pas de titulaire : lui appliquer le repos de
        onze heures ferait alerter sur une personne qui n'existe pas. */

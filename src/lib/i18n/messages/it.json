@@ -1067,7 +1067,6 @@
     "aucune_donnee": "Nessun dato nel periodo.",
     "nav_corrections": "Correzioni",
     "nav_creneaux": "Fasce orarie tipo",
-    "nav_planning": "Pianificazione",
     "nav_ecarts": "Scostamenti dal piano",
     "grp_jour": "Oggi",
     "grp_planning": "Pianificazione",
@@ -1075,6 +1074,22 @@
     "grp_personnel": "Personale",
     "grp_reglages": "Impostazioni",
     "nav_planning_semaine": "Settimana in corso",
-    "nav_planning_tous": "Tutte le pianificazioni"
+    "nav_planning_tous": "Tutte le pianificazioni",
+    "nav_absences": "Congedi e assenze",
+    "nav_feries": "Giorni festivi",
+    "abs_sous_titre": "Chi è assente, chi l'ha chiesto e quanto resta a ciascuno",
+    "abs_declarer": "Dichiarare un'assenza",
+    "abs_absents_aujourdhui": "Assenti oggi",
+    "abs_a_decider": "Richieste da decidere",
+    "abs_en_cours": "In corso e in arrivo",
+    "abs_historique": "Assenze passate",
+    "abs_soldes": "Saldi dei congedi",
+    "abs_aucune": "Nessuna assenza registrata nel periodo.",
+    "abs_aucun_absent": "Oggi non è assente nessuno.",
+    "abs_aucune_demande": "Nessuna richiesta in attesa.",
+    "col_nature": "Natura",
+    "col_periode": "Periodo",
+    "col_etat": "Stato",
+    "col_solde": "Saldo"
   }
 }

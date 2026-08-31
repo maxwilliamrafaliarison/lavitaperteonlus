@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, AlertTriangle, Clock, CalendarDays, Sunrise, Sunset } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Clock, CalendarDays, CalendarOff, Sunrise, Sunset } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
@@ -9,6 +9,8 @@ import { safe } from "@/lib/sheets/safe";
 import { GlassCard } from "@/components/glass/glass-card";
 import { BadgesAgent } from "@/components/pointage/badge-site";
 import { etatMensuel, nomAffiche, type EtatAgentMois } from "@/lib/pointage/data";
+import { libelleNature } from "@/lib/pointage/absences";
+import { absencesAgent, soldesConges, type Absence, type SoldeAgent } from "@/lib/pointage/absences-data";
 import { planifiePourAgents } from "@/lib/planning/data";
 import { versHeures } from "@/lib/pointage/calcul";
 
@@ -47,9 +49,19 @@ export default async function FicheAgentPage({
   const du = `${mois}-01`;
   const au = `${mois}-${String(new Date(an, m, 0).getDate()).padStart(2, "0")}`;
 
-  const [etatsRes, planRes] = await Promise.all([
+  const [etatsRes, planRes, absRes] = await Promise.all([
     safe<EtatAgentMois[]>(() => etatMensuel(du, au), []),
     safe(() => planifiePourAgents(du, au), new Map()),
+    /* Le solde et l'historique des absences se lisent ICI, sur la fiche de
+       la personne, et pas seulement dans le registre général : la question
+       « combien lui reste-t-il » se pose en la regardant, elle. */
+    safe<{ siennes: Absence[]; solde: SoldeAgent | null }>(
+      async () => {
+        const [siennes, soldes] = await Promise.all([absencesAgent(id), soldesConges(au)]);
+        return { siennes, solde: soldes.find((s) => s.agent.id === id) ?? null };
+      },
+      { siennes: [], solde: null },
+    ),
   ]);
   const etat = etatsRes.data.find((e) => e.agent.id === id);
   if (!etat) notFound();
@@ -70,6 +82,11 @@ export default async function FicheAgentPage({
   }
 
   const anomalies = etat.journees.filter((j) => j.anomalies.length > 0 && !j.ajuste);
+  const absences = absRes.data.siennes;
+  const solde = absRes.data.solde?.solde ?? null;
+  const soldeConnu = Boolean(solde && (solde.acquis > 0 || solde.reporte !== 0));
+  const absencesDuMois = absences.filter((a) => a.du <= au && a.au >= du && a.etat !== "refusee");
+  const joursAbsentsDuMois = etat.journees.filter((j) => j.typeAbsence).length;
   const minutesPlanifiees = planAgent
     ? [...planAgent.values()].reduce((s, x) => s + x.minutes, 0)
     : 0;
@@ -125,6 +142,63 @@ export default async function FicheAgentPage({
           alerte={anomalies.length > 0}
         />
       </div>
+
+      {/* SOLDE ET ABSENCES. Deux chiffres et une liste courte : ce qu'on
+          vient chercher en ouvrant une fiche avant d'accorder un congé. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          icon={<CalendarOff className="size-5" />}
+          label="Congés restants"
+          valeur={soldeConnu && solde ? `${String(solde.restant).replace(".", ",")} j` : "—"}
+          alerte={Boolean(solde && soldeConnu && solde.restant < 0)}
+        />
+        <Kpi
+          icon={<CalendarOff className="size-5" />}
+          label="Congés pris"
+          valeur={soldeConnu && solde ? `${String(solde.pris).replace(".", ",")} j` : "—"}
+        />
+        <Kpi
+          icon={<CalendarDays className="size-5" />}
+          label="Jours absents ce mois"
+          valeur={String(joursAbsentsDuMois)}
+        />
+        <Kpi
+          icon={<CalendarDays className="size-5" />}
+          label="Absences enregistrées"
+          valeur={String(absences.filter((a) => a.etat === "acceptee").length)}
+        />
+      </div>
+
+      {!soldeConnu && (
+        <p className="rounded-xl border border-glass-border bg-white/3 px-4 py-3 text-[11px] text-muted-foreground">
+          Aucune date d&apos;entrée n&apos;est enregistrée pour cette personne : son droit à congés
+          ne peut pas être calculé, et le solde reste vide tant qu&apos;elle n&apos;est pas saisie.
+        </p>
+      )}
+
+      {absencesDuMois.length > 0 && (
+        <GlassCard className="p-0">
+          <div className="border-b border-glass-border px-5 py-3">
+            <h2 className="font-display text-sm font-semibold">Absences touchant ce mois</h2>
+          </div>
+          <ul className="divide-y divide-glass-border">
+            {absencesDuMois.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-2.5 text-sm">
+                <span>
+                  <span className="font-medium">{libelleNature(a.nature)}</span>
+                  <span className="ml-2 font-mono text-[11px] tabular-nums text-muted-foreground">
+                    {a.du} → {a.au}
+                  </span>
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  {a.etat === "acceptee" ? "Accordée" : a.etat === "demande" ? "En attente" : "Annulée"}
+                  {a.motif ? ` · ${a.motif}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      )}
 
       {anomalies.length > 0 && (
         <div className="rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3">

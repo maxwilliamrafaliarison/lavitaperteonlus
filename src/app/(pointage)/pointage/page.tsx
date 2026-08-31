@@ -9,7 +9,13 @@ import { safe } from "@/lib/sheets/safe";
 import { getT } from "@/lib/i18n";
 import { PanneBanner } from "@/components/layout/panne-banner";
 import { BarreEmpilee, Mesure, Pastille } from "@/components/dashboard/micrographiques";
-import { presenceDuJour, type PresenceAgent, type Agent, nomAffiche } from "@/lib/pointage/data";
+import {
+  presenceDuJour,
+  type PresenceAgent,
+  type Agent,
+  type AbsentDuJour,
+  nomAffiche,
+} from "@/lib/pointage/data";
 
 import { BoutonCollecte, ImportMiaraka } from "./bouton-collecte";
 
@@ -56,12 +62,23 @@ export default async function PointagePage() {
   const t = getT(session.user.lang);
   const jour = aujourdhuiMada();
 
-  const res = await safe<{ presents: PresenceAgent[]; absents: Agent[]; parSite: Record<string, number> }>(
-    () => presenceDuJour(jour),
-    { presents: [], absents: [], parSite: {} },
-  );
+  const res = await safe<{
+    presents: PresenceAgent[];
+    absents: Agent[];
+    absentsDetail: AbsentDuJour[];
+    parSite: Record<string, number>;
+    absencesJustifiees: number;
+  }>(() => presenceDuJour(jour), {
+    presents: [],
+    absents: [],
+    absentsDetail: [],
+    parSite: {},
+    absencesJustifiees: 0,
+  });
 
-  const { presents, absents, parSite } = res.data;
+  const { presents, absents, absentsDetail, parSite, absencesJustifiees } = res.data;
+  const peutVoirAbsences = can(session.user.role, "pointage:absences");
+  const aExpliquer = absents.length - absencesJustifiees;
   const effectif = presents.length + absents.length;
   const dateLisible = new Date(`${jour}T12:00:00Z`).toLocaleDateString("fr-FR", {
     weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
@@ -111,7 +128,15 @@ export default async function PointagePage() {
               </Mesure>
             </div>
             <div className="md:px-6">
-              <Mesure etiquette={t("pointage.absents")} valeur={String(absents.length)} />
+              <Mesure
+                etiquette={t("pointage.absents")}
+                valeur={String(absents.length)}
+                detail={
+                  absencesJustifiees > 0
+                    ? `dont ${absencesJustifiees} justifiée${absencesJustifiees > 1 ? "s" : ""}`
+                    : undefined
+                }
+              />
             </div>
             <div className="md:px-6">
               <Mesure etiquette={t("pointage.effectif")} valeur={String(effectif)} />
@@ -204,6 +229,50 @@ export default async function PointagePage() {
               </div>
             )}
           </section>
+
+          {/* CE QUE L'ÉCRAN NE DISAIT PAS. Il comptait les absents sans jamais
+              dire lesquels ni pourquoi. Or « quatorze absents » n'est pas une
+              information exploitable : la question est de savoir qui manque
+              sans raison connue, et c'est la seule qui appelle une action. Les
+              absences justifiées passent donc au second plan, en gris, et ce
+              qui reste à éclaircir se voit en premier. */}
+          {absentsDetail.length > 0 && (
+            <section className="mt-8">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="text-sm font-semibold">{t("pointage.absents")}</h2>
+                {peutVoirAbsences && (
+                  <Link
+                    href="/pointage/absences"
+                    className="text-[11px] text-accent transition-colors hover:underline"
+                  >
+                    {aExpliquer > 0
+                      ? `${aExpliquer} absence${aExpliquer > 1 ? "s" : ""} sans motif connu · déclarer`
+                      : "Congés et absences"}
+                  </Link>
+                )}
+              </div>
+              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-glass-border py-3">
+                {absentsDetail.map((a) => (
+                  <li key={a.agent.id} className="flex items-baseline gap-1.5 text-sm">
+                    <Link
+                      href={`/pointage/agents/${a.agent.id}`}
+                      className={
+                        "truncate transition-colors hover:text-accent focus-visible:underline focus-visible:outline-none " +
+                        (a.motif ? "text-muted-foreground" : "")
+                      }
+                    >
+                      {nomAffiche(a.agent)}
+                    </Link>
+                    {a.motif && (
+                      <span className="shrink-0 rounded-full border border-glass-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {a.motif}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <p className="mt-5 max-w-prose text-[11px] leading-relaxed text-muted-foreground">
             Un agent est considéré présent lorsqu&apos;il a badgé un nombre impair de fois

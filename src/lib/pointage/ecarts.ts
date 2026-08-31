@@ -157,6 +157,7 @@ export type EtatJour =
   | "a_verifier" // écart si large qu'un passage manque sûrement
   | "en_cours" // entré, pas encore ressorti — la journée n'est pas finie
   | "a_venir" // le créneau du jour n'a pas encore commencé
+  | "absent_justifie" // congé, maladie, mission : absence connue et acceptée
   | "hors_planning"; // a badgé alors que rien n'était prévu
 
 export interface EcartsJour {
@@ -236,6 +237,19 @@ export function ecartsDuJour(
    * RH cesse de le lire — le pire sort possible pour un outil d'alerte.
    */
   maintenant?: string,
+  /**
+   * Absence ACCEPTÉE couvrant ce jour, s'il en existe une.
+   *
+   * ── POURQUOI LE MOTEUR DOIT LA CONNAÎTRE ────────────────────────────────
+   * Sans elle, une personne en congé validé mais restée au planning ressort
+   * en « sans badge » chaque jour de son congé. L'écran des écarts se
+   * remplit alors d'alertes que personne ne peut lever, et le sort d'un
+   * outil d'alerte qu'on ne peut pas vider est d'être ignoré.
+   *
+   * L'absence n'est PAS lue ici : elle est fournie par l'appelant, qui seul
+   * touche la base. Le module reste pur, donc testable au cas près.
+   */
+  absence?: { nature: string; libelle: string; neutraliseEcarts: boolean } | null,
 ): EcartsJour {
   const motifs: string[] = [];
   const tries = [...passages].sort((a, b) => a.horodatage.localeCompare(b.horodatage));
@@ -255,6 +269,21 @@ export function ecartsDuJour(
     siteConforme: null,
     motifs,
   };
+
+  /* 0. ABSENCE ACCEPTÉE. Elle prime sur tout le reste : il n'y a ni retard
+        ni sortie anticipée un jour où la personne n'était pas attendue.
+
+        Une exception, volontaire : si elle a BADGÉ ce jour-là, on ne masque
+        rien. Quelqu'un en congé qui pointe est soit revenu travailler, soit
+        victime d'une saisie erronée, et les deux méritent d'être vus. La
+        journée suit alors son cours normal, avec le motif en tête. */
+  if (absence && absence.neutraliseEcarts) {
+    if (heures.length === 0) {
+      motifs.push(absence.libelle);
+      return { ...vide, etat: "absent_justifie", motifs };
+    }
+    motifs.push(`${absence.libelle} : des passages sont pourtant enregistrés`);
+  }
 
   // 1. Rien n'était prévu.
   if (!creneau || creneau.repos || !creneau.debut) {
@@ -407,6 +436,7 @@ export const HABILLAGE: Record<EtatJour, { signe: string; mot: string; ton: stri
   a_verifier: { signe: "!", mot: "À vérifier", ton: "attention" },
   en_cours: { signe: "→", mot: "Au travail", ton: "neutre" },
   a_venir: { signe: "·", mot: "Prend son poste plus tard", ton: "neutre" },
+  absent_justifie: { signe: "○", mot: "Absence justifiée", ton: "neutre" },
   hors_planning: { signe: "+", mot: "Hors planning", ton: "attention" },
   repos: { signe: "—", mot: "Repos", ton: "neutre" },
 };
@@ -419,7 +449,13 @@ export const HABILLAGE: Record<EtatJour, { signe: string; mot: string; ton: stri
  * doivent peser sur la fiche de personne.
  */
 export function agregerEcarts(jours: EcartsJour[]) {
-  const avérés = jours.filter((j) => j.etat !== "a_verifier" && j.etat !== "en_cours" && j.etat !== "a_venir");
+  const avérés = jours.filter(
+    (j) =>
+      j.etat !== "a_verifier" &&
+      j.etat !== "en_cours" &&
+      j.etat !== "a_venir" &&
+      j.etat !== "absent_justifie",
+  );
   return {
     joursEnRetard: avérés.filter((j) => j.retardMinutes > 0).length,
     minutesRetard: avérés.reduce((s, j) => s + j.retardMinutes, 0),
@@ -429,6 +465,7 @@ export function agregerEcarts(jours: EcartsJour[]) {
     minutesNuit: jours.reduce((s, j) => s + j.minutesNuit, 0),
     joursSansBadge: jours.filter((j) => j.etat === "sans_badge").length,
     joursHorsPlanning: jours.filter((j) => j.etat === "hors_planning").length,
+    joursAbsenceJustifiee: jours.filter((j) => j.etat === "absent_justifie").length,
     minutesAvanceIgnoree: jours.reduce((s, j) => s + j.avanceIgnoreeMinutes, 0),
     /** Sites fréquentés dans le mois, pour la ligne « où a-t-il travaillé ? ». */
     sites: [...new Set(jours.flatMap((j) => j.sitesBadges))].sort(),
