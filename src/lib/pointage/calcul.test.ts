@@ -47,6 +47,26 @@ describe("fusion des passages rapprochés", () => {
     const p = fusionnerPassages(ev("17:28:00", "06:44:00"));
     expect(p[0]).toContain("06:44");
   });
+
+  it("tient la règle des deux minutes, et pas au-delà", () => {
+    /* Seuil porté de 90 à 120 s le 31 août 2026. Mesuré sur les 16 486
+       pointages enregistrés : l'élargissement n'ajoute que huit fusions,
+       toutes des paires de 94 à 119 secondes. */
+    expect(fusionnerPassages(ev("08:00:00", "08:01:59"))).toHaveLength(1);
+    expect(fusionnerPassages(ev("08:00:00", "08:02:01"))).toHaveLength(2);
+  });
+
+  it("redresse les deux erreurs constatées le 31 août", () => {
+    /* Voahangy : deux badges à DEUX secondes, lus sans fusion comme une
+       entrée puis une sortie. Elle était comptée repartie alors qu'elle
+       venait d'arriver. Un passage, nombre impair, donc présente. */
+    expect(fusionnerPassages(ev("07:09:58", "07:10:00"))).toHaveLength(1);
+
+    /* Volahanitra : sortie badgée deux fois. Sans fusion, trois passages,
+       nombre impair, donc « présente » alors qu'elle était partie. Deux
+       passages après fusion : entrée puis sortie. */
+    expect(fusionnerPassages(ev("08:22:36", "10:57:51", "10:57:53"))).toHaveLength(2);
+  });
 });
 
 describe("calcul d'une journée", () => {

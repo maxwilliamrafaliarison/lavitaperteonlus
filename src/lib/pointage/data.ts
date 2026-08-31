@@ -2,6 +2,7 @@ import { sbSelect, sbInsert } from "@/lib/supabase-server";
 import {
   calculerJournee,
   agregerMois,
+  fusionnerPassages,
   type HoraireTheorique,
   type JourneeCalculee,
 } from "./calcul";
@@ -319,13 +320,20 @@ export async function presenceDuJour(jour: string): Promise<{
   const parSite: Record<string, number> = {};
 
   for (const agent of actifs) {
-    const evs = (parAgent.get(agent.id) ?? []).sort((a, b) =>
+    const bruts = (parAgent.get(agent.id) ?? []).sort((a, b) =>
       a.horodatage.localeCompare(b.horodatage),
     );
-    if (evs.length === 0) {
+    if (bruts.length === 0) {
       absents.push(agent);
       continue;
     }
+    /* MÊME FUSION QUE LE CALCUL DES JOURNÉES. Sans elle, cet écran comptait
+       les badges bruts pendant que les états mensuels comptaient les badges
+       fusionnés : deux réponses pour une même donnée. Un double badge à deux
+       secondes suffisait à faire d'une personne présente une personne
+       repartie, et inversement. */
+    const horodatages = fusionnerPassages(bruts);
+    const evs = bruts.filter((e) => horodatages.includes(e.horodatage));
     const dernier = evs[evs.length - 1];
     const present = evs.length % 2 === 1;
     if (present) {

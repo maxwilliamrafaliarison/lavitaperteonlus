@@ -116,13 +116,33 @@ export function jourSemaine(jour: string): number {
 }
 
 /**
+ * Délai en deçà duquel deux badges comptent pour un seul passage.
+ *
+ * Deux minutes, décidées par la direction le 31 août 2026. Le seuil valait
+ * 90 secondes ; l'élargir n'ajoute que HUIT fusions sur les 16 486 pointages
+ * enregistrés, toutes des paires manifestes de 94 à 119 secondes. Le coût
+ * est donc nul et la marge couvre le cas d'une personne qui reprend son
+ * badge après une première lecture ratée.
+ */
+export const SEUIL_FUSION_SECONDES = 120;
+
+/**
  * Fusionne les pointages trop rapprochés : un même passage badgé au visage
  * PUIS à l'empreinte génère deux lignes à quelques secondes. Sans cette
  * fusion, l'entrée serait immédiatement suivie d'une « sortie ».
+ *
+ * ── LA RÈGLE VAUT POUR TOUS LES ÉCRANS, OU ELLE NE VAUT RIEN ─────────────
+ * Le calcul des journées l'appliquait ; l'écran de présence comptait les
+ * badges bruts. Les deux se contredisaient donc, et le 31 août l'écran
+ * affichait à la fois une absence fausse (Voahangy, deux badges à deux
+ * secondes d'intervalle, lus comme une entrée puis une sortie) et une
+ * présence fausse (Volahanitra, sortie double comptée pour une sortie puis
+ * une entrée). Une même donnée ne peut pas donner deux réponses selon la
+ * page qu'on regarde.
  */
 export function fusionnerPassages(
   evenements: EvenementPointage[],
-  seuilSecondes = 90,
+  seuilSecondes = SEUIL_FUSION_SECONDES,
 ): string[] {
   const tries = [...evenements]
     .map((e) => e.horodatage)
