@@ -94,6 +94,10 @@ export const authConfig: NextAuthConfig = {
         pathname.startsWith("/api/parity") ||
         pathname.startsWith("/api/pharmacie/rapport-quotidien") ||
         pathname.startsWith("/api/pharmacie/rapport-mensuel") ||
+        // Aperçu du relevé de caisse : même secret, même garde-fou de compte
+        // actif. Le chemin est nommé EN ENTIER, et non `/api/pharmacie/caisse`,
+        // qui ouvrirait aussi le PDF de n'importe quelle séance.
+        pathname.startsWith("/api/pharmacie/caisse/apercu") ||
         pathname.startsWith("/_next") ||
         pathname.startsWith("/logo");
 
