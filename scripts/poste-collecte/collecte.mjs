@@ -53,6 +53,40 @@ const log = (msg) => {
 /** L'heure de la pointeuse est locale ; zklib l'étiquette « Z » à tort. */
 const horodatageLocal = (d) => d.toLocaleString("sv-SE", { timeZone: "Indian/Antananarivo" });
 
+/**
+ * Message lisible pour une erreur, d'où qu'elle vienne.
+ *
+ * node-zklib rejette souvent des OBJETS NUS (`{ err, ip }`, ou ses propres
+ * ZKError) plutôt que des Error. `String(e)` en tire alors « [object
+ * Object] », qui s'affichait jusque dans le bandeau du navigateur et dans
+ * collecte.log. Un message d'erreur qui ne dit rien coûte plus cher qu'une
+ * erreur : il fait chercher au mauvais endroit.
+ */
+function messageErreur(e) {
+  if (e == null) return "erreur inconnue";
+  if (typeof e === "string") return e;
+  if (e instanceof Error) return e.message || String(e);
+  if (typeof e === "object") {
+    for (const cle of ["message", "err", "error", "reason", "code"]) {
+      const v = e[cle];
+      if (typeof v === "string" && v) return v;
+      if (v instanceof Error && v.message) return v.message;
+      if (v && typeof v === "object") {
+        const m = v.message ?? v.err ?? v.code;
+        if (typeof m === "string" && m) return m;
+      }
+    }
+    try {
+      const j = JSON.stringify(e);
+      if (j && j !== "{}") return j;
+    } catch {}
+    const cles = Object.keys(e);
+    if (cles.length) return `objet sans message (clés : ${cles.join(", ")})`;
+  }
+  return String(e);
+}
+
+
 try {
   log(`Connexion à la pointeuse ${SITE} (${IP_POINTEUSE})…`);
   const zk = new ZKLib(IP_POINTEUSE, 4370, 15000, 5000);
@@ -64,8 +98,12 @@ try {
      rend le buffer PARTIEL sans erreur. La mémoire se lisant du plus ancien
      au plus récent, une lecture tronquée ne contient jamais la journée en
      cours : la tâche paraîtrait réussir en ne remontant rien d'utile. */
+  /* DEUX essais, et non plus six. La reprise vit désormais DANS le lecteur,
+     qui redemande chaque bloc jusqu'à trois fois. Rejouer la lecture
+     entière six fois par-dessus ne corrigerait plus rien et pourrait
+     dépasser l'heure qui sépare deux collectes. */
   let brut = [];
-  for (let essai = 1; essai <= 6; essai++) {
+  for (let essai = 1; essai <= 2; essai++) {
     const logs = await zk.getAttendances();
     const lot = logs?.data ?? [];
     if (lot.length > brut.length) brut = lot;
@@ -115,7 +153,7 @@ try {
 
   log(`✅ Terminé : ${ajoutes} nouveau(x) pointage(s), ${dejaPresents} déjà connus.`);
 } catch (e) {
-  log(`❌ ÉCHEC : ${String(e).slice(0, 300)}`);
+  log(`❌ ÉCHEC : ${messageErreur(e).slice(0, 300)}`);
   log("   Vérifiez : poste sur le réseau du centre · pointeuse allumée · connexion Internet.");
   process.exit(1);
 }

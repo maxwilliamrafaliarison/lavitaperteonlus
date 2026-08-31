@@ -22,11 +22,32 @@
  * Ces 191 passages étaient exactement le 28 et le 29 juillet. Douze essais
  * n'ont jamais dépassé 13 094 : le défaut est structurel, pas intermittent.
  *
- * ── LE CORRECTIF ─────────────────────────────────────────────────────────
- * À l'expiration du délai, on CONSERVE le bloc partiel au lieu de le jeter.
- * Rien d'autre ne change : même découpage, même décodage, même protocole.
+ * ── LE CORRECTIF, PREMIÈRE VERSION ──────────────────────────────────────
+ * À l'expiration du délai, on CONSERVAIT le bloc partiel au lieu de le
+ * jeter. Cela a suffi tant que la mémoire tenait en huit blocs.
+ *
+ * ── CE QUI A CESSÉ DE SUFFIRE ────────────────────────────────────────────
+ * La bibliothèque envoie toutes les requêtes de blocs D'UN SEUL COUP, puis
+ * écoute. À 15 259 passages, la mémoire en demande DIX, et la salve dépasse
+ * ce que l'appareil ou le réseau encaissent. Mesuré le 31 août sur le poste
+ * d'Aina, six essais d'affilée :
+ *   • annoncés   : 15 259 passages (610 360 octets, 9 blocs pleins + 21 112)
+ *   • lus        : 14 940, soit 9,13 blocs ; ou 14 446, soit 8,83 blocs
+ *   • jamais dix.
+ *
+ * Et un bloc manquant ne retranche pas seulement des passages : il DÉCALE
+ * le décodage de tout ce qui suit. La lecture ressort alors en passages
+ * aberrants plutôt qu'en passages absents, ce que l'agent voyait sous la
+ * forme « 0 sur 15 259 » après avoir tout rejeté.
+ *
+ * ── LE CORRECTIF, VERSION EN VIGUEUR ─────────────────────────────────────
+ * Un bloc à la fois : on demande, on attend sa fin, on demande le suivant.
+ * Chaque bloc est réclamé jusqu'à trois fois avant qu'on renonce. La lecture
+ * prend quelques secondes de plus et cesse de dépendre de la taille de la
+ * mémoire, qui ne fera que croître.
+ *
  * L'appelant reste chargé de vérifier que le total lu rejoint le compteur
- * annoncé par l'appareil — un correctif ne dispense pas d'un garde-fou.
+ * annoncé par l'appareil : un correctif ne dispense pas d'un garde-fou.
  *
  * Cette réimplémentation vit dans notre dépôt plutôt que dans une copie
  * modifiée du paquet : elle survit à une réinstallation des dépendances, et
@@ -44,119 +65,122 @@ const { decodeTCPHeader, checkNotEventTCP } = require("node-zklib/utils.js");
 /** Délai d'attente entre deux paquets, en millisecondes. */
 const DELAI_PAQUET_MS = 15000;
 
-ZKLibTCP.prototype.readWithBuffer = function readWithBufferComplet(reqData, cb = null) {
-  return new Promise(async (resolve, reject) => {
-    this.replyId++;
-    const buf = require("node-zklib/utils.js").createTCPHeader(
-      COMMANDS.CMD_DATA_WRRQ,
-      this.sessionId,
-      this.replyId,
-      reqData,
-    );
+/** Reprises d'un même bloc avant d'abandonner. */
+const REPRISES = 3;
 
-    let reply = null;
-    try {
-      reply = await this.requestData(buf);
-    } catch (err) {
-      return reject(err);
+/**
+ * Lecture d'UN bloc, et attente de sa fin avant de demander le suivant.
+ *
+ * ── POURQUOI SÉQUENTIEL ─────────────────────────────────────────────────
+ * L'implémentation d'origine envoie toutes les requêtes de blocs D'UN COUP,
+ * puis écoute. Tant que la mémoire tenait en huit blocs, la pointeuse de REX
+ * suivait. À 15 259 passages elle en demande DIX, et la salve dépasse ce que
+ * l'appareil ou le réseau encaissent : les lectures se sont mises à rendre
+ * 9,13 puis 8,83 blocs, jamais dix. Six essais d'affilée, toujours court.
+ *
+ * Pire qu'incomplet : un bloc manquant DÉCALE le décodage de tout ce qui
+ * suit, et la lecture ressort en passages aberrants plutôt qu'en passages
+ * absents. C'est ce que voyait l'agent, qui les rejetait tous.
+ *
+ * Un bloc à la fois, donc, chacun réclamé à nouveau jusqu'à trois fois. La
+ * lecture est plus lente, de quelques secondes ; elle a l'avantage d'aboutir.
+ */
+function lireBloc(zk, offset, taille) {
+  return new Promise((resolve, reject) => {
+    let recu = Buffer.from([]);
+    let tampon = Buffer.from([]);
+    let fini = false;
+    let timer = null;
+
+    const terminer = (err, data) => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(timer);
+      zk.socket.removeListener("data", surDonnees);
+      err ? reject(err) : resolve(data);
+    };
+    const relancerDelai = () => {
+      clearTimeout(timer);
+      timer = setTimeout(
+        () => terminer(new Error(`bloc à ${offset} : silence de ${DELAI_PAQUET_MS} ms`)),
+        DELAI_PAQUET_MS,
+      );
+    };
+
+    function surDonnees(reponse) {
+      if (checkNotEventTCP(reponse)) return;
+      relancerDelai();
+      tampon = Buffer.concat([tampon, reponse]);
+      /* Un paquet peut en contenir plusieurs, ou arriver coupé : on vide le
+         tampon tant qu'il porte un paquet entier, au lieu d'en traiter un
+         seul par événement. */
+      while (tampon.length >= 8) {
+        const longueur = tampon.readUIntLE(4, 2);
+        if (tampon.length < 8 + longueur) break;
+        recu = Buffer.concat([recu, tampon.subarray(16, 8 + longueur)]);
+        tampon = tampon.subarray(8 + longueur);
+      }
+      // Les huit premiers octets du bloc sont un en-tête, pas des données.
+      if (recu.length >= taille + 8) terminer(null, recu.subarray(8, taille + 8));
     }
 
-    const header = decodeTCPHeader(reply.subarray(0, 16));
-    switch (header.commandId) {
-      case COMMANDS.CMD_DATA: {
-        // Mémoire assez petite pour tenir dans une seule réponse : aucun
-        // découpage, donc aucun risque de reliquat perdu.
-        resolve({ data: reply.subarray(16), mode: 8 });
-        break;
-      }
-      case COMMANDS.CMD_ACK_OK:
-      case COMMANDS.CMD_PREPARE_DATA: {
-        const recvData = reply.subarray(16);
-        const size = recvData.readUIntLE(1, 4);
-
-        const remain = size % MAX_CHUNK;
-        const numberChunks = Math.round(size - remain) / MAX_CHUNK;
-        let totalPackets = numberChunks + (remain > 0 ? 1 : 0);
-
-        let replyData = Buffer.from([]);
-        let totalBuffer = Buffer.from([]);
-        let realTotalBuffer = Buffer.from([]);
-        let termine = false;
-
-        const finir = (err = null) => {
-          if (termine) return;
-          termine = true;
-          timer && clearTimeout(timer);
-          this.socket && this.socket.removeListener("data", handleOnData);
-          resolve({ data: replyData, err });
-        };
-
-        /**
-         * Abandon sur délai — LA correction.
-         *
-         * L'implémentation d'origine rendait `replyData` seul, laissant
-         * `realTotalBuffer` (le bloc partiel en cours, soit la fin de la
-         * mémoire) se perdre. On le rattache avant de rendre la main : les
-         * données sont là, reçues et valides, seul leur compte n'atteint
-         * pas la taille d'un bloc plein.
-         */
-        const abandonner = () => {
-          if (realTotalBuffer.length > 8) {
-            replyData = Buffer.concat([replyData, realTotalBuffer.subarray(8)]);
-            realTotalBuffer = Buffer.from([]);
-          }
-          finir(new Error(`Délai dépassé — ${totalPackets} bloc(s) restant(s)`));
-        };
-
-        let timer = setTimeout(abandonner, DELAI_PAQUET_MS);
-
-        const handleOnData = (reponse) => {
-          if (checkNotEventTCP(reponse)) return;
-          clearTimeout(timer);
-          timer = setTimeout(abandonner, DELAI_PAQUET_MS);
-
-          totalBuffer = Buffer.concat([totalBuffer, reponse]);
-          const packetLength = totalBuffer.readUIntLE(4, 2);
-          if (totalBuffer.length < 8 + packetLength) return;
-
-          realTotalBuffer = Buffer.concat([
-            realTotalBuffer,
-            totalBuffer.subarray(16, 8 + packetLength),
-          ]);
-          totalBuffer = totalBuffer.subarray(8 + packetLength);
-
-          const blocPlein = totalPackets > 1 && realTotalBuffer.length === MAX_CHUNK + 8;
-          const blocFinal = totalPackets === 1 && realTotalBuffer.length === remain + 8;
-          if (!blocPlein && !blocFinal) return;
-
-          replyData = Buffer.concat([replyData, realTotalBuffer.subarray(8)]);
-          totalBuffer = Buffer.from([]);
-          realTotalBuffer = Buffer.from([]);
-          totalPackets -= 1;
-          cb && cb(replyData.length, size);
-
-          if (totalPackets <= 0) finir();
-        };
-
-        this.socket.once("close", () => {
-          // Fermeture inattendue : on garde là aussi ce qui a été reçu.
-          if (realTotalBuffer.length > 8) {
-            replyData = Buffer.concat([replyData, realTotalBuffer.subarray(8)]);
-          }
-          finir(new Error("Connexion fermée par l'appareil"));
-        });
-        this.socket.on("data", handleOnData);
-
-        for (let i = 0; i <= numberChunks; i++) {
-          if (i === numberChunks) this.sendChunkRequest(numberChunks * MAX_CHUNK, remain);
-          else this.sendChunkRequest(i * MAX_CHUNK, MAX_CHUNK);
-        }
-        break;
-      }
-      default:
-        reject(new Error(`Commande inattendue : ${header.commandId}`));
+    zk.socket.on("data", surDonnees);
+    relancerDelai();
+    try {
+      zk.sendChunkRequest(offset, taille);
+    } catch (e) {
+      terminer(e instanceof Error ? e : new Error(String(e)));
     }
   });
+}
+
+ZKLibTCP.prototype.readWithBuffer = async function readWithBufferSequentiel(reqData, cb = null) {
+  this.replyId++;
+  const buf = require("node-zklib/utils.js").createTCPHeader(
+    COMMANDS.CMD_DATA_WRRQ,
+    this.sessionId,
+    this.replyId,
+    reqData,
+  );
+  const reply = await this.requestData(buf);
+  const header = decodeTCPHeader(reply.subarray(0, 16));
+
+  // Mémoire assez petite pour tenir dans une seule réponse : rien à découper.
+  if (header.commandId === COMMANDS.CMD_DATA) {
+    return { data: reply.subarray(16), mode: 8 };
+  }
+  if (header.commandId !== COMMANDS.CMD_ACK_OK && header.commandId !== COMMANDS.CMD_PREPARE_DATA) {
+    throw new Error(`Commande inattendue : ${header.commandId}`);
+  }
+
+  const size = reply.subarray(16).readUIntLE(1, 4);
+  const remain = size % MAX_CHUNK;
+  const blocsPleins = (size - remain) / MAX_CHUNK;
+
+  let donnees = Buffer.from([]);
+  let erreur = null;
+  for (let i = 0; i <= blocsPleins; i++) {
+    const offset = i * MAX_CHUNK;
+    const taille = i === blocsPleins ? remain : MAX_CHUNK;
+    if (taille === 0) break;
+
+    let bloc = null;
+    for (let essai = 1; essai <= REPRISES && !bloc; essai++) {
+      try {
+        bloc = await lireBloc(this, offset, taille);
+      } catch (e) {
+        /* Dernière reprise épuisée : on rend ce qu'on a. Le bloc manquant
+           est signalé à l'appelant, à qui il revient de refuser une lecture
+           dont il sait qu'elle est trouée. */
+        if (essai === REPRISES) erreur = e instanceof Error ? e : new Error(String(e));
+      }
+    }
+    if (!bloc) break;
+    donnees = Buffer.concat([donnees, bloc]);
+    cb && cb(donnees.length, size);
+  }
+
+  return { data: donnees, err: erreur };
 };
 
 export const CORRECTIF_ZK_APPLIQUE = true;

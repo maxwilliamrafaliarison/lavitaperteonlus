@@ -46,6 +46,40 @@ const log = (msg) => {
 
 const horodatageLocal = (d) => d.toLocaleString("sv-SE", { timeZone: "Indian/Antananarivo" });
 
+/**
+ * Message lisible pour une erreur, d'où qu'elle vienne.
+ *
+ * node-zklib rejette souvent des OBJETS NUS (`{ err, ip }`, ou ses propres
+ * ZKError) plutôt que des Error. `String(e)` en tire alors « [object
+ * Object] », qui s'affichait jusque dans le bandeau du navigateur et dans
+ * collecte.log. Un message d'erreur qui ne dit rien coûte plus cher qu'une
+ * erreur : il fait chercher au mauvais endroit.
+ */
+function messageErreur(e) {
+  if (e == null) return "erreur inconnue";
+  if (typeof e === "string") return e;
+  if (e instanceof Error) return e.message || String(e);
+  if (typeof e === "object") {
+    for (const cle of ["message", "err", "error", "reason", "code"]) {
+      const v = e[cle];
+      if (typeof v === "string" && v) return v;
+      if (v instanceof Error && v.message) return v.message;
+      if (v && typeof v === "object") {
+        const m = v.message ?? v.err ?? v.code;
+        if (typeof m === "string" && m) return m;
+      }
+    }
+    try {
+      const j = JSON.stringify(e);
+      if (j && j !== "{}") return j;
+    } catch {}
+    const cles = Object.keys(e);
+    if (cles.length) return `objet sans message (clés : ${cles.join(", ")})`;
+  }
+  return String(e);
+}
+
+
 /** Test TCP à délai maîtrisé : node-zklib reste suspendu sur hôte muet. */
 function portOuvert(ip, port, ms = 3000) {
   return new Promise((resolve) => {
@@ -75,7 +109,8 @@ async function collecter() {
   const attendus = Number(info?.logCounts ?? 0);
 
   let brut = [];
-  for (let essai = 1; essai <= 6; essai++) {
+  /* Deux essais : la reprise par bloc vit dans le lecteur (zk-correctif). */
+  for (let essai = 1; essai <= 2; essai++) {
     if (essai > 1) {
       await zk.disconnect().catch(() => {});
       await new Promise((r) => setTimeout(r, 2000));
@@ -170,8 +205,8 @@ const serveur = createServer(async (req, res) => {
     }
     repondre(404, { error: "Chemins : /statut, /collecter." });
   } catch (e) {
-    log(`❌ ${String(e).slice(0, 200)}`);
-    repondre(500, { ok: false, error: String(e).slice(0, 250) });
+    log(`❌ ${messageErreur(e).slice(0, 200)}`);
+    repondre(500, { ok: false, error: messageErreur(e).slice(0, 250) });
   }
 });
 

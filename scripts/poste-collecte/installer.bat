@@ -89,8 +89,11 @@ rem Une seule tache, declenchee chaque jour a HEURE_DEBUT, qui se REPETE
 rem toutes les INTERVALLE_MINUTES pendant DUREE. C'est ce que fait /ri avec
 rem /du : plus simple qu'une tache par heure, et modifiable d'un seul geste.
 echo [3/5] Creation de la tache horaire...
+rem La tache pointe sur collecte-tache.bat, et non sur une commande
+rem composee : schtasks refuse un /tr contenant « && », le batch ne
+rem connaissant pas l'echappement \" qui devait proteger le chemin.
 schtasks /create /f /tn "LaVitaPerTe - Collecte pointage (!NOM_POSTE!)" ^
-  /tr "cmd /c cd /d \"%~dp0\" && node collecte.mjs" ^
+  /tr "\"%~dp0collecte-tache.bat\"" ^
   /sc daily /st !HEURE_DEBUT! /ri !INTERVALLE_MINUTES! /du !DUREE!
 if errorlevel 1 (
   echo [ERREUR] Creation de la tache refusee.
