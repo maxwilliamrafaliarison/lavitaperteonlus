@@ -102,7 +102,7 @@ export async function corrigerJourneeAction(formData: FormData): Promise<ActionR
 export async function validerHeuresSupAction(formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "pointage:heures-sup")) {
     return { ok: false, error: "Votre rôle ne permet pas de valider des heures supplémentaires." };
   }
 

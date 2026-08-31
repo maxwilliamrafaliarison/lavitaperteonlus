@@ -56,8 +56,16 @@ export const PERMISSIONS = {
 
      ACCORDER des heures supplémentaires CRÉE une dette de l'employeur. Des
      heures présentes ne sont pas des heures dues : quelqu'un doit les
-     accorder, et ce quelqu'un engage l'ONG. Ce geste-là reste à l'admin. */
+     accorder, et ce quelqu'un engage l'ONG. La DIRECTION le peut, la RH
+     non : constater une présence et engager une dépense ne sont pas le
+     même métier.
+
+     Ce droit est distinct de `pointage:gerer` à dessein. Ce dernier garde
+     aussi le CATALOGUE DES CRÉNEAUX, qui est du paramétrage : l'élargir
+     pour ouvrir les heures supplémentaires aurait donné le second par
+     ricochet. Un droit par geste, et non par écran. */
   "pointage:corriger": ["admin", "direction", "rh"],
+  "pointage:heures-sup": ["admin", "direction"],
   "pointage:gerer": ["admin"],
   /* COLLECTER n'est pas GÉRER. Récupérer les badgeages depuis la pointeuse
      ou importer le fichier MIARAKA constitue la donnée brute — c'est le

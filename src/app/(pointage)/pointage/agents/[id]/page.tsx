@@ -139,7 +139,7 @@ export default async function FicheAgentPage({
               </li>
             ))}
           </ul>
-          {can(session.user.role, "pointage:gerer") && (
+          {can(session.user.role, "pointage:corriger") && (
             <Link
               href={`/pointage/corrections?mois=${mois}`}
               className="mt-2 inline-block text-xs font-medium text-warning underline underline-offset-2"

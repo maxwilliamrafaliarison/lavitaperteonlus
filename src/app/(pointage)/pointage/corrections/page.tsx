@@ -24,11 +24,11 @@ export default async function CorrectionsPage({
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (!can(session.user.role, "pointage:corriger")) redirect("/pointage");
-  /* Accorder des heures supplémentaires engage la paie et reste à l'admin.
-     La section demeure VISIBLE pour les autres : savoir quelles heures sont
-     proposées fait partie du travail de la RH, même sans pouvoir les
-     accorder. Seul le bouton disparaît, et on dit pourquoi. */
-  const peutAccorder = can(session.user.role, "pointage:gerer");
+  /* Accorder engage une dépense : la direction et l'admin le peuvent, la RH
+     non. La section demeure VISIBLE pour elle : savoir quelles heures sont
+     proposées fait partie de son travail, même sans pouvoir les accorder.
+     Seul le bouton disparaît, et on dit à qui revient le geste. */
+  const peutAccorder = can(session.user.role, "pointage:heures-sup");
   const t = getT(session.user.lang);
 
   const sp = await searchParams;

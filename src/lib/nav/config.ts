@@ -105,7 +105,10 @@ export const APP_NAV: Record<AppKey, AppNav> = {
       { href: "/pointage/etats", labelKey: "pointage.nav_etats", icon: "FileBarChart2" },
       { href: "/pointage/agents", labelKey: "pointage.nav_agents", icon: "Users" },
       { href: "/pointage/planning", labelKey: "pointage.nav_planning", icon: "CalendarDays", permission: "planning:gerer" },
-      { href: "/pointage/corrections", labelKey: "pointage.nav_corrections", icon: "ClipboardList", permission: "pointage:gerer" },
+      /* CORRIGER, et non GÉRER : la page s'est ouverte à la RH et à
+         l'administration, le lien qui y mène doit suivre. Une page
+         accessible dont aucun menu ne parle n'est pas accessible. */
+      { href: "/pointage/corrections", labelKey: "pointage.nav_corrections", icon: "ClipboardList", permission: "pointage:corriger" },
       { href: "/pointage/creneaux", labelKey: "pointage.nav_creneaux", icon: "Clock", permission: "pointage:gerer" },
       { href: "/pointage/import", labelKey: "pointage.nav_import", icon: "Upload", permission: "pointage:collecter" },
     ],
