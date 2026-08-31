@@ -68,7 +68,7 @@ export interface ModificationPlanning {
   lien?: string;
 }
 
-interface LigneModif {
+export interface LigneModif {
   id: string;
   planning_id: string;
   centre: string;
@@ -157,7 +157,7 @@ async function envoyerAvisUnique(m: ModificationPlanning): Promise<void> {
     await envoyerMail({
       destinataires: await destinataires(),
       sujet: `Planning ${m.centre} modifié après publication : ${m.agentNom}, ${jourLisible(m.jour)}`,
-      html: corps([ligne], new Map([[m.planningId, { libelle: m.libellePlanning, token_public: "" }]])),
+      html: htmlRecapitulatif([ligne], new Map([[m.planningId, { libelle: m.libellePlanning, token_public: "" }]])),
       expediteurLabel: "Planning · La Vita Per Te",
     });
   } catch {
@@ -174,7 +174,14 @@ const POLICE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Ari
 const esc = (s: unknown) =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function corps(
+/**
+ * Composition du récapitulatif, exportée.
+ *
+ * Un document qu'on ne peut relire qu'en se le faisant envoyer se corrige
+ * toujours trop tard : sorti de son envoi, il s'affiche et se vérifie. Même
+ * raison que pour les documents de la pharmacie.
+ */
+export function htmlRecapitulatif(
   lignes: LigneModif[],
   plannings: Map<string, { libelle: string; token_public: string }>,
 ): string {
@@ -297,7 +304,7 @@ export async function envoyerRecapitulatif(
     const envoi = await envoyerMail({
       destinataires: await destinataires(),
       sujet: `Planning ${centres || "publié"} : ${rows.length} modification${rows.length > 1 ? "s" : ""} après publication`,
-      html: corps(rows, parId),
+      html: htmlRecapitulatif(rows, parId),
       expediteurLabel: "Planning · La Vita Per Te",
     });
     if (!envoi.envoye) return { envoye: false, lignes: rows.length };
