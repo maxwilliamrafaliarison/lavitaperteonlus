@@ -24,6 +24,20 @@ if not exist config.txt (
   exit /b 1
 )
 
+rem Une espace dans le chemin casserait les commandes des taches planifiees,
+rem ou l'installeur devrait imbriquer des guillemets — ce qui est
+rem precisement ce qui vient de faire echouer la creation de la tache. On
+rem impose donc un chemin simple, et on le dit tout de suite.
+echo "%~dp0" | findstr /c:" " >nul
+if not errorlevel 1 (
+  echo [ERREUR] Le chemin de ce dossier contient une espace :
+  echo    %~dp0
+  echo.
+  echo Deplacez-le vers  C:\LaVitaPerTe\Collecte-pointage\  puis relancez.
+  pause
+  exit /b 1
+)
+
 rem Un dossier synchronise par OneDrive finit par casser la collecte, et
 rem toujours en silence : les milliers de fichiers de node_modules partent
 rem en synchronisation, les fichiers "a la demande" deviennent des liens
@@ -89,11 +103,18 @@ rem Une seule tache, declenchee chaque jour a HEURE_DEBUT, qui se REPETE
 rem toutes les INTERVALLE_MINUTES pendant DUREE. C'est ce que fait /ri avec
 rem /du : plus simple qu'une tache par heure, et modifiable d'un seul geste.
 echo [3/5] Creation de la tache horaire...
-rem La tache pointe sur collecte-tache.bat, et non sur une commande
-rem composee : schtasks refuse un /tr contenant « && », le batch ne
-rem connaissant pas l'echappement \" qui devait proteger le chemin.
+rem UN SEUL CHEMIN, ENTRE UNE SEULE PAIRE DE GUILLEMETS.
+rem La version d'origine passait « cmd /c cd /d \"%~dp0\" && node
+rem collecte.mjs » : cmd coupait la ligne au « && » avant meme d'appeler
+rem schtasks, car le batch ne connait pas l'echappement \". La tache
+rem n'etait jamais creee, et l'installeur poursuivait comme si de rien.
+rem
+rem On vise donc un fichier, sans commande composee ET sans guillemets
+rem imbriques. collecte-tache.bat se place lui-meme dans son dossier, et
+rem collecte.mjs lit sa configuration a cote de lui : rien ne depend du
+rem repertoire courant de la tache.
 schtasks /create /f /tn "LaVitaPerTe - Collecte pointage (!NOM_POSTE!)" ^
-  /tr "\"%~dp0collecte-tache.bat\"" ^
+  /tr "%~dp0collecte-tache.bat" ^
   /sc daily /st !HEURE_DEBUT! /ri !INTERVALLE_MINUTES! /du !DUREE!
 if errorlevel 1 (
   echo [ERREUR] Creation de la tache refusee.
@@ -101,10 +122,21 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+rem On RELIT la tache creee. Un installeur qui annonce avoir installe sans
+rem verifier laisse croire que tout va bien pendant des jours : c'est ce
+rem qui vient d'arriver, la tache n'existant pas malgre l'ecran final.
+schtasks /query /tn "LaVitaPerTe - Collecte pointage (!NOM_POSTE!)" >nul 2>nul
+if errorlevel 1 (
+  echo [ERREUR] La tache n'existe pas apres creation. Rien ne se declenchera.
+  echo Signalez-le : c'est un defaut, pas une erreur de manipulation.
+  pause
+  exit /b 1
+)
+echo       tache verifiee : elle existe et se declenchera toute seule.
 
 echo [4/5] Agent du bouton (demarre a chaque ouverture de session)...
 schtasks /create /f /tn "LaVitaPerTe - Agent pointage (!NOM_POSTE!)" ^
-  /tr "wscript.exe \"%~dp0demarrer-agent.vbs\"" ^
+  /tr "wscript.exe %~dp0demarrer-agent.vbs" ^
   /sc onlogon
 start "" wscript.exe "%~dp0demarrer-agent.vbs"
 
