@@ -351,12 +351,51 @@ function GrilleService({
   const reposParJour = new Map<string, Array<{ agentNom: string; motif: string }>>();
   for (const r of repos) reposParJour.set(r.jour, [...(reposParJour.get(r.jour) ?? []), r]);
 
+  /* ── LA CHARGE DE CHAQUE JOUR, ET LE JOUR COURANT ─────────────────────
+     Deux repères que tout outil de planning porte et qui manquaient ici.
+     Le total par colonne dit d'un regard quelle journée est chargée et
+     laquelle ne l'est pas, ce qu'on devait auparavant estimer à la hauteur
+     des blocs. Et l'on ne peut pas lire une semaine sans savoir où l'on
+     est : la colonne du jour se distingue, et un trait marque l'heure
+     qu'il est.
+
+     La date se fixe APRÈS montage, jamais au rendu : le serveur et le
+     navigateur ne sont pas dans le même fuseau, et l'écart produirait une
+     divergence d'hydratation. Le repère apparaît donc une fraction de
+     seconde plus tard, ce qui ne coûte rien. */
+  const minutesParJour = new Map<string, number>();
+  for (const s of segments) {
+    minutesParJour.set(s.jour, (minutesParJour.get(s.jour) ?? 0) + (s.finMin - s.debutMin));
+  }
+  const [maintenant, setMaintenant] = React.useState<{ jour: string; min: number } | null>(null);
+  React.useEffect(() => {
+    const lire = () => {
+      const d = new Date(Date.now() + 3 * 3600 * 1000); // heure des centres
+      setMaintenant({
+        jour: d.toISOString().slice(0, 10),
+        min: d.getUTCHours() * 60 + d.getUTCMinutes(),
+      });
+    };
+    lire();
+    const t = setInterval(lire, 60_000);
+    return () => clearInterval(t);
+  }, []);
+
   return (
     <section aria-label={`Emploi du temps : ${groupe.libelle}`}>
       <h2 className="mb-1.5 flex items-baseline gap-2 text-[11px] font-semibold uppercase tracking-wide text-accent">
         {groupe.libelle}
         <span className="font-normal text-muted-foreground">
           {groupe.agents.length} agent(s) · {versHeures(ampMin)}–{ampMax === 1440 ? "24:00" : versHeures(ampMax)}
+          {segments.length > 0 && (
+            <>
+              {" · "}
+              <span className="font-mono tabular-nums">
+                {versHeures([...minutesParJour.values()].reduce((s, m) => s + m, 0))}
+              </span>{" "}
+              sur {segments.filter((s) => !s.continuation).length} créneau(x)
+            </>
+          )}
         </span>
       </h2>
       <div className="overflow-x-auto rounded-xl border border-glass-border">
@@ -366,10 +405,24 @@ function GrilleService({
             <div />
             {jours.map((j) => {
               const rj = reposParJour.get(j.date) ?? [];
+              const charge = minutesParJour.get(j.date) ?? 0;
+              const ceJour = maintenant?.jour === j.date;
               return (
-                <div key={j.date} className={cn("border-l border-glass-border px-1 py-1.5 text-center", j.weekend && "bg-black/[0.04] dark:bg-white/[0.04]")}>
-                  <span className="text-[10px] capitalize text-muted-foreground">{j.abrege}</span>{" "}
-                  <span className="font-mono text-sm font-medium">{j.num}</span>
+                <div
+                  key={j.date}
+                  aria-current={ceJour ? "date" : undefined}
+                  className={cn(
+                    "border-l border-glass-border px-1 py-1.5 text-center",
+                    j.weekend && "bg-black/[0.04] dark:bg-white/[0.04]",
+                    ceJour && "bg-accent/10",
+                  )}
+                >
+                  <span className={cn("text-[10px] capitalize", ceJour ? "font-semibold text-accent" : "text-muted-foreground")}>{j.abrege}</span>{" "}
+                  <span className={cn("font-mono text-sm font-medium", ceJour && "text-accent")}>{j.num}</span>
+                  {/* La charge du jour : lue en colonne, elle se compare. */}
+                  <span className={cn("mt-0.5 block font-mono text-[10px] tabular-nums", charge > 0 ? "text-muted-foreground" : "text-muted-foreground/40")}>
+                    {charge > 0 ? versHeures(charge) : "—"}
+                  </span>
                   {rj.length > 0 && (
                     <div className="mt-0.5 flex flex-wrap justify-center gap-0.5">
                       {rj.map((r, i) => (
@@ -396,8 +449,19 @@ function GrilleService({
             {/* Lignes et étiquettes d'heures. */}
             {heures.map((m) => (
               <React.Fragment key={m}>
-                <div className="absolute left-0 right-0 border-t border-glass-border/50" style={{ top: ((m - ampMin) / 60) * H_HEURE }} />
-                <span className="absolute font-mono text-[9px] text-muted-foreground" style={{ top: ((m - ampMin) / 60) * H_HEURE + 2, left: 4 }}>
+                <div className="pointer-events-none absolute left-0 right-0 border-t border-glass-border" style={{ top: ((m - ampMin) / 60) * H_HEURE }} />
+                {/* La demi-heure, plus pâle : elle guide le placement d'un
+                    créneau à 8h30 sans concurrencer le trait de l'heure. */}
+                {m + 30 < ampMax && (
+                  <div
+                    className="pointer-events-none absolute right-0 border-t border-dashed border-glass-border/50"
+                    style={{ top: ((m + 30 - ampMin) / 60) * H_HEURE, left: GOUTTIERE }}
+                  />
+                )}
+                <span
+                  className="pointer-events-none absolute font-mono text-[10px] tabular-nums text-muted-foreground"
+                  style={{ top: ((m - ampMin) / 60) * H_HEURE - 6, left: 0, width: GOUTTIERE - 8, textAlign: "right" }}
+                >
                   {versHeures(m)}
                 </span>
               </React.Fragment>
@@ -406,10 +470,36 @@ function GrilleService({
             {jours.map((j, i) => (
               <div
                 key={j.date}
-                className={cn("absolute bottom-0 top-0 border-l border-glass-border/60", j.weekend && "bg-black/[0.02] dark:bg-white/[0.02]")}
+                className={cn(
+                  "pointer-events-none absolute bottom-0 top-0 border-l border-glass-border/60",
+                  j.weekend && "bg-black/[0.02] dark:bg-white/[0.02]",
+                  maintenant?.jour === j.date && "bg-accent/[0.06]",
+                )}
                 style={{ left: `calc(${GOUTTIERE}px + ${(i / jours.length) * 100}% - ${(GOUTTIERE * i) / jours.length}px)`, width: `calc((100% - ${GOUTTIERE}px) / ${jours.length})` }}
               />
             ))}
+
+            {/* L'HEURE QU'IL EST, en travers de la colonne du jour. Sans ce
+                trait, il faut compter les lignes depuis le haut pour savoir
+                si un créneau est passé ou à venir. */}
+            {maintenant &&
+              (() => {
+                const i = jours.findIndex((j) => j.date === maintenant.jour);
+                if (i === -1 || maintenant.min < ampMin || maintenant.min > ampMax) return null;
+                return (
+                  <div
+                    className="pointer-events-none absolute z-10"
+                    style={{
+                      top: ((maintenant.min - ampMin) / 60) * H_HEURE,
+                      left: `calc(${GOUTTIERE}px + (100% - ${GOUTTIERE}px) * ${i} / ${jours.length})`,
+                      width: `calc((100% - ${GOUTTIERE}px) / ${jours.length})`,
+                    }}
+                  >
+                    <div className="h-px w-full bg-[var(--danger)]" />
+                    <div className="absolute -left-0.5 -top-1 size-2 rounded-full bg-[var(--danger)]" />
+                  </div>
+                );
+              })()}
 
             {/* Blocs. */}
             {segments.map((s, i) => {
@@ -625,16 +715,21 @@ function ModaleAffectation({
 
 function Legende() {
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
-      {FAMILLES.filter((f) => f.type !== "repos").map((f) => (
-        <span key={f.type} className="inline-flex items-center gap-1.5">
-          <span className={cn("size-3 rounded", f.classe)} aria-hidden="true" />
-          <span className="text-muted-foreground">{f.libelle}</span>
-        </span>
-      ))}
-      <span className="text-muted-foreground/70">
-        Glissez sur la grille pour créer · glissez un bloc pour le déplacer · cliquez pour modifier
-      </span>
+    /* Deux choses distinctes, et non plus une seule ligne grise : ce que
+       les couleurs veulent dire, puis comment on manipule la grille. Les
+       mêler obligeait à relire la phrase pour trouver la légende. */
+    <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-glass-border pb-2.5 text-[11px]">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {FAMILLES.filter((f) => f.type !== "repos").map((f) => (
+          <span key={f.type} className="inline-flex items-center gap-1.5">
+            <span className={cn("size-2.5 rounded-sm", f.classe)} aria-hidden="true" />
+            <span className="text-muted-foreground">{f.libelle}</span>
+          </span>
+        ))}
+      </div>
+      <p className="text-muted-foreground/70">
+        Glisser pour créer · déplacer un bloc · cliquer pour modifier
+      </p>
     </div>
   );
 }
