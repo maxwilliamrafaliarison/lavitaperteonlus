@@ -45,10 +45,19 @@ export const PERMISSIONS = {
   // comptable, réservé à la direction/administration.
   "pharmacie:config": ["admin"],
 
-  // Pointage — la DIRECTION et la RH lisent (présence, états mensuels) ;
-  // seul l'ADMIN corrige un pointage ou valide des heures supplémentaires :
-  // ces gestes engagent la paie et doivent rester traçables à une personne.
+  // Pointage — la DIRECTION et la RH lisent (présence, états mensuels).
   "pointage:lire": ["admin", "direction", "rh"],
+  /* CORRIGER n'est pas ACCORDER, et la distinction est celle de la paie.
+     Corriger RESTITUE un fait que la machine a manqué : une sortie non
+     badgée, un passage manquant. Le geste est quotidien, il appartient à
+     celles qui tiennent le registre, la responsable administration et la
+     RH. Rien n'est effacé : la correction s'ajoute par-dessus le pointage
+     brut, avec son motif et son auteur.
+
+     ACCORDER des heures supplémentaires CRÉE une dette de l'employeur. Des
+     heures présentes ne sont pas des heures dues : quelqu'un doit les
+     accorder, et ce quelqu'un engage l'ONG. Ce geste-là reste à l'admin. */
+  "pointage:corriger": ["admin", "direction", "rh"],
   "pointage:gerer": ["admin"],
   /* COLLECTER n'est pas GÉRER. Récupérer les badgeages depuis la pointeuse
      ou importer le fichier MIARAKA constitue la donnée brute — c'est le

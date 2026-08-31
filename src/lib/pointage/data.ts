@@ -135,6 +135,25 @@ export const listHoraires = () => lireTout<Horaire>("horaires", "id.asc");
 export const listAjustements = () => lireTout<Ajustement>("ajustements", "jour.asc");
 
 /**
+ * Heures supplémentaires accordées.
+ *
+ * Table jumelle des ajustements : même structure de traçabilité, un auteur
+ * et un horodatage. Elle n'était lue nulle part, faute d'écran pour la
+ * montrer ; l'historique des corrections lui en donne un.
+ */
+export interface HeureSup {
+  id: string;
+  agent_id: string;
+  jour: string;
+  minutes: number;
+  motif: string;
+  valide_par: string;
+  timestamp: string;
+}
+
+export const listHeuresSup = () => lireTout<HeureSup>("heures_sup", "jour.asc");
+
+/**
  * Pointages d'une période (bornes incluses, "YYYY-MM-DD").
  * PostgREST n'accepte qu'une valeur par clé de query : pour un intervalle,
  * on passe par `and=(...)`, qui exprime les deux bornes en un seul filtre.

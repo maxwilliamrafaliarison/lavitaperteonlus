@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, History, ShieldCheck } from "lucide-react";
 
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
@@ -23,8 +23,12 @@ export default async function CorrectionsPage({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  // Corriger un pointage engage la paie : administrateur uniquement.
-  if (!can(session.user.role, "pointage:gerer")) redirect("/pointage");
+  if (!can(session.user.role, "pointage:corriger")) redirect("/pointage");
+  /* Accorder des heures supplémentaires engage la paie et reste à l'admin.
+     La section demeure VISIBLE pour les autres : savoir quelles heures sont
+     proposées fait partie du travail de la RH, même sans pouvoir les
+     accorder. Seul le bouton disparaît, et on dit pourquoi. */
+  const peutAccorder = can(session.user.role, "pointage:gerer");
   const t = getT(session.user.lang);
 
   const sp = await searchParams;
@@ -76,8 +80,17 @@ export default async function CorrectionsPage({
           <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
             Corrections & heures supplémentaires
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {du} → {au} · {anomalies.length} journée(s) à corriger
+          <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              {du} → {au} · {anomalies.length} journée(s) à corriger
+            </span>
+            <Link
+              href="/pointage/corrections/historique"
+              className="inline-flex items-center gap-1.5 text-accent transition-colors hover:underline"
+            >
+              <History className="size-3.5" aria-hidden="true" />
+              Historique des corrections
+            </Link>
           </p>
         </div>
         <form className="flex items-end gap-2">
@@ -106,7 +119,8 @@ export default async function CorrectionsPage({
         <span className="text-muted-foreground">
           Les pointages enregistrés par les machines ne sont jamais modifiés. Chaque correction
           s&apos;ajoute par-dessus avec son motif, son auteur et sa date : la paie reste
-          justifiable en cas de contestation.
+          justifiable en cas de contestation. Tout ce qui a été corrigé se relit dans
+          l&apos;historique.
         </span>
       </div>
 
@@ -173,7 +187,11 @@ export default async function CorrectionsPage({
                   <td className="px-5 py-3 font-mono tabular-nums text-xs">{h.jour}</td>
                   <td className="px-5 py-3 text-right font-mono tabular-nums">{versHeures(h.minutes)}</td>
                   <td className="px-5 py-3 text-right">
-                    <BoutonHeuresSup {...h} />
+                    {peutAccorder ? (
+                      <BoutonHeuresSup {...h} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">à accorder par la direction</span>
+                    )}
                   </td>
                 </tr>
               ))}

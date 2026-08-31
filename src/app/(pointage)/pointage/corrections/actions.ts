@@ -24,7 +24,7 @@ const HHMM = /^([01]?\d|2[0-3]):[0-5]\d$/;
 export async function corrigerJourneeAction(formData: FormData): Promise<ActionResult> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Non authentifié." };
-  if (!can(session.user.role, "pointage:gerer")) {
+  if (!can(session.user.role, "pointage:corriger")) {
     return { ok: false, error: "Votre rôle ne permet pas de corriger un pointage." };
   }
 
