@@ -11,6 +11,8 @@ import {
   listParametres,
 } from "@/lib/pharmacie/sheets";
 import { formaterQuantite, prixParUniteBase } from "@/lib/pharmacie/fractionnement";
+import { chargerEntite } from "@/lib/pharmacie/entite";
+import { htmlRapportQuotidien } from "@/lib/pharmacie/rapport-quotidien-html";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -144,9 +146,6 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.ca - a.ca)
       .slice(0, 5);
 
-    const fmtAr = (n: number) =>
-      new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n) +
-      " Ar";
     const dateStr = new Date().toLocaleDateString("fr-FR", {
       timeZone: "Indian/Antananarivo",
       weekday: "long",
@@ -154,113 +153,44 @@ export async function GET(req: NextRequest) {
       month: "long",
       year: "numeric",
     });
+    /* Les quantités sont mises en forme ICI, où l'on dispose du produit
+       complet et de ses règles de fractionnement. Le module de composition
+       ne reçoit que du texte : il met en page, il ne calcule pas. */
+    const enProduit = (p: (typeof actifs)[number]) => ({
+      designation: p.designation,
+      fournisseur: p.fournisseur,
+      prochainePeremption: p.prochainePeremption,
+      joursAvantPeremption: p.joursAvantPeremption,
+      stockAffiche: formaterQuantite(p, p.stockBase),
+      seuilAffiche: formaterQuantite(p, p.stock_min),
+      aCommander: formaterQuantite(p, Math.max(0, Math.ceil(p.stock_min - p.stockBase))),
+    });
 
-    // --- HTML (tables simples, compatible clients mail) ---
-    const td = 'style="padding:6px 10px;border-bottom:1px solid #eee;font-size:13px"';
-    const th = 'style="padding:6px 10px;border-bottom:2px solid #333;font-size:12px;text-align:left"';
-    const rows = (items: string[][]) =>
-      items.map((cells) => `<tr>${cells.map((c) => `<td ${td}>${c}</td>`).join("")}</tr>`).join("");
-
-    const html = `
-<div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#111">
-  <h1 style="color:#E30613;font-size:20px">Pharmacie : Récapitulatif de fin de journée</h1>
-  <p style="color:#666;font-size:13px">${dateStr} · Centre REX, La Vita Per Te</p>
-${
-  apercu
-    ? `  <p style="background:#fff7ed;border-left:3px solid #b45309;padding:10px 12px;font-size:12px;color:#7c2d12;margin:16px 0">
-    <strong>Aperçu</strong> : ce courriel n'est parti qu'à vous. En fin de journée, le récapitulatif
-    est adressé à : ${destinataires.join(", ")}.
-  </p>`
-    : ""
-}
-
-  <h2 style="font-size:15px;margin-top:24px">💰 Activité du jour</h2>
-  <table cellspacing="0" style="width:100%">
-    ${rows([
-      ["Chiffre d'affaires (comptant)", `<strong>${fmtAr(caComptant)}</strong>`],
-      ["Ventes comptant", `${ventesCash.length} vente(s) · panier moyen ${fmtAr(panierMoyen)}`],
-      ["Prises en charge (0 Ar)", `${ventesPec.length} · valeur ${fmtAr(valeurPec)}`],
-      ["Total ventes du jour", String(ventes24h.length)],
-    ])}
-  </table>
-
-  ${
-    topProduits.length === 0
-      ? ""
-      : `<h2 style="font-size:15px;margin-top:24px">🏆 Top produits vendus</h2>
-  <table cellspacing="0" style="width:100%">
-    <tr><th ${th}>Produit</th><th ${th}>Qté</th><th ${th}>CA</th></tr>
-    ${rows(topProduits.map((p) => [p.nom, String(p.qte), fmtAr(p.ca)]))}
-  </table>`
-  }
-
-  <h2 style="font-size:15px;margin-top:24px">📦 État du stock</h2>
-  <table cellspacing="0" style="width:100%">
-    ${rows([
-      ["Produits actifs", String(actifs.length)],
-      ["Valeur du stock (prix de vente)", fmtAr(valeurStock)],
-      ["Produits en rupture", String(actifs.filter((p) => p.stockBase <= 0).length)],
-      ["À commander (sous seuil)", String(stockBas.length)],
-    ])}
-  </table>
-
-  <h2 style="font-size:15px;margin-top:24px">🧾 Ventes du jour</h2>
-  ${
-    ventes24h.length === 0
-      ? '<p style="font-size:13px;color:#666">Aucune vente sur la période.</p>'
-      : `<table cellspacing="0" style="width:100%">
-          <tr><th ${th}>N°</th><th ${th}>Client</th><th ${th}>Articles</th><th ${th}>Total</th></tr>
-          ${rows(ventes24h.map((v) => [v.id, v.clientNom || "—", String(v.nbArticles), fmtAr(v.total)]))}
-        </table>`
-  }
-
-  <h2 style="font-size:15px;margin-top:24px">⚠️ Alertes</h2>
-  ${
-    perimes.length === 0 && bientot.length === 0 && stockBas.length === 0
-      ? '<p style="font-size:13px;color:#0a7d33">Aucune alerte. ✅</p>'
-      : `
-    ${
-      perimes.length > 0
-        ? `<p style="font-size:13px;color:#E30613"><strong>Périmés (${perimes.length})</strong></p>
-           <table cellspacing="0" style="width:100%">${rows(perimes.map((p) => [p.designation, p.prochainePeremption ?? "", `stock ${formaterQuantite(p, p.stockBase)}`]))}</table>`
-        : ""
-    }
-    ${
-      bientot.length > 0
-        ? `<p style="font-size:13px;color:#b45309"><strong>Périment sous 90 jours (${bientot.length})</strong></p>
-           <table cellspacing="0" style="width:100%">${rows(bientot.map((p) => [p.designation, p.prochainePeremption ?? "", `J-${p.joursAvantPeremption}`]))}</table>`
-        : ""
-    }
-    ${
-      stockBas.length > 0
-        ? `<p style="font-size:13px;color:#b45309"><strong>À commander : stock bas (${stockBas.length})</strong></p>
-           <table cellspacing="0" style="width:100%">
-             <tr><th ${th}>Produit</th><th ${th}>Fournisseur</th><th ${th}>Stock / seuil</th><th ${th}>À commander</th></tr>
-             ${rows(
-               stockBas
-                 .slice()
-                 .sort(
-                   (a, b) =>
-                     (a.fournisseur || "￿").localeCompare(b.fournisseur || "￿") ||
-                     a.designation.localeCompare(b.designation),
-                 )
-                 .map((p) => [
-                   p.designation,
-                   p.fournisseur || "—",
-                   `${formaterQuantite(p, p.stockBase)} / ${formaterQuantite(p, p.stock_min)}`,
-                   `<strong>${formaterQuantite(p, Math.max(0, Math.ceil(p.stock_min - p.stockBase)))}</strong>`,
-                 ]),
-             )}
-           </table>`
-        : ""
-    }`
-  }
-
-  <p style="margin-top:28px;font-size:11px;color:#999">
-    Récapitulatif automatique de fin de journée : <a href="https://lavitaperteonlus.vercel.app/pharmacie" style="color:#E30613">ouvrir la Pharmacie</a>.
-    Destinataires configurables dans Pharmacie → Paramètres.
-  </p>
-</div>`;
+    const html = htmlRapportQuotidien({
+      entite: await chargerEntite("REX"),
+      dateStr,
+      apercu: Boolean(apercu),
+      destinataires,
+      caComptant,
+      panierMoyen,
+      valeurPec,
+      nbVentes: ventes24h.length,
+      nbVentesComptant: ventesCash.length,
+      nbPec: ventesPec.length,
+      ventes: ventes24h.map((v) => ({
+        id: v.id,
+        clientNom: v.clientNom || "",
+        nbArticles: v.nbArticles,
+        total: v.total,
+      })),
+      topProduits,
+      nbActifs: actifs.length,
+      valeurStock,
+      enRupture: actifs.filter((p) => p.stockBase <= 0).length,
+      perimes: perimes.map(enProduit),
+      bientot: bientot.map(enProduit),
+      stockBas: stockBas.map(enProduit),
+    });
 
     const transporter = nodemailer.createTransport({
       service: "gmail",

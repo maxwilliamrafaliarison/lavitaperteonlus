@@ -2,7 +2,12 @@ import { envoyerMail } from "@/lib/mail";
 import { listParametres } from "@/lib/pharmacie/sheets";
 
 import type { EtatCaisse } from "./caisse-etat";
+import type { EntiteLegale } from "./entite";
 import { chargerEntite, numeroPiece, MENTION_CONSERVATION, MENTION_DEVISE } from "./entite";
+import {
+  bouton, chiffres, encadre, entete, enveloppe, esc, fmtAr as ar,
+  lignes, para, pied, section, tableau, titre, type Ton,
+} from "./mail-modele";
 
 /* ============================================================
    COURRIEL D'ÉTAT DE CAISSE — à chaque clôture
@@ -22,10 +27,6 @@ import { chargerEntite, numeroPiece, MENTION_CONSERVATION, MENTION_DEVISE } from
 const DESTINATAIRE_PAR_DEFAUT = "compta.lavitaperte@gmail.com";
 
 const estEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
-function fmtAr(n: number): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(n) + " Ar";
-}
 
 function nomDe(email: string): string {
   const avant = (email || "").split("@")[0] ?? "";
@@ -67,17 +68,26 @@ async function destinataires(): Promise<string[]> {
   return liste.length > 0 ? liste : [DESTINATAIRE_PAR_DEFAUT];
 }
 
-export async function envoyerEtatCaisse(
+
+/**
+ * Composition du relevé, séparée de son envoi.
+ *
+ * Un document qu'on ne peut relire qu'en se l'envoyant se corrige toujours
+ * trop tard. Exporté, il s'affiche hors messagerie et se teste.
+ */
+export function htmlEtatCaisse(
   etat: EtatCaisse,
+  entite: EntiteLegale,
+  numero: string,
   baseUrl: string,
-): Promise<{ envoye: boolean; detail: string }> {
+): string {
   const s = etat.session;
-  const [entite, numero] = await Promise.all([
-    chargerEntite(s.site),
-    numeroPiece(s.id, s.ouverte_le, s.site),
-  ]);
   const ecart = etat.ecart ?? 0;
-  const ton = ecart === 0 ? "#059669" : ecart < 0 ? "#dc2626" : "#d97706";
+  /* Trois états, trois teintes, et chacune une phrase. Un écart nul se dit
+     autrement qu'un manque, et un excédent autrement qu'un manque : le
+     tiroir contient alors plus que les ventes enregistrées, ce qui désigne
+     une vente non saisie et non un vol. */
+  const ton: Ton = ecart === 0 ? "bon" : ecart < 0 ? "critique" : "vigilance";
   const verdict =
     ecart === 0
       ? "Le compte tombe juste."
@@ -93,84 +103,97 @@ export async function envoyerEtatCaisse(
     timeZone: "Indian/Antananarivo",
   });
 
-  const lignesOperatrices = etat.parOperatrice
-    .map(
-      (o) =>
-        `<tr><td style="padding:4px 0;color:#6b7280">${o.nom}, ${o.nbVentes} vente(s)</td>` +
-        `<td style="padding:4px 0;text-align:right">${fmtAr(o.totalComptant)}</td></tr>`,
-    )
-    .join("");
+  return enveloppe(`
+${entete(entite)}
+${titre("Relevé de caisse journalier", `${jour} · Pharmacie, centre ${esc(s.site)} · période ${heure(s.ouverte_le)} → ${heure(s.fermee_le)}`, numero)}
 
-  const html = `
-<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;color:#0a0a0b">
-  <div style="padding-bottom:10px;border-bottom:1px solid #e5e7eb;margin-bottom:14px">
-    <div style="font-size:13px;font-weight:700">${entite.denomination}</div>
-    <div style="font-size:11px;color:#6b7280;margin-top:2px">${entite.formeJuridique}</div>
-    <div style="font-size:11px;color:#6b7280;margin-top:2px">Adresse : ${entite.siegeSocial}${entite.codeFiscal ? ` · Code fiscal ${entite.codeFiscal}` : ""}</div>
-    <div style="font-size:11px;color:#6b7280;margin-top:2px">Établissement : ${entite.etablissement}${entite.nif ? ` · NIF ${entite.nif}` : ""}${entite.stat ? ` · STAT ${entite.stat}` : ""}</div>
-  </div>
+${/* Les DEUX nombres qu'on compare, et eux seuls. L'écart figurait ici en
+     troisième cellule et à nouveau dans l'encadré qui suit : le répéter
+     n'ajoutait rien, alors que le montant des ventes manquait. */ ""}
+${chiffres([
+  { etiquette: "Total théorique", valeur: ar(etat.theorique), detail: `dont ${ar(etat.totalComptant)} de ventes` },
+  { etiquette: "Espèces comptées", valeur: ar(etat.comptees ?? 0), detail: `par ${esc(nomDe(s.fermee_par))}` },
+])}
 
-  <h2 style="margin:0 0 2px;font-size:18px">Relevé de caisse journalier</h2>
-  <p style="margin:0 0 4px;color:#0a0a0b;font-size:13px">Pièce justificative n° <strong>${numero}</strong></p>
-  <p style="margin:0 0 16px;color:#6b7280;font-size:13px">${jour} · Pharmacie, centre ${s.site} · période ${heure(s.ouverte_le)} → ${heure(s.fermee_le)}</p>
+${encadre({ etiquette: "Écart constaté", valeur: `${ecart > 0 ? "+" : ""}${ar(ecart)}`, texte: verdict, ton })}
 
-  <table style="width:100%;border-collapse:collapse;font-size:13px">
-    <tr><td style="padding:4px 0;color:#6b7280">Ouverte par</td><td style="padding:4px 0;text-align:right">${nomDe(s.ouverte_par)} à ${heure(s.ouverte_le)}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Clôturée par</td><td style="padding:4px 0;text-align:right">${nomDe(s.fermee_par)} à ${heure(s.fermee_le)}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Fonds initial</td><td style="padding:4px 0;text-align:right">${fmtAr(s.fonds_initial)}</td></tr>
-    <tr><td style="padding:4px 0;color:#6b7280">Ventes comptant (${etat.nbVentesComptant})</td><td style="padding:4px 0;text-align:right">${fmtAr(etat.totalComptant)}</td></tr>
-    <tr><td style="padding:6px 0;border-top:1px solid #e5e7eb;font-weight:600">Total théorique</td><td style="padding:6px 0;border-top:1px solid #e5e7eb;text-align:right;font-weight:600">${fmtAr(etat.theorique)}</td></tr>
-    <tr><td style="padding:4px 0;font-weight:600">Espèces comptées</td><td style="padding:4px 0;text-align:right;font-weight:600">${fmtAr(etat.comptees ?? 0)}</td></tr>
-  </table>
+${section("Détail de la séance")}
+${lignes([
+  ["Ouverte par", `${esc(nomDe(s.ouverte_par))} à ${heure(s.ouverte_le)}`],
+  ["Clôturée par", `${esc(nomDe(s.fermee_par))} à ${heure(s.fermee_le)}`],
+  ["Fonds initial", ar(s.fonds_initial)],
+  [`Ventes comptant (${etat.nbVentesComptant})`, ar(etat.totalComptant)],
+  ["Total théorique", ar(etat.theorique), { fort: true, trait: true }],
+  ["Espèces comptées", ar(etat.comptees ?? 0), { fort: true }],
+])}
+${
+  etat.nbPec > 0 || etat.nbAnnulees > 0
+    ? para(
+        [
+          etat.nbPec > 0
+            ? `${etat.nbPec} prise(s) en charge pour ${ar(etat.valeurPec)}, non encaissées.`
+            : "",
+          etat.nbAnnulees > 0 ? `${etat.nbAnnulees} vente(s) annulée(s), stock rendu.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+        12,
+      )
+    : ""
+}
 
-  <div style="margin:14px 0;padding:12px 14px;border-left:3px solid ${ton};background:${ecart === 0 ? "#d1fae5" : ecart < 0 ? "#fee2e2" : "#fef3c7"}">
-    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px">Écart constaté</div>
-    <div style="font-size:22px;font-weight:700;color:${ton};margin-top:2px">${ecart > 0 ? "+" : ""}${fmtAr(ecart)}</div>
-    <div style="font-size:12px;color:#6b7280;margin-top:4px">${verdict}</div>
-  </div>
+${
+  etat.parOperatrice.length > 0
+    ? section("Ventes comptant par personne") +
+      tableau(
+        ["Personne", "Ventes", "Montant"],
+        etat.parOperatrice.map((o) => [esc(o.nom), String(o.nbVentes), ar(o.totalComptant)]),
+        [1, 2],
+      ) +
+      para(
+        "Le tiroir est commun : cette répartition indique qui a servi, elle n'impute l'écart à personne.",
+        11,
+      )
+    : ""
+}
 
-  ${
-    etat.nbPec > 0 || etat.nbAnnulees > 0
-      ? `<p style="font-size:12px;color:#6b7280;margin:10px 0">
-           ${etat.nbPec > 0 ? `${etat.nbPec} prise(s) en charge pour ${fmtAr(etat.valeurPec)}, non encaissées.` : ""}
-           ${etat.nbAnnulees > 0 ? ` ${etat.nbAnnulees} vente(s) annulée(s), stock rendu.` : ""}
-         </p>`
-      : ""
-  }
+${s.note ? section("Observation") + para(esc(s.note)) : ""}
 
-  ${
-    lignesOperatrices
-      ? `<h3 style="font-size:13px;margin:16px 0 4px">Ventes comptant par personne</h3>
-         <table style="width:100%;border-collapse:collapse;font-size:13px">${lignesOperatrices}</table>
-         <p style="font-size:11px;color:#9ca3af;margin:6px 0 0">Le tiroir est commun : cette répartition indique qui a servi, elle n'impute l'écart à personne.</p>`
-      : ""
-  }
+${bouton(`${baseUrl}/api/pharmacie/caisse/${s.id}`, "Ouvrir l'état de caisse (PDF)")}
 
-  ${s.note ? `<h3 style="font-size:13px;margin:16px 0 4px">Observation</h3><p style="font-size:13px;margin:0">${s.note}</p>` : ""}
+${pied(
+  [
+    MENTION_DEVISE,
+    MENTION_CONSERVATION,
+    `Document établi par traitement informatique à partir des ventes enregistrées ; les écritures sont conservées de manière inaltérable et chaque correction reste tracée. Référence interne : séance ${esc(s.id)}.`,
+  ],
+  entite.incomplete
+    ? `Mentions d'immatriculation incomplètes (${entite.manquants.join(", ")}) : à compléter dans les paramètres avant archivage comptable.`
+    : undefined,
+)}
+`);
+}
 
-  <p style="margin:20px 0 0">
-    <a href="${baseUrl}/api/pharmacie/caisse/${s.id}"
-       style="display:inline-block;background:#E30613;color:#fff;text-decoration:none;padding:9px 16px;border-radius:8px;font-size:13px">
-      Ouvrir l'état de caisse (PDF)
-    </a>
-  </p>
-  <div style="margin-top:22px;padding-top:10px;border-top:1px solid #e5e7eb">
-    <p style="font-size:10px;color:#9ca3af;line-height:1.6;margin:0">${MENTION_DEVISE}</p>
-    <p style="font-size:10px;color:#9ca3af;line-height:1.6;margin:3px 0 0">${MENTION_CONSERVATION}</p>
-    <p style="font-size:10px;color:#9ca3af;line-height:1.6;margin:3px 0 0">
-      Document établi par traitement informatique à partir des ventes enregistrées ; les écritures
-      sont conservées de manière inaltérable et chaque correction reste tracée. Référence interne :
-      séance ${s.id}.
-    </p>
-    ${
-      entite.incomplete
-        ? `<p style="font-size:10px;color:#dc2626;line-height:1.6;margin:6px 0 0">Mentions d'immatriculation incomplètes (${entite.manquants.join(", ")}) : à compléter dans les paramètres avant archivage comptable.</p>`
-        : ""
-    }
-  </div>
-</div>`;
+export async function envoyerEtatCaisse(
+  etat: EtatCaisse,
+  baseUrl: string,
+): Promise<{ envoye: boolean; detail: string }> {
+  const s = etat.session;
+  const [entite, numero] = await Promise.all([
+    chargerEntite(s.site),
+    numeroPiece(s.id, s.ouverte_le, s.site),
+  ]);
+  const html = htmlEtatCaisse(etat, entite, numero, baseUrl);
+  const ecart = etat.ecart ?? 0;
+  const jour = new Date(s.ouverte_le).toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Indian/Antananarivo",
+  });
 
-  const signe = ecart === 0 ? "compte juste" : `écart ${ecart > 0 ? "+" : ""}${fmtAr(ecart)}`;
+  const signe = ecart === 0 ? "compte juste" : `écart ${ecart > 0 ? "+" : ""}${ar(ecart)}`;
   return envoyerMail({
     destinataires: await destinataires(),
     sujet: `${numero} · Relevé de caisse ${s.site} du ${jour} : ${signe}`,
