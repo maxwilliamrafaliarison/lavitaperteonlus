@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { can } from "@/lib/auth/permissions";
 import { sbInsert, sbUpdate, sbDelete, sbSelect } from "@/lib/supabase-server";
-import { estValidateur } from "@/lib/planning/validation";
 import { listCreneaux, verifierSeuilsAgent, PREFIXE_ATTENTE } from "./verif";
 
 /**
@@ -14,22 +13,81 @@ import { listCreneaux, verifierSeuilsAgent, PREFIXE_ATTENTE } from "./verif";
  * doivent donc le faire repasser en brouillon (via la direction) avant
  * d'éditer ; la direction, elle, édite en connaissance de cause.
  */
-async function editionAutorisee(
-  planningId: string,
-  role: string | undefined,
-  email: string | null | undefined,
-): Promise<string | null> {
-  if (estValidateur(role, email)) return null;
-  const { rows } = await sbSelect<{ statut: string }>("planning", "plannings", {
-    select: "statut",
+/**
+ * Le planning visé, pour savoir s'il est déjà diffusé.
+ *
+ * ── LE BLOCAGE EST DEVENU UNE TRACE ──────────────────────────────────────
+ * Modifier un planning publié était REFUSÉ à qui n'était pas validateur,
+ * sauf à le renvoyer d'abord en brouillon. L'intention était juste, l'effet
+ * ne l'était pas : une correction d'une minute devenait une procédure, ce
+ * qui pousse à tenir le vrai planning ailleurs, hors de l'outil. La
+ * direction a tranché le 31 août pour la trace plutôt que pour le blocage,
+ * ce qui est déjà la règle du reste du module : « l'outil signale, il ne
+ * bloque jamais une saisie ».
+ *
+ * Qui peut modifier reste borné par `planning:gerer`, soit l'administration
+ * et la direction, exactement les quatre personnes qui répondent du
+ * planning. Chaque modification d'un planning PUBLIÉ leur est notifiée.
+ */
+async function planningVise(planningId: string) {
+  const { rows } = await sbSelect<{ id: string; statut: string; centre: string; libelle: string; token_public: string }>(
+    "planning",
+    "plannings",
+    {
+      select: "id,statut,centre,libelle,token_public",
+      order: "id.asc",
+      limit: 1,
+      filters: { id: `eq.${planningId}` },
+    },
+  );
+  return rows[0] ?? null;
+}
+
+/** Nom lisible d'un agent, pour la notification. */
+async function nomAgent(agentId: string): Promise<string> {
+  const { rows } = await sbSelect<{ nom: string; prenom: string }>("pointage", "agents", {
+    select: "nom,prenom",
     order: "id.asc",
     limit: 1,
-    filters: { id: `eq.${planningId}` },
+    filters: { id: `eq.${agentId}` },
   });
-  if (rows[0]?.statut === "publie") {
-    return "Ce planning est publié : toute modification doit repasser par la validation de la direction (demandez son renvoi en brouillon).";
-  }
-  return null;
+  const a = rows[0];
+  return a ? `${a.prenom} ${a.nom}`.trim() : agentId;
+}
+
+/**
+ * Prévient les responsables si le planning touché est DÉJÀ PUBLIÉ.
+ *
+ * N'attend pas l'envoi : la modification est enregistrée, et une messagerie
+ * lente ne doit pas retenir la réponse à l'écran. Sur Vercel une promesse
+ * abandonnée après la réponse serait tuée avec la fonction, on attend donc
+ * bien, mais sans jamais propager d'échec.
+ */
+async function prevenirSiPublie(
+  plan: Awaited<ReturnType<typeof planningVise>>,
+  auteur: string,
+  nature: string,
+  agentId: string,
+  jour: string,
+  detail: string,
+  avant?: string,
+) {
+  if (!plan || plan.statut !== "publie") return;
+  const { notifierModificationPlanning } = await import("@/lib/planning/notification");
+  await notifierModificationPlanning({
+    planningId: plan.id,
+    centre: plan.centre,
+    libellePlanning: plan.libelle,
+    auteur,
+    nature,
+    agentNom: await nomAgent(agentId),
+    jour,
+    detail,
+    avant,
+    lien: plan.token_public
+      ? `https://lavitaperteonlus.vercel.app/planning/${plan.token_public}`
+      : undefined,
+  });
 }
 
 export type AffecterResult =
@@ -71,8 +129,8 @@ export async function affecterAction(formData: FormData): Promise<AffecterResult
     return { ok: false, error: "Paramètres incomplets." };
   }
 
-  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
-  if (verrou) return { ok: false, error: verrou };
+  const plan = await planningVise(planningId);
+  const auteur = session.user.email ?? "";
 
   const id = `AFF-${planningId}-${jour.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
 
@@ -81,6 +139,7 @@ export async function affecterAction(formData: FormData): Promise<AffecterResult
     // qui se lirait comme « planifié à zéro heure » et non « non planifié ».
     if (!creneauId) {
       await sbDelete("planning", "affectations", { id: `eq.${id}` });
+      await prevenirSiPublie(plan, auteur, "Affectation retirée", agentId, jour, "plus de créneau ce jour-là");
       revalidatePath(`/pointage/planning/${planningId}`);
       return { ok: true, supprime: true, alertes: [] };
     }
@@ -109,6 +168,14 @@ export async function affecterAction(formData: FormData): Promise<AffecterResult
     } else {
       await sbInsert("planning", "affectations", [{ id, ...ligne }]);
     }
+    await prevenirSiPublie(
+      plan,
+      auteur,
+      existant.length ? "Créneau modifié" : "Créneau ajouté",
+      agentId,
+      jour,
+      debutLibre && finLibre ? `${debutLibre} → ${finLibre}` : `créneau « ${creneauId} »`,
+    );
 
     // Les clients attendent des phrases ; le panneau, lui, lit les alertes
     // entières côté serveur, drapeau `bloquant` compris.
@@ -153,8 +220,8 @@ export async function deplacerAffectationAction(formData: FormData): Promise<Aff
     return { ok: false, error: "Heure invalide : attendu HH:MM." };
   }
 
-  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
-  if (verrou) return { ok: false, error: verrou };
+  const plan = await planningVise(planningId);
+  const auteur = session.user.email ?? "";
 
   const idAvant = `AFF-${planningId}-${jourAvant.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
   const idApres = `AFF-${planningId}-${jour.replace(/-/g, "")}-${agentId}-${serviceId || "x"}`;
@@ -168,6 +235,12 @@ export async function deplacerAffectationAction(formData: FormData): Promise<Aff
     // Les clients attendent des phrases ; le panneau, lui, lit les alertes
     // entières côté serveur, drapeau `bloquant` compris.
     const alertes = (await verifierSeuilsAgent(agentId, jour)).map((a) => a.message);
+    await prevenirSiPublie(
+      plan, auteur,
+      jourAvant === jour ? "Horaire modifié" : "Créneau déplacé",
+      agentId, jour, `${debut} → ${fin}`,
+      jourAvant === jour ? undefined : `était le ${jourAvant}`,
+    );
     revalidatePath(`/pointage/planning/${planningId}`);
     return { ok: true, alertes };
   } catch (e) {
@@ -199,8 +272,8 @@ export async function dupliquerSemaineAction(formData: FormData): Promise<
     return { ok: false, error: "Paramètres incomplets." };
   }
 
-  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
-  if (verrou) return { ok: false, error: verrou };
+  const planDup = await planningVise(planningId);
+  const auteurDup = session.user.email ?? "";
 
   const decale = (j: string, n: number) => {
     const d = new Date(`${j}T12:00:00Z`);
@@ -231,6 +304,22 @@ export async function dupliquerSemaineAction(formData: FormData): Promise<
       copies.push({ id, planning_id: planningId, agent_id: a.agent_id, jour, creneau_id: a.creneau_id, service_id: a.service_id, debut: a.debut, fin: a.fin, lieu: a.lieu, note: "" });
     }
     for (let i = 0; i < copies.length; i += 500) await sbInsert("planning", "affectations", copies.slice(i, i + 500));
+    /* Une recopie touche des dizaines de lignes : on annonce le GESTE, non
+       chacune de ses lignes. Un courriel par affectation copiée noierait
+       l'information qu'il est censé porter. */
+    if (copies.length > 0 && planDup?.statut === "publie") {
+      const { notifierModificationPlanning } = await import("@/lib/planning/notification");
+      await notifierModificationPlanning({
+        planningId, centre: planDup.centre, libellePlanning: planDup.libelle,
+        auteur: auteurDup, nature: "Semaine recopiée",
+        agentNom: `${copies.length} affectation(s)`,
+        jour: cible,
+        detail: `semaine du ${source} recopiée sur celle du ${cible}${ignorees ? `, ${ignorees} jour(s) déjà planifié(s) préservé(s)` : ""}`,
+        lien: planDup.token_public
+          ? `https://lavitaperteonlus.vercel.app/planning/${planDup.token_public}`
+          : undefined,
+      });
+    }
     revalidatePath(`/pointage/planning/${planningId}`);
     return { ok: true, copiees: copies.length, ignorees };
   } catch (e) {
@@ -314,8 +403,9 @@ export async function ajouterPosteAttenteAction(formData: FormData): Promise<
   if (!planningId || !/^\d{4}-\d{2}-\d{2}$/.test(jour) || !creneauId) {
     return { ok: false, error: "Jour et créneau sont nécessaires." };
   }
-  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
-  if (verrou) return { ok: false, error: verrou };
+  /* Un poste à pourvoir ne nomme personne : il n'y a rien à annoncer au
+     personnel tant qu'il n'est pas attribué. La notification part à
+     l'attribution, pas à la note. */
 
   /* Le suffixe distingue deux postes à pourvoir le même jour dans le même
      service — un centre de garde peut en manquer deux. Il vient du compte
@@ -372,8 +462,8 @@ export async function attribuerPosteAction(formData: FormData): Promise<
   const affectationId = String(formData.get("affectationId") ?? "").trim();
   const agentId = String(formData.get("agentId") ?? "").trim();
   if (!planningId || !affectationId) return { ok: false, error: "Paramètres incomplets." };
-  const verrou = await editionAutorisee(planningId, session.user.role, session.user.email);
-  if (verrou) return { ok: false, error: verrou };
+  const planAttr = await planningVise(planningId);
+  const auteurAttr = session.user.email ?? "";
 
   try {
     if (!agentId) {
@@ -391,6 +481,12 @@ export async function attribuerPosteAction(formData: FormData): Promise<
     const alertes = rows[0]
       ? (await verifierSeuilsAgent(agentId, rows[0].jour)).map((a) => a.message)
       : [];
+    if (rows[0]) {
+      await prevenirSiPublie(
+        planAttr, auteurAttr, "Poste à pourvoir attribué",
+        agentId, rows[0].jour, "prend ce poste, qui était en attente",
+      );
+    }
     revalidatePath(`/pointage/planning/${planningId}`);
     return { ok: true, alertes };
   } catch (e) {

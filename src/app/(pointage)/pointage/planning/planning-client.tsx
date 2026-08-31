@@ -46,7 +46,12 @@ export function NouveauPlanning() {
     try {
       const r = await creerPlanningAction(new FormData(e.currentTarget));
       if (r.ok) {
-        toast.success("Planning créé");
+        toast.success("Planning créé", {
+          description:
+            r.reprises && r.reprises > 0
+              ? `${r.reprises} affectation(s) reprises de la semaine précédente. Ajustez ce qui change.`
+              : "Grille vide : aucune semaine précédente à reprendre pour ce centre.",
+        });
         setOuvert(false);
         router.refresh();
       } else {
@@ -87,6 +92,25 @@ export function NouveauPlanning() {
         <label className="block min-w-48 flex-1">
           <span className="mb-1 block text-[10px] uppercase tracking-[0.15em] text-muted-foreground">Libellé</span>
           <input name="libelle" placeholder="Planning de travail du…" className="h-9 w-full rounded-lg glass border px-3 text-sm" />
+        </label>
+        {/* Reprise cochée par défaut : une semaine ressemble à la
+            précédente, et partir d'une grille vide oblige à ressaisir cent
+            cinquante affectations pour en changer cinq. Décochable, parce
+            qu'un report qu'on ne peut pas refuser n'est pas un service. */}
+        <label className="flex cursor-pointer items-start gap-2 sm:col-span-2">
+          <input
+            type="checkbox"
+            name="reprendre"
+            defaultChecked
+            className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
+          />
+          <span className="text-sm">
+            Reprendre la semaine précédente
+            <span className="block text-[11px] text-muted-foreground">
+              Les affectations du dernier planning de ce centre sont recopiées jour pour jour, le
+              lundi sur un lundi. Rien n&apos;est publié : vous ajustez avant de diffuser.
+            </span>
+          </span>
         </label>
         <GlassButton type="submit" variant="brand" size="sm" disabled={loading}>
           {loading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Check className="size-4" aria-hidden="true" />}

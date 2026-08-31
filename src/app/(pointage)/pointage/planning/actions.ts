@@ -14,6 +14,7 @@ import {
   listServices,
   listParametresPlanning,
   tokenDuCentre,
+  insererAffectations,
 } from "@/lib/planning/data";
 import {
   lireExigences,
@@ -25,12 +26,93 @@ import { estValidateur, VALIDATEURS } from "@/lib/planning/validation";
 import { envoyerMail } from "@/lib/mail";
 
 export type PlanningResult =
-  | { ok: true; id: string; token?: string; avertissement?: string }
+  | { ok: true; id: string; token?: string; avertissement?: string; reprises?: number }
   /* `trous` accompagne un refus de publication : l'appelant sait alors quoi
      montrer, et peut proposer de passer outre en saisissant un motif. */
   | { ok: false; error: string; trous?: string };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Recopie la dernière semaine du planning précédent sur le planning neuf.
+ *
+ * ── POURQUOI C'EST LE GESTE PAR DÉFAUT ───────────────────────────────────
+ * Une semaine de centre ressemble à la précédente : mêmes personnes, mêmes
+ * postes, à quelques ajustements près. Partir d'une grille vide obligeait à
+ * ressaisir cent cinquante affectations pour en changer cinq. On part donc
+ * de la semaine passée, et l'on ajuste — c'est ainsi que travaillent les
+ * logiciels d'emploi du temps, et c'est déjà ce que fait « dupliquer ».
+ *
+ * ── CE QUI EST REPRIS, ET CE QUI NE L'EST PAS ────────────────────────────
+ * La source est le planning du MÊME CENTRE dont la fin précède ce nouveau
+ * début, le plus récent d'entre eux. On en prend les sept derniers jours,
+ * et on les décale sur le nouveau début : le lundi retombe sur un lundi.
+ *
+ * Si le nouveau planning couvre plus d'une semaine, le motif se répète de
+ * sept en sept jusqu'à sa fin, sans jamais dépasser. Les jours du roulement
+ * restent alignés, ce qui est la seule répétition qui ait un sens.
+ *
+ * Rien n'est écrasé : la grille est neuve, donc vide. Et l'échec n'empêche
+ * jamais la création — un planning vide reste un planning, qu'on remplira.
+ */
+async function reprendreSemainePrecedente(
+  centre: string,
+  planningId: string,
+  du: string,
+  au: string,
+): Promise<number> {
+  const jourPlus = (j: string, n: number) => {
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  try {
+    const plannings = await listPlannings();
+    const source = plannings
+      .filter((p) => p.centre === centre && p.id !== planningId && p.au < du)
+      .sort((a, b) => b.au.localeCompare(a.au))[0];
+    if (!source) return 0;
+
+    const debutSource = jourPlus(source.au, -6);
+    const affectations = (await listAffectations(source.id)).filter((a) => a.jour >= debutSource);
+    if (affectations.length === 0) return 0;
+
+    const ecartJours = Math.round(
+      (Date.parse(`${du}T12:00:00Z`) - Date.parse(`${debutSource}T12:00:00Z`)) / 86_400_000,
+    );
+
+    const lignes: Record<string, unknown>[] = [];
+    const vues = new Set<string>();
+    for (let semaine = 0; ; semaine++) {
+      const decalage = ecartJours + semaine * 7;
+      if (jourPlus(debutSource, decalage) > au) break;
+      let posee = false;
+      for (const a of affectations) {
+        const jour = jourPlus(a.jour, decalage);
+        if (jour < du || jour > au) continue;
+        const id = `AFF-${planningId}-${jour.replace(/-/g, "")}-${a.agent_id}-${a.service_id || "x"}`;
+        if (vues.has(id)) continue;
+        vues.add(id);
+        posee = true;
+        lignes.push({
+          id, planning_id: planningId, agent_id: a.agent_id, jour,
+          creneau_id: a.creneau_id, service_id: a.service_id,
+          debut: a.debut, fin: a.fin, lieu: a.lieu, note: "",
+        });
+      }
+      // Sécurité : une semaine qui ne pose rien ne se répétera pas mieux.
+      if (!posee && semaine > 0) break;
+      if (semaine > 60) break;
+    }
+    if (lignes.length) await insererAffectations(lignes);
+    return lignes.length;
+  } catch {
+    // La création prime : un planning vide reste un planning.
+    return 0;
+  }
+}
+
+
 
 
 /** Crée un planning (brouillon) pour un centre et une période. */
@@ -52,6 +134,10 @@ export async function creerPlanningAction(formData: FormData): Promise<PlanningR
 
   const id = `PLN-${centre}-${du.replace(/-/g, "")}`;
   const maintenant = new Date().toISOString();
+  /* La reprise est cochée par défaut, jamais imposée : un report silencieux
+     de cent cinquante affectations serait une surprise, pas un service. La
+     case s'envoie « on » quand elle est cochée, rien sinon. */
+  const reprendre = String(formData.get("reprendre") ?? "") === "on";
   try {
     await creerPlanning({
       id,
@@ -67,8 +153,9 @@ export async function creerPlanningAction(formData: FormData): Promise<PlanningR
       modifie_le: maintenant,
       note: "",
     });
+    const reprises = reprendre ? await reprendreSemainePrecedente(centre, id, du, au) : 0;
     revalidatePath("/pointage/planning");
-    return { ok: true, id };
+    return { ok: true, id, reprises };
   } catch (e) {
     const msg = String(e);
     if (msg.includes("409") || msg.includes("duplicate")) {
