@@ -18,10 +18,28 @@
 --
 -- On garde un index, car la recherche par jeton reste le chemin d'accès de
 -- la page publique. On lui retire seulement l'unicité.
+--
+-- ── PAS DE « IF EXISTS » ICI, ET C'EST VOULU ─────────────────────────────
+-- Une première version écrivait `drop index if exists` puis `create index
+-- if not exists`. Les deux peuvent ne rien faire : le drop qui ne trouve
+-- rien émet une note, le create trouve l'index encore en place et l'ignore.
+-- La migration s'achevait sur « Success » sans avoir rien changé, et la
+-- panne restait entière. Écrite sèche, elle échoue à voix haute si l'état
+-- n'est pas celui qu'on croit, ce qui est toujours préférable.
 -- ============================================================
 
-drop index if exists planning.plannings_token_idx;
+-- Avant : doit afficher « CREATE UNIQUE INDEX … plannings_token_idx … »
+select indexname, indexdef
+from pg_indexes
+where schemaname = 'planning' and tablename = 'plannings';
 
-create index if not exists plannings_token_idx
+drop index planning.plannings_token_idx;
+
+create index plannings_token_idx
   on planning.plannings (token_public)
   where token_public <> '';
+
+-- Après : la même ligne, sans le mot UNIQUE.
+select indexname, indexdef
+from pg_indexes
+where schemaname = 'planning' and tablename = 'plannings';

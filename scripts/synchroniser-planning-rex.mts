@@ -133,8 +133,29 @@ for (const feuille of FEUILLES) {
   const retouchee = (a: Record<string, unknown>) => Boolean(a.debut || a.fin);
   const protegees = enBase.filter(retouchee);
 
-  const nouveaux = [...voulu.values()].filter((a) => !parId.has(a.id as string));
-  const partis = enBase.filter((a) => !voulu.has(a.id as string) && !retouchee(a));
+  /* ── LE DOUBLON DÉGUISÉ PAR LA FUSION DES FICHES ───────────────────────
+     L'identifiant d'une affectation embarque l'agent au moment de l'import.
+     La fusion des fiches du 13 août a corrigé la COLONNE `agent_id` sans
+     réécrire les identifiants, qui sont opaques : une ligne d'Emma porte
+     encore `…-AG-MIARAKA-13-nettoyage` tout en pointant sur AG-REX-14.
+
+     Comparer par identifiant seul y voit un retrait suivi d'une création
+     pour la même personne, le même jour, le même service. Sept lignes
+     étaient ainsi détruites et refaites sans rien gagner, et une insertion
+     qui échouerait après la suppression les perdrait pour de bon.
+
+     On compare donc AUSSI par clé métier. Une ligne reconnue par elle est
+     déjà là : on ne la touche pas, son identifiant vieilli ne gêne personne. */
+  const cleMetier = (a: Record<string, unknown>) => `${a.agent_id}|${a.jour}|${a.service_id}`;
+  const clesEnBase = new Map(enBase.map((a) => [cleMetier(a), a]));
+  const clesVoulues = new Set([...voulu.values()].map(cleMetier));
+
+  const nouveaux = [...voulu.values()].filter(
+    (a) => !parId.has(a.id as string) && !clesEnBase.has(cleMetier(a)),
+  );
+  const partis = enBase.filter(
+    (a) => !voulu.has(a.id as string) && !clesVoulues.has(cleMetier(a)) && !retouchee(a),
+  );
   /* Un créneau qui change (« std » devient « aprem ») garde le même
      identifiant : c'est une modification, pas un couple ajout-retrait. */
   const modifies = [...voulu.values()].filter((a) => {

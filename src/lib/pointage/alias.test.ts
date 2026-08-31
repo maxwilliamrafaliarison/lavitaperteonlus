@@ -22,6 +22,8 @@ const REFERENTIEL: AgentIdentifiable[] = [
   { id: "AG-REX-20", prenom: "Vololomboahangy Nivontsoa Tiana", nom: "RAZAFIMALALA", actif: true },
   { id: "AG-MIARAKA-24", prenom: "Jean Chrysostme", nom: "RAKOTONDRAZAFY", actif: true },
   { id: "AG-REX-18", prenom: "Naina", nom: "RANDRIANARISOA", actif: true },
+  { id: "AG-REX-34", prenom: "Harinirina", nom: "RANDRIAMAHENINA", actif: true },
+  { id: "AG-REX-28", prenom: "Niry Rovaniaina", nom: "RAZAFIMAMONJY", actif: true },
 ];
 
 describe("« Emma » au planning de REX", () => {
@@ -48,6 +50,22 @@ describe("« Emma » au planning de REX", () => {
     const r = resoudreAgent("EMMA", REFERENTIEL, "MIARAKA");
     expect(r.agentId).toBeNull();
     expect(r.voie).toBe("ambigu");
+  });
+});
+
+describe("« Niry » au planning de REX", () => {
+  it("désigne la généraliste, dont le nom usuel est le seul employé au planning", () => {
+    /* 869 occurrences dans le corpus, 866 en consultations, toujours
+       titrées « Dr » ou « Dc ». « Harinirina » n'y paraît jamais. */
+    for (const ecriture of ["Dr Niry", "Dc Niry", "dc Niry", "Niry"]) {
+      expect(resoudreAgent(ecriture, REFERENTIEL, "REX").agentId).toBe("AG-REX-34");
+    }
+  });
+
+  it("ne la confond pas avec Niry Rovaniaina, dont c'est pourtant le prénom", () => {
+    /* La règle mécanique donnerait AG-REX-28, qui n'a aucun poste médical.
+       C'est précisément ce que l'alias corrige. */
+    expect(resoudreAgent("Rova", REFERENTIEL, "REX").agentId).toBe("AG-REX-28");
   });
 });
 

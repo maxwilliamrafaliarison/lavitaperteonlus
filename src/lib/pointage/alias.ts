@@ -117,6 +117,23 @@ export const HORS_REFERENTIEL = new Set(["diricks"]);
 export const ALIAS_REX: Record<string, string> = {
   emma: "AG-REX-14", // Emma RASOLOMAMPIONONA, femme de ménage
   emmarex: "AG-REX-14",
+  /* ── « NIRY » EST LA GÉNÉRALISTE, PAS LA COLLABORATRICE ────────────────
+     Deux fiches répondent : Harinirina RANDRIAMAHENINA (AG-REX-34),
+     généraliste au service sanitaire, et Niry Rovaniaina RAZAFIMAMONJY
+     (AG-REX-28), collaboratrice en gestion logistique et suivi scolaire.
+     La règle mécanique donne la seconde, dont c'est le prénom. Elle a tort.
+
+     Le corpus tranche sans appel : « Niry » y paraît 869 fois, dont 866 en
+     CONSULTATIONS, toujours titrée « Dr » ou « Dc ». Et « Harinirina »
+     comme « Randriamahenina » n'apparaissent dans AUCUN planning : la
+     généraliste n'y est jamais désignée autrement que par ce nom usuel.
+     AG-REX-28, elle, n'a pas de poste médical.
+
+     La collision est née de ma correction du 13 août, qui a rendu à
+     AG-REX-28 son prénom véritable après la fusion des fiches. Corriger
+     une donnée peut en fausser une autre : c'est pourquoi l'arbitrage
+     s'écrit ici plutôt que de dépendre d'une règle générale. */
+  niry: "AG-REX-34",
 };
 
 /** Noms usuels propres à MIARAKA : le même mot y désigne quelqu'un d'autre. */
