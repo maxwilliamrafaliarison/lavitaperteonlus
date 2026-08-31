@@ -6,10 +6,37 @@ TOUTES LES HEURES, tout seul. Personne n'a besoin d'ouvrir l'application
 ni de cliquer sur quoi que ce soit. Il suffit que le poste soit allumé et
 branché au réseau du centre.
 
+OÙ POSER CE DOSSIER
+Créez le dossier   C:\LaVitaPerTe\   puis copiez celui-ci dedans, sous le
+nom   Collecte-pointage  . Chemin final, identique sur les trois postes :
+
+    C:\LaVitaPerTe\Collecte-pointage\
+
+PAS SUR LE BUREAU, PAS DANS DOCUMENTS. Ces deux emplacements sont
+synchronisés par OneDrive au centre, et trois choses s'y passent mal :
+
+  · l'installation dépose des milliers de fichiers (node_modules) que
+    OneDrive se met à synchroniser sans fin ;
+  · les fichiers « à la demande » deviennent des liens vides, que Node ne
+    sait pas lire quand la tâche se déclenche à six heures du matin ;
+  · si deux postes partagent un compte OneDrive, leurs config.txt
+    s'écrasent l'un l'autre et chacun hérite du secret et de l'horaire du
+    voisin.
+
+Évitez aussi les accents et les parenthèses dans le chemin : renommez donc
+le dossier « Collecte-pointage » tout court.
+
+UNE FOIS INSTALLÉ, NE DÉPLACEZ PLUS CE DOSSIER. La tâche planifiée retient
+le chemin où il se trouvait à l'installation ; le déplacer arrête la
+collecte sans message d'erreur. S'il faut vraiment le bouger : lancer
+desinstaller.bat, déplacer, puis relancer installer.bat.
+
 INSTALLATION (une seule fois)
 1. Installer Node.js (version LTS) : https://nodejs.org
-2. Vérifier « config.txt » : le secret doit être rempli.
-3. Clic droit sur « installer.bat » → Exécuter en tant qu'administrateur.
+2. Poser le dossier à l'emplacement indiqué ci-dessus.
+3. Vérifier « config.txt » : le NOM_POSTE doit être celui de cette
+   machine, et le secret doit être rempli.
+4. Clic droit sur « installer.bat » → Exécuter en tant qu'administrateur.
 
 C'est tout. Le journal des exécutions s'écrit dans « collecte.log », à
 côté de ce fichier.

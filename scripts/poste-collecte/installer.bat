@@ -24,6 +24,24 @@ if not exist config.txt (
   exit /b 1
 )
 
+rem Un dossier synchronise par OneDrive finit par casser la collecte, et
+rem toujours en silence : les milliers de fichiers de node_modules partent
+rem en synchronisation, les fichiers "a la demande" deviennent des liens
+rem vides que Node ne sait pas lire a six heures du matin, et deux postes
+rem sur un meme compte s'echangent leurs config.txt. On refuse plutot que
+rem de laisser la panne arriver dans trois mois sans cause visible.
+echo "%~dp0" | findstr /i "OneDrive" >nul
+if not errorlevel 1 (
+  echo [ERREUR] Ce dossier est dans OneDrive :
+  echo    %~dp0
+  echo.
+  echo La collecte s'arreterait tot ou tard, sans message d'erreur.
+  echo Deplacez ce dossier vers  C:\LaVitaPerTe\Collecte-pointage\
+  echo puis relancez installer.bat depuis la.
+  pause
+  exit /b 1
+)
+
 rem Le nom du poste et les horaires viennent de config.txt : deux postes ne
 rem doivent pas collecter a la meme minute, et leurs taches planifiees ne
 rem doivent pas porter le meme nom si elles cohabitent un jour.
