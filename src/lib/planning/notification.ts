@@ -1,29 +1,47 @@
+import { randomBytes } from "node:crypto";
+
 import { envoyerMail } from "@/lib/mail";
+import { sbSelect, sbInsert, sbUpdate } from "@/lib/supabase-server";
 import { listParametresPlanning } from "./data";
 
 /* ============================================================
-   NOTIFICATION D'UNE MODIFICATION DE PLANNING PUBLIÉ
+   AVIS DE MODIFICATION D'UN PLANNING PUBLIÉ
    ============================================================
 
    Un planning publié a été diffusé au personnel : des gens ont noté leurs
    horaires, se sont organisés. Le modifier ensuite est légitime, cela
    arrive, mais cela ne peut pas se faire en silence.
 
-   ── CE QUI A CHANGÉ DANS LA RÈGLE ────────────────────────────────────────
-   Modifier un planning publié était REFUSÉ, sauf à le renvoyer d'abord en
-   brouillon. La contrainte était juste dans son intention et fausse dans
-   ses effets : elle transformait une correction d'une minute en une
-   procédure, ce qui pousse à tenir le vrai planning ailleurs. La direction
-   a tranché pour la trace plutôt que pour le blocage, ce qui est déjà la
-   règle du reste du module : « l'outil signale, il ne bloque jamais ».
+   ── POURQUOI UN RÉCAPITULATIF, ET NON UN AVIS PAR RETOUCHE ───────────────
+   La première version envoyait un courriel par créneau touché. Une séance
+   de corrections en produisait dix : l'avis se noyait dans son propre bruit
+   et finissait par être ignoré, ce qui est pire que pas d'avis du tout. Les
+   modifications s'accumulent donc, et partent en UN message.
 
-   Le blocage devient donc une notification, adressée à ceux qui répondent
-   du planning. Le geste reste possible, il cesse d'être discret.
+   ── POURQUOI PAS UNE TÂCHE PLANIFIÉE ─────────────────────────────────────
+   Ce serait la voie normale. L'offre d'hébergement plafonne le nombre de
+   tâches, et les deux places servent déjà les rapports de la pharmacie. Le
+   déclenchement passe donc par trois chemins qui se rattrapent l'un
+   l'autre :
+
+     · le navigateur, qui sait quand on cesse de modifier et demande l'envoi
+       après un silence de quelques minutes ;
+     · la modification suivante, qui vide d'abord la file si elle a mûri ;
+     · l'ouverture de la page des plannings, filet de sécurité pour le cas
+       où l'onglet se ferme avant la fin du délai.
+
+   Aucun n'est suffisant seul ; ensemble, ils couvrent les cas réels. Et la
+   file étant persistée, rien ne se perd si tout échoue : l'avis part plus
+   tard, jamais jamais.
 
    ── L'ENVOI NE CONDITIONNE JAMAIS LA MODIFICATION ────────────────────────
    Une panne de messagerie ne doit ni empêcher de corriger un planning, ni
-   faire croire que la correction a échoué. L'appelant ignore le résultat.
+   faire croire que la correction a échoué. Les appelants ignorent le
+   résultat.
    ============================================================ */
+
+/** Silence après lequel la file part, en minutes. */
+export const DELAI_REGROUPEMENT_MINUTES = 4;
 
 /** À défaut de paramètre : ceux qui répondent du planning des deux centres. */
 const DESTINATAIRES_PAR_DEFAUT = [
@@ -33,7 +51,37 @@ const DESTINATAIRES_PAR_DEFAUT = [
   "informatique.lavitaperte@gmail.com",
 ];
 
+const SCHEMA = "planning";
 const estEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+export interface ModificationPlanning {
+  planningId: string;
+  centre: string;
+  libellePlanning: string;
+  auteur: string;
+  nature: string;
+  agentId?: string;
+  agentNom: string;
+  jour: string;
+  detail: string;
+  avant?: string;
+  lien?: string;
+}
+
+interface LigneModif {
+  id: string;
+  planning_id: string;
+  centre: string;
+  auteur: string;
+  nature: string;
+  agent_id: string;
+  agent_nom: string;
+  jour: string;
+  avant: string;
+  detail: string;
+  horodatage: string;
+  notifie_le: string | null;
+}
 
 async function destinataires(): Promise<string[]> {
   try {
@@ -47,7 +95,6 @@ async function destinataires(): Promise<string[]> {
   return DESTINATAIRES_PAR_DEFAUT;
 }
 
-/** « Aliniaina » à partir d'une adresse, faute de mieux. */
 function nomDe(email: string): string {
   const avant = (email || "").split("@")[0] ?? "";
   const brut = avant.split(".")[0] || avant || "quelqu'un";
@@ -57,27 +104,65 @@ function nomDe(email: string): string {
 function jourLisible(jour: string): string {
   const d = new Date(`${jour}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return jour;
-  return d.toLocaleDateString("fr-FR", {
-    weekday: "long", day: "numeric", month: "long", timeZone: "UTC",
-  });
+  return d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-export interface ModificationPlanning {
-  planningId: string;
-  centre: string;
-  libellePlanning: string;
-  /** Adresse de l'auteur, telle qu'elle figure en session. */
-  auteur: string;
-  /** « Créneau ajouté », « Affectation retirée », « Créneau déplacé »… */
-  nature: string;
-  agentNom: string;
-  jour: string;
-  /** Ce qui vaut désormais : « 07:00 → 12:00 », ou une phrase. */
-  detail: string;
-  /** Ce qui valait avant, quand la modification remplace quelque chose. */
-  avant?: string;
-  /** Adresse publique du planning, si elle existe. */
-  lien?: string;
+const heureLocale = (iso: string) =>
+  new Date(new Date(iso).getTime() + 3 * 3600 * 1000).toISOString().slice(11, 16);
+
+/**
+ * Met une modification dans la file, sans rien envoyer.
+ *
+ * Écrire d'abord et envoyer ensuite : si l'envoi échoue, la modification
+ * reste annoncée à la prochaine occasion plutôt que perdue.
+ */
+export async function consignerModification(m: ModificationPlanning): Promise<void> {
+  try {
+    await sbInsert(SCHEMA, "modifications", [
+      {
+        id: `MOD-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex")}`,
+        planning_id: m.planningId,
+        centre: m.centre,
+        auteur: m.auteur,
+        nature: m.nature,
+        agent_id: m.agentId ?? "",
+        agent_nom: m.agentNom,
+        jour: m.jour,
+        avant: m.avant ?? "",
+        detail: m.detail,
+        horodatage: new Date().toISOString(),
+        notifie_le: null,
+      },
+    ]);
+  } catch {
+    /* ── DÉGRADER VERS L'ANCIEN COMPORTEMENT, JAMAIS VERS LE SILENCE ─────
+       La file suppose la table `planning.modifications`, créée par la
+       migration 022. Tant qu'elle n'existe pas, consigner échoue, et sans
+       ce repli, plus AUCUNE notification ne partirait, ce qui serait pire
+       que l'avis par retouche qu'on cherchait à remplacer. On envoie donc
+       l'avis seul, comme avant, jusqu'à ce que la table soit là. */
+    await envoyerAvisUnique(m);
+  }
+}
+
+/** Avis portant UNE modification : repli tant que la file n'existe pas. */
+async function envoyerAvisUnique(m: ModificationPlanning): Promise<void> {
+  try {
+    const ligne: LigneModif = {
+      id: "", planning_id: m.planningId, centre: m.centre, auteur: m.auteur,
+      nature: m.nature, agent_id: m.agentId ?? "", agent_nom: m.agentNom,
+      jour: m.jour, avant: m.avant ?? "", detail: m.detail,
+      horodatage: new Date().toISOString(), notifie_le: null,
+    };
+    await envoyerMail({
+      destinataires: await destinataires(),
+      sujet: `Planning ${m.centre} modifié après publication : ${m.agentNom}, ${jourLisible(m.jour)}`,
+      html: corps([ligne], new Map([[m.planningId, { libelle: m.libellePlanning, token_public: "" }]])),
+      expediteurLabel: "Planning · La Vita Per Te",
+    });
+  } catch {
+    // Journalisé côté hébergeur ; la modification est enregistrée.
+  }
 }
 
 const C = {
@@ -86,14 +171,49 @@ const C = {
   rouge: "#E30613", turquoise: "#0E7C72",
 };
 const POLICE = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-
 const esc = (s: unknown) =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function corps(m: ModificationPlanning, quand: string): string {
-  const ligne = (g: string, d: string) =>
-    `<tr><td style="padding:7px 0;font-size:13px;color:${C.texte}">${g}</td>
-       <td align="right" style="padding:7px 0;font-size:13px;color:${C.encre}">${d}</td></tr>`;
+function corps(
+  lignes: LigneModif[],
+  plannings: Map<string, { libelle: string; token_public: string }>,
+): string {
+  const auteurs = [...new Set(lignes.map((l) => l.auteur).filter(Boolean))];
+  const parPlanning = new Map<string, LigneModif[]>();
+  for (const l of lignes) (parPlanning.get(l.planning_id) ?? parPlanning.set(l.planning_id, []).get(l.planning_id)!).push(l);
+
+  const sections = [...parPlanning]
+    .map(([id, ls]) => {
+      const p = plannings.get(id);
+      const rangs = ls
+        .sort((a, b) => a.jour.localeCompare(b.jour) || a.horodatage.localeCompare(b.horodatage))
+        .map(
+          (l) => `<tr>
+            <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${C.filet};font-size:12px;color:${C.second};white-space:nowrap">${esc(jourLisible(l.jour))}</td>
+            <td style="padding:7px 10px 7px 0;border-bottom:1px solid ${C.filet};font-size:13px"><strong>${esc(l.agent_nom)}</strong></td>
+            <td style="padding:7px 0;border-bottom:1px solid ${C.filet};font-size:12px;color:${C.texte}">
+              ${esc(l.nature)}${l.avant ? ` · <span style="color:${C.second};text-decoration:line-through">${esc(l.avant)}</span>` : ""} → <strong>${esc(l.detail)}</strong>
+              <span style="color:${C.mention}"> · ${esc(heureLocale(l.horodatage))}</span>
+            </td>
+          </tr>`,
+        )
+        .join("");
+      return `
+      <div style="margin-top:22px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${C.turquoise};padding-bottom:5px;border-bottom:1px solid ${C.filet}">
+          ${esc(p?.libelle ?? id)}
+        </div>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;border-collapse:collapse;margin-top:6px">${rangs}</table>
+        ${
+          p?.token_public
+            ? `<p style="margin:8px 0 0;font-size:12px"><a href="https://lavitaperteonlus.vercel.app/planning/${esc(p.token_public)}" style="color:${C.rouge}">Voir ce planning tel que le personnel le lit</a></p>`
+            : ""
+        }
+      </div>`;
+    })
+    .join("");
+
+  const n = lignes.length;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="color-scheme" content="light only"></head>
 <body style="margin:0;padding:0;background:${C.page}">
@@ -103,41 +223,25 @@ function corps(m: ModificationPlanning, quand: string): string {
    <tr><td style="padding:26px 30px 30px;font-family:${POLICE};color:${C.encre};font-size:14px;line-height:1.55">
 
     <div style="font-size:10px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:${C.turquoise}">
-      Planning publié modifié · ${esc(m.centre)}
+      Plannings publiés · modifications
     </div>
     <div style="height:3px;background:${C.rouge};margin:10px 0 16px;font-size:0;line-height:0">&nbsp;</div>
 
-    <p style="margin:0 0 4px;font-size:15px;font-weight:600">${esc(m.nature)}</p>
-    <p style="margin:0 0 18px;font-size:13px;color:${C.second}">
-      ${esc(nomDe(m.auteur))} a modifié un planning déjà diffusé au personnel, le ${esc(quand)}.
+    <p style="margin:0 0 4px;font-size:15px;font-weight:600">
+      ${n} modification${n > 1 ? "s" : ""} sur ${parPlanning.size} planning${parPlanning.size > 1 ? "s" : ""} déjà publié${parPlanning.size > 1 ? "s" : ""}
+    </p>
+    <p style="margin:0;font-size:13px;color:${C.second}">
+      Par ${esc(auteurs.map(nomDe).join(", ") || "quelqu'un")}. Le personnel a déjà consulté ces
+      plannings : prévenez les personnes concernées si le changement les touche aujourd'hui.
     </p>
 
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%;background:${C.surface};border:1px solid ${C.filet};border-radius:3px">
-     <tr><td style="padding:6px 14px">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%">
-       ${ligne("Personne", `<strong>${esc(m.agentNom)}</strong>`)}
-       ${ligne("Jour", esc(jourLisible(m.jour)))}
-       ${m.avant ? ligne("Avant", `<span style="color:${C.second};text-decoration:line-through">${esc(m.avant)}</span>`) : ""}
-       ${ligne("Désormais", `<strong>${esc(m.detail)}</strong>`)}
-       ${ligne("Planning", esc(m.libellePlanning))}
-       ${ligne("Par", esc(m.auteur))}
-      </table>
-     </td></tr>
-    </table>
+    ${sections}
 
-    ${
-      m.lien
-        ? `<p style="margin:18px 0 0;font-size:13px">
-             <a href="${esc(m.lien)}" style="color:${C.rouge}">Ouvrir le planning tel que le personnel le voit</a>
-           </p>`
-        : ""
-    }
-
-    <div style="margin-top:24px;padding-top:12px;border-top:1px solid ${C.filet}">
+    <div style="margin-top:26px;padding-top:12px;border-top:1px solid ${C.filet}">
       <p style="margin:0;font-size:10px;color:${C.mention};line-height:1.6">
-        Ce message part automatiquement à chaque modification d'un planning DÉJÀ PUBLIÉ. Les
-        plannings en brouillon se modifient librement et sans notification : rien n'a encore été
-        diffusé au personnel.
+        Récapitulatif envoyé après ${DELAI_REGROUPEMENT_MINUTES} minutes sans nouvelle
+        modification, pour ne pas produire un courriel par créneau touché. Les plannings en
+        brouillon ne déclenchent rien : ils n'ont été diffusés à personne.
       </p>
       <p style="margin:4px 0 0;font-size:10px;color:${C.mention};line-height:1.6">
         Destinataires modifiables dans le paramètre « email_planning_destinataires ».
@@ -152,24 +256,60 @@ function corps(m: ModificationPlanning, quand: string): string {
 }
 
 /**
- * Prévient d'une modification apportée à un planning publié.
+ * Envoie le récapitulatif si la file a mûri, et la marque envoyée.
  *
- * Sans effet sur l'appelant : l'échec n'est ni propagé ni signalé, la
- * modification étant déjà enregistrée quand cette fonction s'exécute.
+ * `forcer` court-circuite le délai : c'est le navigateur qui l'emploie, sur
+ * un silence qu'il a lui-même mesuré. Les autres chemins d'appel s'en
+ * remettent au délai, faute de savoir si la personne a fini.
  */
-export async function notifierModificationPlanning(m: ModificationPlanning): Promise<void> {
+export async function envoyerRecapitulatif(
+  forcer = false,
+): Promise<{ envoye: boolean; lignes: number }> {
   try {
-    const quand = new Date(Date.now() + 3 * 3600 * 1000)
-      .toISOString()
-      .slice(0, 16)
-      .replace("T", " à ");
-    await envoyerMail({
+    const { rows } = await sbSelect<LigneModif>(SCHEMA, "modifications", {
+      select: "*",
+      order: "horodatage.asc",
+      limit: 500,
+      filters: { notifie_le: "is.null" },
+    });
+    if (rows.length === 0) return { envoye: false, lignes: 0 };
+
+    if (!forcer) {
+      const derniere = Date.parse(rows[rows.length - 1].horodatage);
+      const mure = Date.now() - derniere >= DELAI_REGROUPEMENT_MINUTES * 60_000;
+      if (!mure) return { envoye: false, lignes: rows.length };
+    }
+
+    const ids = [...new Set(rows.map((r) => r.planning_id))];
+    const { rows: plans } = await sbSelect<{ id: string; libelle: string; token_public: string }>(
+      SCHEMA,
+      "plannings",
+      {
+        select: "id,libelle,token_public",
+        order: "id.asc",
+        limit: 200,
+        filters: { id: `in.(${ids.map((i) => `"${i}"`).join(",")})` },
+      },
+    );
+    const parId = new Map(plans.map((p) => [p.id, { libelle: p.libelle, token_public: p.token_public }]));
+
+    const centres = [...new Set(rows.map((r) => r.centre).filter(Boolean))].join(" et ");
+    const envoi = await envoyerMail({
       destinataires: await destinataires(),
-      sujet: `Planning ${m.centre} modifié après publication : ${m.agentNom}, ${jourLisible(m.jour)}`,
-      html: corps(m, quand),
+      sujet: `Planning ${centres || "publié"} : ${rows.length} modification${rows.length > 1 ? "s" : ""} après publication`,
+      html: corps(rows, parId),
       expediteurLabel: "Planning · La Vita Per Te",
     });
+    if (!envoi.envoye) return { envoye: false, lignes: rows.length };
+
+    /* Marquées APRÈS l'envoi : un échec laisse la file intacte, et l'avis
+       repart à la prochaine occasion plutôt que de disparaître. */
+    const maintenant = new Date().toISOString();
+    for (const r of rows) {
+      await sbUpdate(SCHEMA, "modifications", { id: `eq.${r.id}` }, { notifie_le: maintenant });
+    }
+    return { envoye: true, lignes: rows.length };
   } catch {
-    // Journalisé côté hébergeur ; la modification, elle, est enregistrée.
+    return { envoye: false, lignes: 0 };
   }
 }

@@ -40,7 +40,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
  * Une semaine de centre ressemble à la précédente : mêmes personnes, mêmes
  * postes, à quelques ajustements près. Partir d'une grille vide obligeait à
  * ressaisir cent cinquante affectations pour en changer cinq. On part donc
- * de la semaine passée, et l'on ajuste — c'est ainsi que travaillent les
+ * de la semaine passée, et l'on ajuste : c'est ainsi que travaillent les
  * logiciels d'emploi du temps, et c'est déjà ce que fait « dupliquer ».
  *
  * ── CE QUI EST REPRIS, ET CE QUI NE L'EST PAS ────────────────────────────
@@ -53,7 +53,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
  * restent alignés, ce qui est la seule répétition qui ait un sens.
  *
  * Rien n'est écrasé : la grille est neuve, donc vide. Et l'échec n'empêche
- * jamais la création — un planning vide reste un planning, qu'on remplira.
+ * jamais la création : un planning vide reste un planning, qu'on remplira.
  */
 async function reprendreSemainePrecedente(
   centre: string,

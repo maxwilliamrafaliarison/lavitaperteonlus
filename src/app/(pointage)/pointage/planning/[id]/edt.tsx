@@ -8,7 +8,11 @@ import { toast } from "sonner";
 import { versMinutes, versHeures } from "@/lib/pointage/calcul";
 import { cn } from "@/lib/utils";
 
-import { affecterAction, deplacerAffectationAction } from "./actions";
+import {
+  affecterAction,
+  deplacerAffectationAction,
+  envoyerRecapModificationsAction,
+} from "./actions";
 import { FAMILLES, classeDe } from "./gantt";
 
 /* ============================================================
@@ -152,6 +156,27 @@ export function PlanningEdt({ planningId, editable, jours, groupes, blocs, repos
   const [enCours, setEnCours] = React.useState(false);
   const joursVisibles = jours.map((j) => j.date);
 
+  /* ── LE SILENCE DÉCLENCHE LE RÉCAPITULATIF ─────────────────────────────
+     Les modifications d'un planning PUBLIÉ s'accumulent côté serveur et
+     partent en un seul message. Reste à savoir quand la séance est finie :
+     le serveur ne peut pas le deviner, le navigateur si. On relance donc
+     une temporisation à chaque modification, et l'envoi part quand elle
+     expire sans avoir été relancée.
+
+     Ce n'est pas le seul déclencheur, et c'est voulu : si l'onglet se ferme
+     avant l'échéance, la modification suivante ou l'ouverture de la liste
+     des plannings videront la file. Aucun des trois n'est fiable seul. */
+  const minuterie = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const programmerRecap = React.useCallback(() => {
+    if (minuterie.current) clearTimeout(minuterie.current);
+    minuterie.current = setTimeout(() => {
+      void envoyerRecapModificationsAction();
+    }, 4 * 60_000);
+  }, []);
+  React.useEffect(() => () => {
+    if (minuterie.current) clearTimeout(minuterie.current);
+  }, []);
+
   async function envoyer(fd: FormData, action: typeof affecterAction | typeof deplacerAffectationAction) {
     setEnCours(true);
     try {
@@ -165,6 +190,7 @@ export function PlanningEdt({ planningId, editable, jours, groupes, blocs, repos
         toast.warning("Seuil légal dépassé", { description: r.alertes[0], duration: 8000 });
       }
       router.refresh();
+      programmerRecap();
       return true;
     } finally {
       setEnCours(false);

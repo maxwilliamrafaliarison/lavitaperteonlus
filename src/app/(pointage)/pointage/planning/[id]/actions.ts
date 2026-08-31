@@ -73,8 +73,12 @@ async function prevenirSiPublie(
   avant?: string,
 ) {
   if (!plan || plan.statut !== "publie") return;
-  const { notifierModificationPlanning } = await import("@/lib/planning/notification");
-  await notifierModificationPlanning({
+  const { consignerModification, envoyerRecapitulatif } = await import("@/lib/planning/notification");
+  /* On VIDE d'abord la file si elle a mûri : une séance de corrections
+     reprise une heure plus tard ne doit pas se mélanger à la précédente
+     dans un même récapitulatif. */
+  await envoyerRecapitulatif();
+  await consignerModification({
     planningId: plan.id,
     centre: plan.centre,
     libellePlanning: plan.libelle,
@@ -308,8 +312,8 @@ export async function dupliquerSemaineAction(formData: FormData): Promise<
        chacune de ses lignes. Un courriel par affectation copiée noierait
        l'information qu'il est censé porter. */
     if (copies.length > 0 && planDup?.statut === "publie") {
-      const { notifierModificationPlanning } = await import("@/lib/planning/notification");
-      await notifierModificationPlanning({
+      const { consignerModification } = await import("@/lib/planning/notification");
+      await consignerModification({
         planningId, centre: planDup.centre, libellePlanning: planDup.libelle,
         auteur: auteurDup, nature: "Semaine recopiée",
         agentNom: `${copies.length} affectation(s)`,
@@ -495,3 +499,22 @@ export async function attribuerPosteAction(formData: FormData): Promise<
 }
 
 export { listCreneaux };
+
+/**
+ * Demande l'envoi du récapitulatif des modifications en attente.
+ *
+ * Appelée par le navigateur après un silence qu'il a lui-même mesuré : lui
+ * seul sait qu'on a cessé de modifier. Elle force donc l'envoi sans
+ * attendre le délai, que les autres chemins d'appel respectent faute de
+ * cette information.
+ *
+ * Sans effet visible : l'appelant n'a rien à faire du résultat, et une
+ * messagerie en panne ne doit rien casser à l'écran.
+ */
+export async function envoyerRecapModificationsAction(): Promise<{ envoye: boolean }> {
+  const session = await auth();
+  if (!session?.user || !can(session.user.role, "planning:gerer")) return { envoye: false };
+  const { envoyerRecapitulatif } = await import("@/lib/planning/notification");
+  const r = await envoyerRecapitulatif(true);
+  return { envoye: r.envoye };
+}

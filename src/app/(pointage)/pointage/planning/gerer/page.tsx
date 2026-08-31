@@ -11,6 +11,7 @@ import { getT } from "@/lib/i18n";
 import { GlassCard } from "@/components/glass/glass-card";
 import { listPlannings, listAffectations, type Planning } from "@/lib/planning/data";
 import { estValidateur } from "@/lib/planning/validation";
+import { envoyerRecapitulatif } from "@/lib/planning/notification";
 
 import { NouveauPlanning, PlanningRow, type PlanningLigne } from "../planning-client";
 
@@ -26,6 +27,15 @@ export default async function PlanningPage({
   if (!session?.user) redirect("/login");
   if (!can(session.user.role, "planning:gerer")) redirect("/pointage");
   const t = getT(session.user.lang);
+
+  /* FILET DE SÉCURITÉ DU RÉCAPITULATIF. Les modifications d'un planning
+     publié s'accumulent et partent en un seul message, déclenché par le
+     navigateur après quelques minutes de silence. Si l'onglet s'est fermé
+     avant l'échéance, la file attendrait indéfiniment ; l'ouverture de
+     cette page la vide, à condition qu'elle ait mûri. On n'attend pas le
+     résultat et on n'en montre rien : c'est un rattrapage, pas une action
+     de l'utilisateur. */
+  void envoyerRecapitulatif().catch(() => {});
 
   const sp = await searchParams;
   const filtre = (sp.centre ?? "").toUpperCase();
