@@ -108,6 +108,50 @@ export async function sbInsert(
   }
 }
 
+/**
+ * Écrit des lignes en REMPLAÇANT celles qui portent déjà la même clé.
+ *
+ * `sbInsert` échoue avec un 409 sur une clé existante, ce qui est le bon
+ * comportement quand un doublon révèle une erreur. Il ne l'est pas quand la
+ * clé EST le geste : un ajustement de pointage vaut « la décision du
+ * responsable pour cette personne ce jour-là », et il n'y en a qu'une. La
+ * recorriger doit la remplacer, ce que le module annonçait déjà en
+ * commentaire sans jamais le faire : la seconde correction se heurtait à la
+ * clé et rendait « une correction existe déjà pour cette journée », phrase
+ * qui n'indique aucune sortie.
+ *
+ * PostgREST exprime cela par `resolution=merge-duplicates` sur le POST.
+ */
+export async function sbUpsert(
+  schema: string,
+  table: string,
+  rows: Record<string, unknown>[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  const { url, key } = supabaseEnv();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const res = await fetch(`${url}/rest/v1/${table}`, {
+      method: "POST",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        "Content-Profile": schema,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal,resolution=merge-duplicates",
+      },
+      body: JSON.stringify(rows),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      throw new Error(`Supabase upsert ${schema}.${table} ${res.status} : ${(await res.text()).slice(0, 160)}`);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Mise à jour ciblée (PATCH) via filtres PostgREST. */
 export async function sbUpdate(
   schema: string,

@@ -1,4 +1,4 @@
-import { sbSelect, sbInsert } from "@/lib/supabase-server";
+import { sbSelect, sbInsert, sbUpsert } from "@/lib/supabase-server";
 import { listAbsences, indexerAbsences, cleAbsence } from "./absences-data";
 import {
   calculerJournee,
@@ -181,8 +181,19 @@ export const insererBadges = (lignes: Record<string, unknown>[]) =>
   lignes.length ? sbInsert(SCHEMA, "badges", lignes) : Promise.resolve();
 export const insererImport = (ligne: Record<string, unknown>) =>
   sbInsert(SCHEMA, "imports", [ligne]);
+/**
+ * Enregistre la correction d'une journée, en remplaçant la précédente.
+ *
+ * La clé est `agent + jour` : il n'existe qu'UNE décision du responsable
+ * pour une personne un jour donné, et la reprendre doit la remplacer. Le
+ * commentaire de l'action l'annonçait depuis l'origine, mais l'insertion
+ * était simple : la seconde correction se heurtait à la clé et rendait
+ * « une correction existe déjà pour cette journée », ce qui laissait sans
+ * issue. Le pointage brut, lui, reste intouché : c'est là qu'est
+ * l'invariant, pas ici.
+ */
 export const insererAjustement = (ligne: Record<string, unknown>) =>
-  sbInsert(SCHEMA, "ajustements", [ligne]);
+  sbUpsert(SCHEMA, "ajustements", [ligne]);
 
 /** Convertit une ligne `horaires` en horaire théorique pour le moteur. */
 export function versHoraireTheorique(h: Horaire): HoraireTheorique {

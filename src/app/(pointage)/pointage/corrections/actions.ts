@@ -71,7 +71,8 @@ export async function corrigerJourneeAction(formData: FormData): Promise<ActionR
 
   try {
     await insererAjustement({
-      // Un seul ajustement par agent et par jour : ré-corriger remplace.
+      // Un seul ajustement par agent et par jour : ré-corriger remplace,
+      // ce que `insererAjustement` fait désormais réellement.
       id: `ADJ-${agentId}-${jour}`,
       agent_id: agentId,
       jour,
@@ -85,12 +86,7 @@ export async function corrigerJourneeAction(formData: FormData): Promise<ActionR
     revalidatePath("/pointage/etats");
     return { ok: true, message: "Correction enregistrée." };
   } catch (e) {
-    const msg = String(e);
-    // Conflit de clé = une correction existe déjà pour ce jour.
-    if (msg.includes("409") || msg.includes("duplicate")) {
-      return { ok: false, error: "Une correction existe déjà pour cette journée." };
-    }
-    return { ok: false, error: `Enregistrement impossible : ${msg.slice(0, 160)}` };
+    return { ok: false, error: `Enregistrement impossible : ${String(e).slice(0, 160)}` };
   }
 }
 
