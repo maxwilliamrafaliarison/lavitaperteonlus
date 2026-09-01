@@ -87,3 +87,25 @@ describe("garde-fous généraux", () => {
     expect(resoudreAgent("", REFERENTIEL, "REX").agentId).toBeNull();
   });
 });
+
+describe("noms relevés sur les classeurs de pointage 2026", () => {
+  /* Ces deux onglets ne se rattachaient à personne : 102 passages de
+     juillet et août tombaient hors référentiel, faute d'une lettre. */
+  const REFERENTIEL = [
+    { id: "AG-REX-1", prenom: "Tatamotiana Marcellia Hanitriniaina", nom: "RAMANANTSOA", actif: true },
+    { id: "AG-REX-30", prenom: "Safidy Arnauld", nom: "RANDRIANATOANDRO", actif: true },
+    { id: "AG-REX-28", prenom: "Niry Rovaniaina", nom: "RAZAFIMAMONJY", actif: true },
+  ];
+
+  it("rattache « Marcelia », écrit avec un seul L", () => {
+    expect(resoudreAgent("Marcelia", REFERENTIEL).agentId).toBe("AG-REX-1");
+  });
+
+  it("rattache « Arnaud », écrit sans D final", () => {
+    expect(resoudreAgent("Arnaud", REFERENTIEL).agentId).toBe("AG-REX-30");
+  });
+
+  it("rattache aussi « Safidy », l'autre nom du même onglet", () => {
+    expect(resoudreAgent("Safidy", REFERENTIEL).agentId).toBe("AG-REX-30");
+  });
+});

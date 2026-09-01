@@ -76,6 +76,22 @@ export const ALIAS_CENTRE: Record<string, string> = {
   mahefa: "AG-REX-MAHEFA",
   rsnoro: "AG-REX-NORO",
   noro: "AG-REX-NORO",
+
+  /* ── RELEVÉS SUR LES CLASSEURS DE POINTAGE DE JUILLET ET AOÛT 2026 ──────
+     Ces deux onglets ne se rattachaient à personne, et cent deux passages
+     tombaient hors référentiel faute d'une lettre.
+
+     « Marcelia » est TATAMOTIANA MARCELLIA HANITRINIAINA : deux L au
+     référentiel, un seul sur l'onglet, 88 passages en août. « Arnaud » est
+     SAFIDY ARNAULD, que le classeur d'août nomme d'ailleurs « Safidy »,
+     lequel se rattachait déjà. Une seule fiche répond dans les deux cas :
+     il n'y a aucun arbitrage à rendre.
+
+     Ils vivent dans la table COMMUNE et non dans celle de REX : les
+     classeurs de prestataires ne portent aucun site, si bien qu'une table
+     conditionnée au centre ne serait jamais consultée pour eux. */
+  marcelia: "AG-REX-1",
+  arnaud: "AG-REX-30",
 };
 
 /**
