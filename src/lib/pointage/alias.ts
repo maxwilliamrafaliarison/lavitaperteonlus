@@ -92,6 +92,21 @@ export const ALIAS_CENTRE: Record<string, string> = {
      conditionnée au centre ne serait jamais consultée pour eux. */
   marcelia: "AG-REX-1",
   arnaud: "AG-REX-30",
+
+  /* « Niana » est ZAFINIAINA ROGER FANOMEZANTSOA, agent de sécurité à REX,
+     identité donnée par la DRH le 1er septembre 2026.
+
+     Aucune règle mécanique ne pouvait le trouver : le nom usuel n'est même
+     pas une sous-chaîne du prénom, « Zafiniaina » portant un i de plus.
+     C'est le même cas que « Lalao » dans « TINALALAO », et c'est
+     précisément ce que cette table existe pour porter.
+
+     VÉRIFIÉ PAR LES HEURES avant d'être écrit : les 34 passages de l'onglet
+     « Niana » du classeur d'août 2026 se retrouvent tous à la minute chez
+     AG-REX-18, sur des journées de 06h à 18h qui correspondent au poste.
+     Une identité donnée de mémoire se confirme par la donnée : c'est une
+     paie qu'on engage. */
+  niana: "AG-REX-18",
 };
 
 /**

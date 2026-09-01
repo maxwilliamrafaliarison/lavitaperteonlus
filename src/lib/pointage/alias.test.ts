@@ -108,4 +108,13 @@ describe("noms relevés sur les classeurs de pointage 2026", () => {
   it("rattache aussi « Safidy », l'autre nom du même onglet", () => {
     expect(resoudreAgent("Safidy", REFERENTIEL).agentId).toBe("AG-REX-30");
   });
+
+  it("rattache « Niana », que rien ne reliait à Zafiniaina", () => {
+    /* Le nom usuel n'est pas même une sous-chaîne du prénom : « Zafiniaina »
+       porte un i de plus. Sans la table, 34 passages d'août restaient hors
+       référentiel. */
+    const avec = [...REFERENTIEL, { id: "AG-REX-18", prenom: "Zafiniaina Roger", nom: "FANOMEZANTSOA", actif: true }];
+    expect(resoudreAgent("Niana", avec).agentId).toBe("AG-REX-18");
+    expect("zafiniaina".includes("niana")).toBe(false);
+  });
 });
