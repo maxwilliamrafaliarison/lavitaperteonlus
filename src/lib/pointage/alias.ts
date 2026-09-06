@@ -82,16 +82,32 @@ export const ALIAS_CENTRE: Record<string, string> = {
      tombaient hors référentiel faute d'une lettre.
 
      « Marcelia » est TATAMOTIANA MARCELLIA HANITRINIAINA : deux L au
-     référentiel, un seul sur l'onglet, 88 passages en août. « Arnaud » est
-     SAFIDY ARNAULD, que le classeur d'août nomme d'ailleurs « Safidy »,
-     lequel se rattachait déjà. Une seule fiche répond dans les deux cas :
-     il n'y a aucun arbitrage à rendre.
+     référentiel, un seul sur l'onglet, 88 passages en août. Une seule fiche
+     répond, il n'y a aucun arbitrage à rendre.
 
-     Ils vivent dans la table COMMUNE et non dans celle de REX : les
-     classeurs de prestataires ne portent aucun site, si bien qu'une table
-     conditionnée au centre ne serait jamais consultée pour eux. */
+     Elle vit dans la table COMMUNE et non dans celle de REX : les classeurs
+     de prestataires ne portent aucun site, si bien qu'une table conditionnée
+     au centre ne serait jamais consultée pour eux.
+
+     ── « ARNAUD » N'EST PAS SAFIDY ARNAULD, et ne doit pas y être remis ────
+     L'alias a existé ici pendant quelques heures, posé sur une ressemblance
+     de syllabes et sur le fait que le classeur d'août nomme « Safidy »
+     quelqu'un qui se rattachait déjà. C'était faux, et les heures l'ont dit :
+     sur les 14 passages de l'onglet « Arnaud » de juillet 2026, ZÉRO se
+     retrouve chez AG-REX-30, quand l'onglet « Safidy » en retrouve 18 sur
+     22. Confrontés à l'ensemble du référentiel, ces 14 passages ne
+     correspondent à personne, le meilleur score étant de 1 sur 14, une
+     minute partagée par hasard.
+
+     Les contrats l'ont confirmé : « Mr ANDRIAMANANETY Jean Baptiste
+     Arnaud », prestataire sous contrat de novembre 2023 à septembre 2024,
+     est une autre personne, absente du référentiel.
+
+     La leçon est celle que ce fichier énonce en tête et que j'ai enfreinte :
+     une ligne se vérifie sur les données, elle ne se suppose pas d'après une
+     ressemblance. Quatorze passages étaient partis sur la fiche de
+     quelqu'un d'autre, et c'est une paie. */
   marcelia: "AG-REX-1",
-  arnaud: "AG-REX-30",
 
   /* « Niana » est ZAFINIAINA ROGER FANOMEZANTSOA, agent de sécurité à REX,
      identité donnée par la DRH le 1er septembre 2026.

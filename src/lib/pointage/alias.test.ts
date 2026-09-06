@@ -101,8 +101,12 @@ describe("noms relevés sur les classeurs de pointage 2026", () => {
     expect(resoudreAgent("Marcelia", REFERENTIEL).agentId).toBe("AG-REX-1");
   });
 
-  it("rattache « Arnaud », écrit sans D final", () => {
-    expect(resoudreAgent("Arnaud", REFERENTIEL).agentId).toBe("AG-REX-30");
+  it("ne rattache PAS « Arnaud » à Safidy Arnauld", () => {
+    /* Ressemblance trompeuse : sur les 14 passages de l'onglet « Arnaud » de
+       juillet 2026, aucun ne se retrouve chez AG-REX-30. Les contrats disent
+       qu'il s'agit d'ANDRIAMANANETY Jean Baptiste Arnaud, absent du
+       référentiel. Rattacher aurait versé ses heures à quelqu'un d'autre. */
+    expect(resoudreAgent("Arnaud", REFERENTIEL).agentId).not.toBe("AG-REX-30");
   });
 
   it("rattache aussi « Safidy », l'autre nom du même onglet", () => {
