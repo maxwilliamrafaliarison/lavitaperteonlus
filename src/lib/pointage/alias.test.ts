@@ -118,3 +118,25 @@ describe("noms relevés sur les classeurs de pointage 2026", () => {
     expect("zafiniaina".includes("niana")).toBe(false);
   });
 });
+
+describe("personnes du planning qui ne relèvent pas du pointage", () => {
+  /* Signalées à chaque import comme « non rattachées », elles annonçaient un
+     travail qui n'existe pas. À force, la liste cesse d'être lue. */
+  it("écarte le Dr Elisa, quelle que soit la civilité écrite", () => {
+    for (const forme of ["Dc Elisa", "Dr Elisa", "Elisa"]) {
+      expect(HORS_REFERENTIEL.has(normaliserUsuel(forme))).toBe(true);
+    }
+  });
+
+  it("écarte le chauffeur Narindra, cité avec ou sans sa fonction", () => {
+    for (const forme of ["chauffeur Narindra", "Narindra"]) {
+      expect(HORS_REFERENTIEL.has(normaliserUsuel(forme))).toBe(true);
+    }
+  });
+
+  it("ne déborde pas sur une personne du référentiel", () => {
+    for (const forme of ["Lida", "Fanilo", "Haingo", "Marcelia"]) {
+      expect(HORS_REFERENTIEL.has(normaliserUsuel(forme))).toBe(false);
+    }
+  });
+});

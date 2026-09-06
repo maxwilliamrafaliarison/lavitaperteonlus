@@ -1,208 +1,147 @@
 #!/usr/bin/env node
 /**
- * PUBLICATION D'UN PLANNING, HORS NAVIGATEUR.
+ * PUBLIE UN OU PLUSIEURS PLANNINGS, comme le ferait le bouton de l'écran.
  *
- * Publier, c'est annoncer la semaine au personnel. Ce script fait donc
- * exactement ce que fait le bouton de l'application, contrôles compris, et
- * non une écriture directe en base qui les contournerait.
+ * Le chemin normal reste l'application : « Tous les plannings », un clic par
+ * semaine. Ce script existe pour publier plusieurs semaines d'affilée après
+ * un import de reprise, sans quinze allers-retours.
  *
- * Deux règles sont reprises telles quelles de `publierPlanningAction` :
+ * ── IL REPREND LES BRIQUES DE L'ACTION, IL NE LES CONTOURNE PAS ──────────
+ * Publier n'est pas un simple changement de statut. Deux invariants tiennent
+ * à l'écran et doivent tenir ici :
  *
- *  · LE POSTE CRITIQUE. Une semaine où la sécurité ou l'accueil de REX, ou
- *    la garde de nuit de MIARAKA, ne sont tenus par personne ne part pas
- *    sans que quelqu'un l'ait vu et assumé. Le refus se lève par un motif,
- *    qui reste écrit sur le planning : une dérogation dont on ne retrouve
- *    plus la raison six mois plus tard n'en est pas une.
+ *  1. LE REFUS SUR POSTE CRITIQUE VIDE. C'est le seul refus de tout le
+ *     module. Publier, c'est annoncer la semaine au personnel : une semaine
+ *     où la sécurité ou l'accueil de REX n'ont personne ne part pas sans
+ *     que quelqu'un l'ait vu et assumé. Le script REFUSE de la même façon,
+ *     et `--motif=` lève le refus en restant écrit sur le planning, comme
+ *     le fait le formulaire.
  *
- *  · LE LIEN NE CHANGE JAMAIS. Le jeton appartient au CENTRE. On reprend
- *    celui de ses plannings déjà publiés, et la semaine nouvelle s'ajoute
- *    derrière la même adresse. Sans cela, il faudrait rediffuser un lien
- *    tous les lundis, et l'ancien afficherait une semaine périmée sans le
- *    dire.
- *
- * Ce que le script NE reprend pas, c'est le contrôle d'identité : le
- * navigateur sait qui clique, pas lui. L'appelant doit donc être habilité
- * à valider, ce que `--par=` inscrit noir sur blanc dans `publie_par`.
+ *  2. LE LIEN NE CHANGE JAMAIS. Le jeton appartient au CENTRE : on reprend
+ *     celui de ses plannings déjà publiés, et la nouvelle semaine s'ajoute
+ *     derrière la même adresse. En engendrer un nouveau obligerait à
+ *     rediffuser un lien, et l'ancien afficherait une semaine périmée sans
+ *     le dire.
  *
  * Usage :
- *   npx tsx scripts/publier-planning.mts --id=PLN-REX-20260831 --par=…
- *   npx tsx scripts/publier-planning.mts --id=… --par=… --apply
- *   npx tsx scripts/publier-planning.mts --id=… --par=… --motif="…" --apply
+ *   npx tsx scripts/publier-planning.mts --ids=PLN-REX-20260907,PLN-REX-20260914
+ *   npx tsx scripts/publier-planning.mts --ids=… --par=direction@… --apply
  */
 import { readFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
 
 for (const line of readFileSync(".env.local", "utf8").split("\n")) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
 }
+
+const {
+  listPlannings, listAffectations, listCreneaux, listServices,
+  listParametresPlanning, majPlanning, tokenDuCentre, genererToken,
+} = await import("../src/lib/planning/data.ts");
 const { lireExigences, trousCritiques, resumerTrous, EXIGENCES_DEFAUT } =
   await import("../src/lib/planning/postes-critiques.ts");
-const { VALIDATEURS } = await import("../src/lib/planning/validation.ts");
+const { PREFIXE_ATTENTE } = await import("../src/lib/planning/constantes.ts");
 
 const APPLY = process.argv.includes("--apply");
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.slice(n.length + 3);
-const ID = arg("id");
-const PAR = (arg("par") ?? "").toLowerCase();
-const MOTIF = (arg("motif") ?? "").trim().slice(0, 300);
-/* Pis-aller tant que la migration 021 n'est pas passée : voir plus bas. */
-const TRANSFERER = process.argv.includes("--transferer-jeton");
-if (!ID) throw new Error("--id= est obligatoire.");
-if (!PAR) throw new Error("--par= est obligatoire : la publication doit rester attribuée à quelqu'un.");
+const IDS = arg("ids")?.split(",").map((s) => s.trim()).filter(Boolean);
+if (!IDS?.length) throw new Error("--ids= est obligatoire : on ne publie pas un centre entier par mégarde.");
+const PAR = arg("par") ?? "import";
+const MOTIF = (arg("motif") ?? "").slice(0, 300);
 
-const U = (process.env.SUPABASE_URL || process.env.PATIENTS_SUPABASE_URL || "").trim().replace(/\/+$/, "");
-const K = (process.env.SUPABASE_SERVICE_KEY || process.env.PATIENTS_SUPABASE_SERVICE_KEY || "").replace(/[^A-Za-z0-9._-]/g, "");
-const hdr = (s: string) => ({ apikey: K, Authorization: `Bearer ${K}`, "Content-Type": "application/json", "Accept-Profile": s, "Content-Profile": s });
-async function pg(schema: string, method: string, path: string, body?: unknown) {
-  const r = await fetch(`${U}/rest/v1/${path}`, { method, headers: hdr(schema), body: body ? JSON.stringify(body) : undefined });
-  const t = await r.text();
-  if (!r.ok) throw new Error(`${method} ${path} → ${r.status} ${t.slice(0, 200)}`);
-  return t ? JSON.parse(t) : null;
-}
-const lire = async <T>(table: string, requete: string): Promise<T[]> => {
-  const out: T[] = [];
-  for (let off = 0; ; off += 1000) {
-    const p: T[] = await pg("planning", "GET", `${table}?${requete}&limit=1000&offset=${off}`);
-    out.push(...p);
-    if (p.length < 1000) break;
+const plannings = await listPlannings();
+const [creneaux, services, parametres] = await Promise.all([
+  listCreneaux(), listServices(), listParametresPlanning(),
+]);
+const typeDe = new Map(creneaux.map((c) => [c.id, c.type]));
+
+/** Les jours d'un planning, bornes incluses. */
+function joursDe(du: string, au: string): string[] {
+  const out: string[] = [];
+  for (let j = du; j <= au; ) {
+    out.push(j);
+    const d = new Date(`${j}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    j = d.toISOString().slice(0, 10);
   }
   return out;
-};
-
-// ── Habilitation ──────────────────────────────────────────────────────────
-/* Le rôle vient de la base, comme dans l'application. La règle est celle de
-   `estValidateur` : la direction désignée, ou un administrateur en secours,
-   parce qu'un circuit qui se bloque quand la validatrice est absente pousse
-   à le contourner. */
-const [utilisateur]: Array<{ email: string; role: string; name: string }> =
-  await pg("logistique", "GET", `users?select=email,role,name&email=eq.${encodeURIComponent(PAR)}`);
-if (!utilisateur) throw new Error(`Compte « ${PAR} » inconnu.`);
-const habilite = utilisateur.role === "admin" || VALIDATEURS.includes(PAR);
-console.log(`Publication demandée par ${utilisateur.name} (${utilisateur.role})`);
-if (!habilite) {
-  console.error(`❌ ${PAR} ne peut pas publier : la validation revient à la direction (${VALIDATEURS.join(", ")}) ou à un administrateur.`);
-  process.exit(1);
 }
 
-// ── Le planning ───────────────────────────────────────────────────────────
-const [plan] = await pg("planning", "GET", `plannings?select=*&id=eq.${ID}`);
-if (!plan) throw new Error(`Planning ${ID} introuvable.`);
-console.log(`${plan.id} · ${plan.centre} · ${plan.du} → ${plan.au} · statut actuel « ${plan.statut} »`);
+let publies = 0;
+let refuses = 0;
 
-// ── Contrôle des postes critiques ─────────────────────────────────────────
-const [affectations, creneaux, services, parametres] = await Promise.all([
-  lire<{ jour: string; service_id: string; creneau_id: string; agent_id: string }>("affectations", `select=jour,service_id,creneau_id,agent_id&planning_id=eq.${ID}&order=jour.asc`),
-  lire<{ id: string; type: string }>("creneaux", "select=id,type&order=id.asc"),
-  lire<{ id: string; libelle: string }>("services", "select=id,libelle&order=id.asc"),
-  lire<{ cle: string; valeur: string }>("parametres", "select=cle,valeur&order=cle.asc"),
-]);
-const cle = `postes_critiques_${String(plan.centre).toUpperCase()}`;
-const brut = parametres.find((p) => p.cle === cle)?.valeur ?? EXIGENCES_DEFAUT[String(plan.centre).toUpperCase()];
-const libelles = new Map<string, string>([
-  ...services.map((s) => [s.id, s.libelle] as [string, string]),
-  ["garde_nuit", "Garde de nuit"],
-]);
-const exigences = lireExigences(brut, libelles);
-const typeDe = new Map(creneaux.map((c) => [c.id, c.type]));
-const jours: string[] = [];
-for (let j = plan.du; j <= plan.au; ) {
-  jours.push(j);
-  const d = new Date(`${j}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  j = d.toISOString().slice(0, 10);
-}
-const trous = exigences.length
-  ? trousCritiques(
-      jours,
-      affectations.map((a) => ({
-        jour: a.jour,
-        serviceId: a.service_id,
-        creneauType: typeDe.get(a.creneau_id) ?? "",
-        repos: typeDe.get(a.creneau_id) === "repos",
-        sansTitulaire: a.agent_id.startsWith("__attente-"),
-      })),
-      exigences,
-    )
-  : [];
-
-console.log(`exigences « ${brut} » · ${affectations.length} affectations · ${jours.length} jours`);
-if (trous.length) {
-  console.log(`\n⚠ POSTE CRITIQUE VIDE : ${resumerTrous(trous)}`);
-  for (const t of trous.slice(0, 20)) console.log("   ", JSON.stringify(t));
-  if (!MOTIF) {
-    console.error(`\n❌ Publication refusée. Complétez le planning, ou republiez avec --motif="…" en indiquant pourquoi ce poste reste vide.`);
-    process.exit(1);
+for (const id of IDS) {
+  const p = plannings.find((x) => x.id === id);
+  if (!p) {
+    console.log(`✗ ${id} : introuvable`);
+    refuses += 1;
+    continue;
   }
-  console.log(`\nmotif fourni : « ${MOTIF} »`);
-} else {
-  console.log("✅ aucun poste critique vide");
-}
 
-// ── Le jeton du centre ────────────────────────────────────────────────────
-const publies: Array<{ token_public: string }> = await pg(
-  "planning", "GET",
-  `plannings?select=token_public&centre=eq.${encodeURIComponent(plan.centre)}&statut=eq.publie&order=publie_le.desc&limit=100`,
-);
-let token = publies.find((p) => /^[a-f0-9]{32}$/.test(p.token_public))?.token_public
-  ?? (plan.token_public && /^[a-f0-9]{32}$/.test(plan.token_public) ? plan.token_public : "")
-  ?? "";
-/* Un centre qui n'a jamais rien publié n'a pas encore de jeton : on le crée,
-   comme le fait `publierPlanningAction`. Seize octets au hasard, en
-   hexadécimal — c'est un secret d'accès, pas un identifiant devinable. */
-const nouveau = !token;
-if (nouveau) token = randomBytes(16).toString("hex");
-console.log(`\njeton du centre ${nouveau ? "CRÉÉ" : "repris"} : ${token}`);
-console.log(`adresse publique       : https://lavitaperteonlus.vercel.app/planning/${token}`);
+  const affectations = await listAffectations(id);
+  const libelles = new Map<string, string>([
+    ...services.map((s) => [s.id, s.libelle] as [string, string]),
+    ["garde_nuit", "Garde de nuit"],
+  ]);
+  const cle = `postes_critiques_${p.centre.toUpperCase()}`;
+  const brut = parametres.find((x) => x.cle === cle)?.valeur ?? EXIGENCES_DEFAUT[p.centre.toUpperCase()];
+  const exigences = lireExigences(brut, libelles);
 
-if (!APPLY) {
-  console.log("\n(simulation : relancez avec --apply)");
-  process.exit(0);
-}
+  const trous = exigences.length
+    ? trousCritiques(
+        joursDe(p.du, p.au),
+        affectations.map((a) => ({
+          jour: a.jour,
+          serviceId: a.service_id,
+          creneauType: typeDe.get(a.creneau_id) ?? "",
+          repos: typeDe.get(a.creneau_id) === "repos",
+          sansTitulaire: a.agent_id.startsWith(PREFIXE_ATTENTE),
+        })),
+        exigences,
+      )
+    : [];
 
-const maintenant = new Date().toISOString();
-const champs = {
-  statut: "publie",
-  token_public: token,
-  publie_par: PAR,
-  publie_le: maintenant,
-  modifie_le: maintenant,
-  ...(MOTIF && trous.length
-    ? { note: `Publié malgré un poste vide (${resumerTrous(trous)}) : ${MOTIF}` }
-    : {}),
-};
+  const entete = `${p.centre} ${p.du} → ${p.au} (${affectations.length} affectations, statut ${p.statut})`;
 
-try {
-  await pg("planning", "PATCH", `plannings?id=eq.${ID}`, champs);
-} catch (e) {
-  /* ── LA CONTRAINTE QUI CONTREDIT LA CONCEPTION ────────────────────────
-     `plannings_token_idx` est UNIQUE depuis la migration 014, quand un
-     jeton désignait encore une seule semaine. La publication derrière une
-     adresse permanente veut l'inverse : le jeton appartient au centre, et
-     chaque semaine s'ajoute derrière. La migration 021 lève l'unicité.
-
-     Tant qu'elle n'est pas passée, on ne peut publier qu'en TRANSFÉRANT le
-     jeton à la nouvelle semaine. L'adresse ne change pas, le personnel y
-     voit bien la semaine en cours ; ce qu'on perd, c'est la navigation
-     vers les semaines déjà publiées, qui quittent l'adresse une à une.
-     C'est un pis-aller, il porte donc un nom et se demande à la main. */
-  if (!String(e).includes("23505")) throw e;
-  const [ancien]: Array<{ id: string; du: string; au: string }> = await pg(
-    "planning", "GET",
-    `plannings?select=id,du,au&token_public=eq.${token}&limit=1`,
-  );
-  if (!TRANSFERER) {
-    console.error(`\n❌ Le jeton est déjà porté par ${ancien?.id} (${ancien?.du} → ${ancien?.au}).`);
-    console.error("   L'index unique de la migration 014 interdit qu'une adresse serve deux semaines.");
-    console.error("   Passez la migration 021, ou relancez avec --transferer-jeton pour la lui reprendre.");
-    process.exit(1);
+  if (trous.length && !MOTIF) {
+    console.log(`✗ ${id} : ${entete}`);
+    console.log(`    REFUS — poste critique sans personne : ${resumerTrous(trous)}`);
+    console.log(`    Complétez le planning, ou relancez avec --motif="…" pour publier en l'assumant.`);
+    refuses += 1;
+    continue;
   }
-  console.log(`\n⚠ jeton repris à ${ancien?.id} (${ancien?.du} → ${ancien?.au}), qui quitte l'adresse publique.`);
-  await pg("planning", "PATCH", `plannings?id=eq.${ancien.id}`, {
-    token_public: "",
-    modifie_le: maintenant,
-    note: `Jeton public transféré au planning du ${plan.du} le ${maintenant.slice(0, 10)}, faute de la migration 021.`,
-  });
-  await pg("planning", "PATCH", `plannings?id=eq.${ID}`, champs);
+
+  const token =
+    p.token_public || (await tokenDuCentre(p.centre).catch(() => "")) || genererToken();
+  const maintenant = new Date().toISOString();
+
+  console.log(`${APPLY ? "→" : "·"} ${id} : ${entete}`);
+  console.log(`    jeton ${p.token_public ? "conservé" : token === (await tokenDuCentre(p.centre).catch(() => "")) ? "repris du centre" : "engendré"} · ${token.slice(0, 8)}…`);
+  if (trous.length) console.log(`    ⚠ publié malgré : ${resumerTrous(trous)}`);
+
+  if (APPLY) {
+    await majPlanning(id, {
+      statut: "publie",
+      token_public: token,
+      publie_par: PAR,
+      publie_le: maintenant,
+      modifie_le: maintenant,
+      /* La note s'AJOUTE, elle ne remplace pas. L'import y a inscrit d'où
+         vient la semaine — quel classeur, quelle feuille — et cette
+         provenance est ce qui permet, six mois plus tard, de retrouver la
+         source d'une affectation contestée. L'écraser par le motif de
+         publication échangerait une trace contre une autre. */
+      ...(trous.length && MOTIF
+        ? {
+            note: [p.note, `Publié malgré un poste vide (${resumerTrous(trous)}) : ${MOTIF}`]
+              .filter(Boolean)
+              .join(" · "),
+          }
+        : {}),
+    });
+  }
+  publies += 1;
 }
-console.log(`\n✅ ${ID} publié par ${PAR}`);
-console.log(`   https://lavitaperteonlus.vercel.app/planning/${token}`);
+
+console.log(`\n${publies} planning(s) ${APPLY ? "publié(s)" : "à publier"} · ${refuses} refusé(s)`);
+if (!APPLY) console.log("(simulation — relancez avec --apply)");

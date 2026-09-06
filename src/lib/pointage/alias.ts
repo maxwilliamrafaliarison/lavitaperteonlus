@@ -118,7 +118,26 @@ export const ALIAS_CENTRE: Record<string, string> = {
  * oubli — un avertissement qui revient sans jamais rien appeler finit par
  * être ignoré, et emporte les vrais avec lui.
  */
-export const HORS_REFERENTIEL = new Set(["diricks"]);
+export const HORS_REFERENTIEL = new Set([
+  "diricks",
+  /* Décision de la direction, 6 septembre 2026 : le Dr Elisa et le
+     chauffeur Narindra tiennent des postes au planning mais ne relèvent pas
+     du pointage, et n'ont donc pas de fiche à créer.
+
+     Les inscrire ici plutôt que de les laisser en « non rattachés » n'est
+     pas cosmétique. Un import qui signale les mêmes deux noms à chaque
+     semaine annonce un travail à faire qui n'existe pas ; à force, on
+     cesse de lire la liste, et les VRAIS oublis s'y noient. Un
+     avertissement qui revient sans jamais rien appeler emporte les autres
+     avec lui.
+
+     La normalisation ôte les civilités et les espaces : « Dc Elisa »,
+     « Dr Elisa » et « Elisa » se ramènent tous à « elisa ». Le chauffeur
+     est cité avec et sans sa fonction, d'où les deux formes. */
+  "elisa",
+  "chauffeurnarindra",
+  "narindra",
+]);
 
 /**
  * Noms usuels propres à REX.
