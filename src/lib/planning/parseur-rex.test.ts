@@ -116,3 +116,15 @@ describe("normalisation des noms", () => {
     expect(normaliserNom("Stéphanie")).toBe("stephanie");
   });
 });
+
+describe("le tiret comme séparateur d'agents", () => {
+  it("coupe « dc Mihary - dc Safidy » en deux personnes", () => {
+    expect(lireAgents("dc  mihary - dc safidy")).toEqual(["dc  mihary", "dc safidy"]);
+    expect(lireAgents("Dc Safidy - Lida")).toEqual(["Dc Safidy", "Lida"]);
+  });
+
+  it("ne coupe PAS un prénom composé, faute d'espaces autour", () => {
+    expect(lireAgents("Jean-Claude")).toEqual(["Jean-Claude"]);
+    expect(lireAgents("Marie-Lucia + Hervé")).toEqual(["Marie-Lucia", "Hervé"]);
+  });
+});

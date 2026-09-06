@@ -60,16 +60,33 @@ export function dateCoherente(jour: string, libelleJour: string): boolean {
 }
 
 /**
- * Découpe une cellule d'agents. Les quatre séparateurs coexistent dans les
- * fichiers (« + », « / », « , », retour ligne) — et « / » est ambigu : dans
- * « Naina/Diricks » il joint deux agents, dans « Salle 8/Box » un lieu
- * composé. Ici on est en colonne d'agents, la lecture « et » s'applique.
+ * Découpe une cellule d'agents. Cinq séparateurs coexistent dans les
+ * fichiers (« + », « / », « , », « - », retour ligne) et deux sont ambigus.
+ *
+ * « / » : dans « Naina/Diricks » il joint deux agents, dans « Salle 8/Box »
+ * un lieu composé. Ici on est en colonne d'agents, la lecture « et »
+ * s'applique.
+ *
+ * ── LE TIRET NE SE COUPE QU'ENTOURÉ D'ESPACES ────────────────────────────
+ * Il abonde ailleurs dans les feuilles, où il ne sépare jamais deux
+ * personnes : « Cloture - Perline », « Ouverture 7h30 - Aina », « Salle 8 -
+ * salle 6 », « MISSION DIEGO - FONDATION AKBARALY ». Ces cellules-là vivent
+ * en colonne E ou en colonne de service, et ne passent pas par ici.
+ *
+ * Relevé sur les 239 feuilles des sept classeurs REX : sur 150 noms
+ * d'agents distincts produits, TROIS contiennent ce tiret, et les trois
+ * joignent deux personnes connues (« dc Mihary - dc Safidy », « Dc Safidy -
+ * Lida »). Aucun faux positif. Sans cette coupure, seize affectations
+ * restaient hors référentiel sous un nom que personne ne porte.
+ *
+ * L'exigence d'espaces autour protège les prénoms composés : « Jean-Claude »
+ * ne se coupe pas.
  */
 export function lireAgents(cellule: string): string[] {
   const s = String(cellule ?? "").trim();
   if (!s) return [];
   return s
-    .split(/[\r\n]+|\s*\+\s*|\s*\/\s*|\s*,\s*|\s+et\s+/i)
+    .split(/[\r\n]+|\s*\+\s*|\s*\/\s*|\s*,\s*|\s+-\s+|\s+et\s+/i)
     .map((x) => x.trim())
     .filter((x) => x.length > 1);
 }
