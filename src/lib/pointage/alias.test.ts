@@ -134,6 +134,10 @@ describe("personnes du planning qui ne relèvent pas du pointage", () => {
     }
   });
 
+  it("écarte le stagiaire Arilanto", () => {
+    expect(HORS_REFERENTIEL.has(normaliserUsuel("Arilanto"))).toBe(true);
+  });
+
   it("ne déborde pas sur une personne du référentiel", () => {
     for (const forme of ["Lida", "Fanilo", "Haingo", "Marcelia"]) {
       expect(HORS_REFERENTIEL.has(normaliserUsuel(forme))).toBe(false);

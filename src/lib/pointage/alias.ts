@@ -137,6 +137,14 @@ export const HORS_REFERENTIEL = new Set([
   "elisa",
   "chauffeurnarindra",
   "narindra",
+  /* « Arilanto » est un stagiaire : il figure au planning, il ne pointe pas,
+     et il n'a donc pas de fiche à créer. Même raison que ci-dessus, avec une
+     nuance propre aux stages : ils se succèdent. Chaque nouveau nom
+     reviendra dans les non-rattachés, et c'est très bien ainsi, puisqu'il
+     faudra chaque fois décider si la personne relève du pointage ou non.
+     Cette liste garde la trace des décisions prises, elle n'ouvre pas une
+     catégorie. */
+  "arilanto",
 ]);
 
 /**
