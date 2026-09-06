@@ -26,6 +26,22 @@ export interface Agent {
   poste: string;
   service: string;
   horaire_id: string;
+  /**
+   * Taux horaire, en ariary.
+   *
+   * ── VOLONTAIREMENT INEXPLOITÉ ────────────────────────────────────────
+   * La colonne existe depuis la migration 013 et vaut ZÉRO pour tout le
+   * monde. Ce n'est pas un oubli : la direction a décidé le 6 septembre
+   * 2026 que l'application ne porterait ni taux, ni coût, ni tarif du
+   * personnel. Les contrats de prestation en donnent pourtant (3 685 Ar de
+   * l'heure en 2026, 10 000 Ar en 2023), et la tentation de « compléter »
+   * la colonne se représentera.
+   *
+   * Aucun écran ne la lit, aucun calcul ne s'en sert : la renseigner ferait
+   * entrer une donnée de rémunération dans un outil qui n'en a pas besoin,
+   * et qui n'est pas protégé pour cela. Si la décision change, elle
+   * changera ici, par écrit.
+   */
   taux_horaire: number;
   actif: boolean;
 }
