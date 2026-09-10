@@ -73,10 +73,22 @@ export function BoutonCollecte({ site = "REX" }: { site?: string }) {
       });
     } catch {
       setEtat("repos");
+      /* ── LE MESSAGE S'ADRESSE À QUI LE LIT ─────────────────────────────
+         Il disait « ouvrez un terminal et lancez npx tsx
+         scripts/agent-pointeuse.mts ». Cette commande est celle du dépôt de
+         développement : elle n'existe sur aucun des trois postes de collecte,
+         qui font tourner `agent.mjs` depuis C:\LaVitaPerTe\Collecte-pointage\,
+         démarré tout seul à l'ouverture de session.
+
+         Le 10 septembre 2026, elle a envoyé Jim ouvrir une fenêtre de
+         commande sur le poste d'Aina pour y taper des choses qui ne pouvaient
+         pas marcher. Un message d'erreur qui donne la mauvaise consigne coûte
+         plus cher que pas de message : il fait perdre du temps ET il fait
+         douter de l'outil. */
       toast.error("Agent de collecte introuvable", {
         description:
-          `Ce poste n'exécute pas l'agent de collecte. Ouvrez un terminal sur un ordinateur branché au réseau du centre ${site} et lancez : npx tsx scripts/agent-pointeuse.mts`,
-        duration: 12000,
+          "Ce poste ne fait pas tourner l'agent de collecte. Si l'installation n'a jamais été faite : ouvrez C:\\LaVitaPerTe\\Collecte-pointage\\, clic droit sur installer.bat, « Exécuter en tant qu'administrateur ». Si elle l'a été : redémarrez la session Windows, l'agent se relance tout seul à l'ouverture.",
+        duration: 15000,
       });
       return;
     }
