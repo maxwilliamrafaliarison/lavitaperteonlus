@@ -18,8 +18,20 @@ if errorlevel 1 (
 )
 
 if not exist config.txt (
-  echo [ERREUR] config.txt est absent de ce dossier.
-  echo Recopiez config.exemple.txt en config.txt et completez-le.
+  echo [ERREUR] config.txt est absent de ce dossier :
+  echo    %~dp0
+  echo.
+  rem DIRE OU L'ON A CHERCHE. Le message ne nommait pas le dossier, et le
+  rem 10 septembre cela a coute un aller-retour : en decompressant l'archive
+  rem DANS le dossier existant, on obtient un dossier imbrique
+  rem Collecte-pointage\Collecte-pointage, et l'installeur lance depuis le
+  rem second ne voit evidemment pas le config.txt reste dans le premier.
+  echo Deux causes possibles :
+  echo  1. Le chemin ci-dessus se termine par Collecte-pointage\Collecte-pointage\ :
+  echo     l'archive a ete decompressee dans le dossier au lieu de le remplacer.
+  echo     Remontez d'un cran et relancez installer.bat de la.
+  echo  2. Le fichier a ete efface : recopiez config.exemple.txt en config.txt,
+  echo     puis completez NOM_POSTE, HEURE_DEBUT et SECRET.
   pause
   exit /b 1
 )
