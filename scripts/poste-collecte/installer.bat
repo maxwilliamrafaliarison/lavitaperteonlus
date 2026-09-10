@@ -40,12 +40,24 @@ rem Une espace dans le chemin casserait les commandes des taches planifiees,
 rem ou l'installeur devrait imbriquer des guillemets - ce qui est
 rem precisement ce qui vient de faire echouer la creation de la tache. On
 rem impose donc un chemin simple, et on le dit tout de suite.
-echo "%~dp0" | findstr /c:" " >nul
-if not errorlevel 1 (
+rem ON TESTE LA VARIABLE, PAS UNE SORTIE DE COMMANDE.
+rem La version d'origine envoyait le chemin dans un tube vers findstr.
+rem Dans cmd, l'espace qui PRECEDE un tube fait partie du texte envoye :
+rem echo emettait donc le chemin suivi d'une espace, findstr en trouvait
+rem toujours une, et le refus tombait sur tous les postes, y compris ceux
+rem dont le chemin etait parfaitement propre. Le 10 septembre, il annoncait
+rem une espace dans C:\LaVitaPerTe\Collecte-pointage\ et demandait de
+rem deplacer le dossier vers ce meme chemin.
+rem
+rem La substitution de chaine ne passe par aucun tube, aucun sous-processus,
+rem et ne peut donc rien ajouter au texte teste.
+set "CHEMIN=%~dp0"
+if not "!CHEMIN!"=="!CHEMIN: =!" (
   echo [ERREUR] Le chemin de ce dossier contient une espace :
-  echo    %~dp0
+  echo    !CHEMIN!
   echo.
-  echo Deplacez-le vers  C:\LaVitaPerTe\Collecte-pointage\  puis relancez.
+  echo Une espace casse les commandes des taches planifiees.
+  echo Deplacez le dossier vers  C:\LaVitaPerTe\Collecte-pointage\  puis relancez.
   pause
   exit /b 1
 )
@@ -56,10 +68,10 @@ rem en synchronisation, les fichiers dits a la demande deviennent des liens
 rem vides que Node ne sait pas lire a six heures du matin, et deux postes
 rem sur un meme compte s'echangent leurs config.txt. On refuse plutot que
 rem de laisser la panne arriver dans trois mois sans cause visible.
-echo "%~dp0" | findstr /i "OneDrive" >nul
-if not errorlevel 1 (
+rem Meme methode, meme raison : pas de tube.
+if not "!CHEMIN!"=="!CHEMIN:OneDrive=!" (
   echo [ERREUR] Ce dossier est dans OneDrive :
-  echo    %~dp0
+  echo    !CHEMIN!
   echo.
   echo La collecte s'arreterait tot ou tard, sans message d'erreur.
   echo Deplacez ce dossier vers  C:\LaVitaPerTe\Collecte-pointage\
@@ -79,9 +91,20 @@ for /f "tokens=1,* delims==" %%a in ('findstr /b "NOM_POSTE=" config.txt') do se
 for /f "tokens=1,* delims==" %%a in ('findstr /b "HEURE_DEBUT=" config.txt') do set "HEURE_DEBUT=%%b"
 for /f "tokens=1,* delims==" %%a in ('findstr /b "INTERVALLE_MINUTES=" config.txt') do set "INTERVALLE_MINUTES=%%b"
 for /f "tokens=1,* delims==" %%a in ('findstr /b "DUREE=" config.txt') do set "DUREE=%%b"
+set "SECRET="
+for /f "tokens=1,* delims==" %%a in ('findstr /b "SECRET=" config.txt') do set "SECRET=%%b"
 
-findstr /b "SECRET=" config.txt | findstr /c:"<demander" >nul
-if not errorlevel 1 (
+rem LE SECRET SE TESTE SUR SA VALEUR, sans tube ni chevron. La version
+rem d'origine enchainait deux findstr et cherchait un chevron ouvrant, qui
+rem est aussi l'operateur de redirection de cmd : deux raisons de casser
+rem pour un controle qui tient en une comparaison.
+if "!SECRET!"=="" (
+  echo [ERREUR] La ligne SECRET est absente de config.txt.
+  echo Demandez le secret de ce poste au responsable informatique.
+  pause
+  exit /b 1
+)
+if not "!SECRET!"=="!SECRET:demander=!" (
   echo [ERREUR] Le SECRET de config.txt n'a pas ete rempli.
   echo Demandez-le au responsable informatique, puis relancez.
   pause
