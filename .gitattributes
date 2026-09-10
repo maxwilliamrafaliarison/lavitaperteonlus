@@ -1,0 +1,27 @@
+# ============================================================
+#  FINS DE LIGNE — ce que Windows exige, et que macOS ne donne pas
+# ============================================================
+#
+#  Les fichiers du poste de collecte sont ecrits sur macOS et executes par
+#  cmd.exe sur les trois machines du centre. Or cmd attend des fins de ligne
+#  CRLF : avec des LF seuls, il reprend sa lecture au mauvais octet et
+#  execute des morceaux de lignes comme des commandes.
+#
+#  Le 10 septembre 2026, l'installeur du poste d'Aina affichait ainsi
+#  « 'Installation' n'est pas reconnu », « 'La' n'est pas reconnu » : c'etaient
+#  les lignes 5 et 6 de installer.bat, privees de leur « echo ». Le defaut
+#  datait du 31 aout et n'avait jamais ete vu, parce qu'il ne casse pas
+#  toujours les memes lignes.
+#
+#  Ces marqueurs forcent CRLF dans le depot ET a la sortie, quel que soit
+#  le reglage core.autocrlf du poste qui clone.
+# ============================================================
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.vbs text eol=crlf
+*.ps1 text eol=crlf
+
+# La notice et le modele de configuration s'ouvrent dans le Bloc-notes des
+# vieilles machines du centre, qui n'affiche pas les LF seuls.
+scripts/poste-collecte/*.txt text eol=crlf

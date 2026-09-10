@@ -25,7 +25,7 @@ if not exist config.txt (
 )
 
 rem Une espace dans le chemin casserait les commandes des taches planifiees,
-rem ou l'installeur devrait imbriquer des guillemets — ce qui est
+rem ou l'installeur devrait imbriquer des guillemets - ce qui est
 rem precisement ce qui vient de faire echouer la creation de la tache. On
 rem impose donc un chemin simple, et on le dit tout de suite.
 echo "%~dp0" | findstr /c:" " >nul
@@ -40,7 +40,7 @@ if not errorlevel 1 (
 
 rem Un dossier synchronise par OneDrive finit par casser la collecte, et
 rem toujours en silence : les milliers de fichiers de node_modules partent
-rem en synchronisation, les fichiers "a la demande" deviennent des liens
+rem en synchronisation, les fichiers dits a la demande deviennent des liens
 rem vides que Node ne sait pas lire a six heures du matin, et deux postes
 rem sur un meme compte s'echangent leurs config.txt. On refuse plutot que
 rem de laisser la panne arriver dans trois mois sans cause visible.
@@ -104,9 +104,10 @@ rem toutes les INTERVALLE_MINUTES pendant DUREE. C'est ce que fait /ri avec
 rem /du : plus simple qu'une tache par heure, et modifiable d'un seul geste.
 echo [3/5] Creation de la tache horaire...
 rem UN SEUL CHEMIN, ENTRE UNE SEULE PAIRE DE GUILLEMETS.
-rem La version d'origine passait « cmd /c cd /d \"%~dp0\" && node
-rem collecte.mjs » : cmd coupait la ligne au « && » avant meme d'appeler
-rem schtasks, car le batch ne connait pas l'echappement \". La tache
+rem La version d'origine passait une commande composee de deux
+rem instructions enchainees, avec des guillemets imbriques. cmd coupait
+rem la ligne sur l'enchainement avant meme d'appeler schtasks, car le
+rem batch ne sait pas echapper un guillemet interieur. La tache
 rem n'etait jamais creee, et l'installeur poursuivait comme si de rien.
 rem
 rem On vise donc un fichier, sans commande composee ET sans guillemets
